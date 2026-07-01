@@ -1,37 +1,10 @@
-export type IpInfoResponse = {
-  ip?: string;
-  city?: string;
-  country?: string;
-  country_name?: string;
-  org?: string;
-  asn?: {
-    asn?: string;
-    name?: string;
-    type?: string;
-  };
-  company?: {
-    name?: string;
-    type?: string;
-  };
-  privacy?: {
-    vpn?: boolean;
-    proxy?: boolean;
-    tor?: boolean;
-    relay?: boolean;
-    hosting?: boolean;
-    service?: string;
-  };
-};
+import type { ProviderResult as AbuseIpDbResponse } from "./providers/abuseipdb";
+import type { ProviderResult as IpInfoResponse } from "./providers/ipinfo";
+import type { ProviderResult as IpqsResponse } from "./providers/ipqs";
 
-export type AbuseIpDbResponse = {
-  abuseConfidence?: number | null;
-  usageType?: string | null;
-  isp?: string | null;
-  domain?: string | null;
-  isWhitelisted?: boolean | null;
-  raw?: unknown;
-  error?: string;
-};
+export type { ProviderResult as AbuseIpDbResponse } from "./providers/abuseipdb";
+export type { ProviderResult as IpInfoResponse } from "./providers/ipinfo";
+export type { ProviderResult as IpqsResponse } from "./providers/ipqs";
 
 function parseOrg(org?: string) {
   if (!org) {
@@ -69,6 +42,21 @@ function getAbuseIpDbPenalties(abuseIpDb?: AbuseIpDbResponse | null) {
       ? 15
       : 0,
     isDatacenterUsage(abuseIpDb.usageType) ? 20 : 0,
+  ];
+}
+
+function getIpqsPenalties(ipqs?: IpqsResponse | null) {
+  if (!ipqs) {
+    return [];
+  }
+
+  const fraudScore = ipqs.fraudScore ?? null;
+
+  return [
+    fraudScore !== null && fraudScore >= 85 ? 30 : 0,
+    fraudScore !== null && fraudScore >= 60 && fraudScore < 85 ? 20 : 0,
+    ipqs.vpn === true ? 25 : 0,
+    ipqs.proxy === true ? 25 : 0,
   ];
 }
 
@@ -117,9 +105,45 @@ function getAbuseIpDbReasons(abuseIpDb?: AbuseIpDbResponse | null) {
   ].filter((reason): reason is string => Boolean(reason));
 }
 
+function getIpqsReasons(ipqs?: IpqsResponse | null) {
+  if (!ipqs) {
+    return [];
+  }
+
+  const fraudScore = ipqs.fraudScore ?? null;
+
+  return [
+    fraudScore !== null && fraudScore >= 85
+      ? `IPQS fraud score is ${fraudScore} (high risk)`
+      : null,
+    fraudScore !== null && fraudScore >= 60 && fraudScore < 85
+      ? `IPQS fraud score is ${fraudScore} (elevated risk)`
+      : null,
+    fraudScore !== null && fraudScore < 60
+      ? `IPQS fraud score is ${fraudScore}`
+      : null,
+    ipqs.vpn === true ? "IPQS VPN detected" : null,
+    ipqs.proxy === true ? "IPQS proxy detected" : null,
+    ipqs.tor === true ? "IPQS Tor detected" : null,
+    ipqs.bot === true ? "IPQS bot traffic detected" : null,
+    ipqs.activeVpn === true ? "IPQS active VPN detected" : null,
+    ipqs.recentAbuse === true ? "IPQS recent abuse detected" : null,
+    fraudScore === null &&
+    ipqs.vpn === null &&
+    ipqs.proxy === null &&
+    ipqs.tor === null &&
+    ipqs.bot === null &&
+    ipqs.activeVpn === null &&
+    ipqs.recentAbuse === null
+      ? "IPQS returned no reputation details"
+      : null,
+  ].filter((reason): reason is string => Boolean(reason));
+}
+
 export function calculateTrustScore(
   ipInfo: IpInfoResponse,
   abuseIpDb?: AbuseIpDbResponse | null,
+  ipqs?: IpqsResponse | null,
 ) {
   const { hasAsn, hasIspOrOrg } = getIpInfoSignals(ipInfo);
   const privacy = ipInfo.privacy;
@@ -132,6 +156,7 @@ export function calculateTrustScore(
     hasAsn ? 0 : 10,
     hasIspOrOrg ? 0 : 5,
     ...getAbuseIpDbPenalties(abuseIpDb),
+    ...getIpqsPenalties(ipqs),
   ];
 
   return Math.max(
@@ -146,6 +171,7 @@ export function calculateTrustScore(
 export function buildReasons(
   ipInfo: IpInfoResponse,
   abuseIpDb?: AbuseIpDbResponse | null,
+  ipqs?: IpqsResponse | null,
 ) {
   const { hasAsn, hasIspOrOrg } = getIpInfoSignals(ipInfo);
   const privacy = ipInfo.privacy;
@@ -161,5 +187,6 @@ export function buildReasons(
     hasAsn ? "ASN available" : "ASN missing",
     hasIspOrOrg ? "ISP/org available" : "ISP/org missing",
     ...getAbuseIpDbReasons(abuseIpDb),
+    ...getIpqsReasons(ipqs),
   ];
 }

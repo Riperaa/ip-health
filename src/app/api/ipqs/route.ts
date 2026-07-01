@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { isProviderLookupError } from "@/lib/providers/errors";
-import { lookup } from "@/lib/providers/abuseipdb";
+import { lookup } from "@/lib/providers/ipqs";
 
 function errorResponse(message: string, status: number) {
   return NextResponse.json({ error: message }, { status });
@@ -28,6 +28,6 @@ export async function GET(request: NextRequest) {
       return errorResponse(error.message, error.status);
     }
 
-    return errorResponse("Unable to fetch AbuseIPDB data.", 502);
+    return errorResponse("Unable to fetch IPQualityScore data.", 502);
   }
 }

@@ -7,11 +7,13 @@ import {
   calculateTrustScore,
   type AbuseIpDbResponse,
   type IpInfoResponse,
+  type IpqsResponse,
 } from "@/lib/trust-engine";
 
 type AnalysisResult = {
   ipInfo: IpInfoResponse;
   abuseIpDb: AbuseIpDbResponse | null;
+  ipqs: IpqsResponse | null;
 };
 
 type ResultCard = {
@@ -140,6 +142,23 @@ async function fetchAbuseIpDb(nextIpAddress: string) {
   }
 }
 
+async function fetchIpqs(nextIpAddress: string) {
+  const url = new URL("/api/ipqs", window.location.origin);
+  url.searchParams.set("ip", nextIpAddress);
+
+  try {
+    const response = await fetch(url);
+
+    if (!response.ok) {
+      return null;
+    }
+
+    return (await response.json()) as IpqsResponse;
+  } catch {
+    return null;
+  }
+}
+
 async function fetchPublicIp() {
   const response = await fetch("https://api.ipify.org?format=json");
 
@@ -159,12 +178,14 @@ async function fetchPublicIp() {
 function TrustScoreCard({
   ipInfo,
   abuseIpDb,
+  ipqs,
 }: {
   ipInfo: IpInfoResponse;
   abuseIpDb: AbuseIpDbResponse | null;
+  ipqs: IpqsResponse | null;
 }) {
-  const score = calculateTrustScore(ipInfo, abuseIpDb);
-  const reasons = buildReasons(ipInfo, abuseIpDb);
+  const score = calculateTrustScore(ipInfo, abuseIpDb, ipqs);
+  const reasons = buildReasons(ipInfo, abuseIpDb, ipqs);
   const status = getTrustScoreStatus(score);
 
   return (
@@ -235,11 +256,12 @@ export function IpAnalyzer() {
     setIsAnalyzing(true);
 
     try {
-      const [ipInfo, abuseIpDb] = await Promise.all([
+      const [ipInfo, abuseIpDb, ipqs] = await Promise.all([
         fetchIpInfo(trimmedIpAddress),
         fetchAbuseIpDb(trimmedIpAddress),
+        fetchIpqs(trimmedIpAddress),
       ]);
-      setResult({ ipInfo, abuseIpDb });
+      setResult({ ipInfo, abuseIpDb, ipqs });
     } catch {
       setResult(null);
       setError("Unable to detect your IP.");
@@ -292,6 +314,7 @@ export function IpAnalyzer() {
           <TrustScoreCard
             ipInfo={result.ipInfo}
             abuseIpDb={result.abuseIpDb}
+            ipqs={result.ipqs}
           />
 
           <div className="grid w-full gap-3 sm:grid-cols-2">

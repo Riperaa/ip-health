@@ -1,94 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 
-type Params = {
-  ip?: string;
-};
-
-type IpWhoResponse = {
-  ip?: string;
-  city?: string;
-  country?: string;
-  country_code?: string;
-  connection?: {
-    asn?: number;
-    org?: string;
-    isp?: string;
-  };
-  security?: {
-    vpn?: boolean;
-    proxy?: boolean;
-    tor?: boolean;
-    relay?: boolean;
-    hosting?: boolean;
-  };
-};
-
-const token = process.env.IPINFO_TOKEN ?? process.env.NEXT_PUBLIC_IPINFO_TOKEN;
-
-function buildIpinfoUrl({ ip }: Params) {
-  const path = ip ? `/${encodeURIComponent(ip)}/json` : "/json";
-  const url = new URL(`https://ipinfo.io${path}`);
-
-  if (token) {
-    url.searchParams.set("token", token);
-  }
-
-  return url;
-}
-
-function buildFallbackUrl({ ip }: Params) {
-  if (!ip) {
-    return new URL("https://ipwho.is/");
-  }
-
-  return new URL(`https://ipwho.is/${encodeURIComponent(ip)}`);
-}
-
-function normalizeFallbackResponse(data: IpWhoResponse) {
-  return {
-    ip: data.ip,
-    city: data.city,
-    country: data.country_code,
-    country_name: data.country,
-    asn: {
-      asn: data.connection?.asn ? `AS${data.connection.asn}` : undefined,
-      name: data.connection?.org ?? data.connection?.isp,
-    },
-    company: {
-      name: data.connection?.isp ?? data.connection?.org,
-    },
-    privacy: {
-      vpn: data.security?.vpn,
-      proxy: data.security?.proxy,
-      tor: data.security?.tor,
-      relay: data.security?.relay,
-      hosting: data.security?.hosting,
-    },
-  };
-}
+import { lookupWithStatus } from "@/lib/providers/ipinfo";
 
 export async function GET(request: NextRequest) {
   const ip = request.nextUrl.searchParams.get("ip")?.trim();
-  const response = await fetch(buildIpinfoUrl({ ip: ip || undefined }), {
-    headers: {
-      Accept: "application/json",
-    },
-  });
+  const { data, status } = await lookupWithStatus(ip || undefined);
 
-  const data = await response.json();
-
-  if (!token && response.status === 429) {
-    const fallbackResponse = await fetch(buildFallbackUrl({ ip: ip || undefined }), {
-      headers: {
-        Accept: "application/json",
-      },
-    });
-    const fallbackData = (await fallbackResponse.json()) as IpWhoResponse;
-
-    return NextResponse.json(normalizeFallbackResponse(fallbackData), {
-      status: fallbackResponse.status,
-    });
-  }
-
-  return NextResponse.json(data, { status: response.status });
+  return NextResponse.json(data, { status });
 }

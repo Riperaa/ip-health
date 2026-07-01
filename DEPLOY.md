@@ -26,6 +26,7 @@ Set these variables in the Vercel project settings before deploying.
 | `ABUSEIPDB_TIMEOUT_MS` | Optional | Timeout for AbuseIPDB requests. Defaults to `5000`. |
 | `ABUSEIPDB_MAX_AGE_DAYS` | Optional | AbuseIPDB report lookback window. Defaults to `90`. |
 | `IPQS_TIMEOUT_MS` | Optional | Timeout for IPQualityScore requests. Defaults to `5000`. |
+| `NEXT_PUBLIC_SPONSOR_URL` | Optional | Public sponsor or donation page URL. When unset, the Sponsor button is hidden. |
 
 Do not configure `NEXT_PUBLIC_IPINFO_TOKEN` for production unless a public browser-readable token is intentional. Prefer `IPINFO_TOKEN`.
 

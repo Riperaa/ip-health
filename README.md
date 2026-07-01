@@ -63,9 +63,11 @@ Optional environment variable:
 
 ```bash
 IPINFO_TOKEN=your_ipinfo_token
+NEXT_PUBLIC_SPONSOR_URL=https://your-sponsor-page.example
 ```
 
 You can also use `NEXT_PUBLIC_IPINFO_TOKEN`, but `IPINFO_TOKEN` is preferred for server-side API access.
+Set `NEXT_PUBLIC_SPONSOR_URL` to show the Sponsor button and send users to your donation or sponsorship page. Leave it unset to hide the button.
 
 Run lint checks:
 

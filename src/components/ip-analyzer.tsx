@@ -27,9 +27,29 @@ type IpInfoResponse = {
   };
 };
 
+type AbuseIpDbResponse = {
+  abuseConfidence?: number | null;
+  usageType?: string | null;
+  isp?: string | null;
+  domain?: string | null;
+  isWhitelisted?: boolean | null;
+  raw?: unknown;
+  error?: string;
+};
+
+type AnalysisResult = {
+  ipInfo: IpInfoResponse;
+  abuseIpDb: AbuseIpDbResponse | null;
+};
+
 type ResultCard = {
   label: string;
   value: string;
+};
+
+type TrustScoreResult = {
+  score: number;
+  reasons: string[];
 };
 
 function getTrustScoreStatus(score: number) {
@@ -60,10 +80,105 @@ function getTrustScoreStatus(score: number) {
   };
 }
 
-function calculateTrustScore(ipInfo: IpInfoResponse) {
-  void ipInfo;
+function isDatacenterUsage(usageType?: string | null) {
+  const normalized = usageType?.toLowerCase() ?? "";
 
-  return 95;
+  return (
+    normalized.includes("data center") ||
+    normalized.includes("web hosting") ||
+    normalized.includes("transit")
+  );
+}
+
+function getAbuseIpDbPenalties(abuseIpDb?: AbuseIpDbResponse | null) {
+  if (!abuseIpDb) {
+    return [];
+  }
+
+  const abuseConfidence = abuseIpDb.abuseConfidence ?? null;
+
+  return [
+    abuseConfidence !== null && abuseConfidence >= 80 ? 30 : 0,
+    abuseConfidence !== null && abuseConfidence >= 50 && abuseConfidence < 80
+      ? 15
+      : 0,
+    isDatacenterUsage(abuseIpDb.usageType) ? 20 : 0,
+  ];
+}
+
+function getAbuseIpDbReasons(abuseIpDb?: AbuseIpDbResponse | null) {
+  if (!abuseIpDb) {
+    return [];
+  }
+
+  const abuseConfidence = abuseIpDb.abuseConfidence ?? null;
+
+  return [
+    abuseConfidence !== null && abuseConfidence >= 80
+      ? `AbuseIPDB confidence is ${abuseConfidence}% (high risk)`
+      : null,
+    abuseConfidence !== null && abuseConfidence >= 50 && abuseConfidence < 80
+      ? `AbuseIPDB confidence is ${abuseConfidence}% (elevated risk)`
+      : null,
+    abuseConfidence !== null && abuseConfidence < 50
+      ? `AbuseIPDB confidence is ${abuseConfidence}%`
+      : null,
+    isDatacenterUsage(abuseIpDb.usageType)
+      ? `AbuseIPDB usage type is ${abuseIpDb.usageType}`
+      : null,
+    abuseIpDb.isWhitelisted === true ? "AbuseIPDB whitelist match" : null,
+    abuseIpDb.isWhitelisted === false ? "No AbuseIPDB whitelist match" : null,
+    abuseIpDb.isp ? `AbuseIPDB ISP: ${abuseIpDb.isp}` : null,
+    abuseIpDb.domain ? `AbuseIPDB domain: ${abuseIpDb.domain}` : null,
+    abuseConfidence === null &&
+    !abuseIpDb.usageType &&
+    abuseIpDb.isWhitelisted === null &&
+    !abuseIpDb.isp &&
+    !abuseIpDb.domain
+      ? "AbuseIPDB returned no reputation details"
+      : null,
+  ].filter((reason): reason is string => Boolean(reason));
+}
+
+function calculateTrustScore(
+  ipInfo: IpInfoResponse,
+  abuseIpDb?: AbuseIpDbResponse | null,
+): TrustScoreResult {
+  const parsedOrg = parseOrg(ipInfo.org);
+  const hasAsn = Boolean(ipInfo.asn?.asn ?? parsedOrg.asn);
+  const hasIspOrOrg = Boolean(
+    ipInfo.company?.name ?? ipInfo.asn?.name ?? parsedOrg.name ?? ipInfo.org,
+  );
+  const privacy = ipInfo.privacy;
+  const penalties = [
+    privacy?.hosting === true ? 20 : 0,
+    privacy?.vpn === true ? 25 : 0,
+    privacy?.proxy === true ? 25 : 0,
+    privacy?.tor === true ? 40 : 0,
+    privacy?.relay === true ? 15 : 0,
+    hasAsn ? 0 : 10,
+    hasIspOrOrg ? 0 : 5,
+    ...getAbuseIpDbPenalties(abuseIpDb),
+  ];
+  const score = Math.max(
+    0,
+    Math.min(
+      100,
+      100 - penalties.reduce((total, penalty) => total + penalty, 0),
+    ),
+  );
+  const reasons = [
+    privacy?.vpn === true ? "VPN detected" : "No obvious VPN detected",
+    privacy?.proxy === true ? "Proxy detected" : "No obvious proxy detected",
+    privacy?.tor === true ? "Tor detected" : "No obvious Tor detected",
+    privacy?.relay === true ? "Relay detected" : "No obvious relay detected",
+    privacy?.hosting === true ? "Hosting network detected" : "No hosting network detected",
+    hasAsn ? "ASN available" : "ASN missing",
+    hasIspOrOrg ? "ISP/org available" : "ISP/org missing",
+    ...getAbuseIpDbReasons(abuseIpDb),
+  ];
+
+  return { score, reasons };
 }
 
 function parseOrg(org?: string) {
@@ -142,6 +257,23 @@ async function fetchIpInfo(nextIpAddress?: string) {
   return (await response.json()) as IpInfoResponse;
 }
 
+async function fetchAbuseIpDb(nextIpAddress: string) {
+  const url = new URL("/api/abuseipdb", window.location.origin);
+  url.searchParams.set("ip", nextIpAddress);
+
+  try {
+    const response = await fetch(url);
+
+    if (!response.ok) {
+      return null;
+    }
+
+    return (await response.json()) as AbuseIpDbResponse;
+  } catch {
+    return null;
+  }
+}
+
 async function fetchPublicIp() {
   const response = await fetch("https://api.ipify.org?format=json");
 
@@ -158,8 +290,14 @@ async function fetchPublicIp() {
   return data.ip;
 }
 
-function TrustScoreCard({ ipInfo }: { ipInfo: IpInfoResponse }) {
-  const score = calculateTrustScore(ipInfo);
+function TrustScoreCard({
+  ipInfo,
+  abuseIpDb,
+}: {
+  ipInfo: IpInfoResponse;
+  abuseIpDb: AbuseIpDbResponse | null;
+}) {
+  const { score, reasons } = calculateTrustScore(ipInfo, abuseIpDb);
   const status = getTrustScoreStatus(score);
 
   return (
@@ -179,6 +317,14 @@ function TrustScoreCard({ ipInfo }: { ipInfo: IpInfoResponse }) {
           {status.label}
         </span>
       </div>
+      <div className="mt-5 border-t border-neutral-100 pt-4">
+        <p className="text-sm font-semibold text-neutral-950">Why this score?</p>
+        <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-neutral-600">
+          {reasons.map((reason) => (
+            <li key={reason}>{reason}</li>
+          ))}
+        </ul>
+      </div>
     </div>
   );
 }
@@ -186,7 +332,7 @@ function TrustScoreCard({ ipInfo }: { ipInfo: IpInfoResponse }) {
 export function IpAnalyzer() {
   const [ipAddress, setIpAddress] = useState("");
   const [error, setError] = useState("");
-  const [result, setResult] = useState<IpInfoResponse | null>(null);
+  const [result, setResult] = useState<AnalysisResult | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isDetecting, setIsDetecting] = useState(true);
 
@@ -222,8 +368,11 @@ export function IpAnalyzer() {
     setIsAnalyzing(true);
 
     try {
-      const nextResult = await fetchIpInfo(trimmedIpAddress);
-      setResult(nextResult);
+      const [ipInfo, abuseIpDb] = await Promise.all([
+        fetchIpInfo(trimmedIpAddress),
+        fetchAbuseIpDb(trimmedIpAddress),
+      ]);
+      setResult({ ipInfo, abuseIpDb });
     } catch {
       setResult(null);
       setError("Unable to detect your IP.");
@@ -273,10 +422,13 @@ export function IpAnalyzer() {
 
       {result ? (
         <div className="mt-5 flex w-full flex-col gap-3 text-left">
-          <TrustScoreCard ipInfo={result} />
+          <TrustScoreCard
+            ipInfo={result.ipInfo}
+            abuseIpDb={result.abuseIpDb}
+          />
 
           <div className="grid w-full gap-3 sm:grid-cols-2">
-            {getResultCards(result).map((card) => (
+            {getResultCards(result.ipInfo).map((card) => (
               <div
                 key={card.label}
                 className="rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm shadow-neutral-950/[0.03]"

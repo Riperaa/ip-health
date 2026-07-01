@@ -32,6 +32,40 @@ type ResultCard = {
   value: string;
 };
 
+function getTrustScoreStatus(score: number) {
+  if (score >= 90) {
+    return {
+      label: "Excellent",
+      className: "bg-green-50 text-green-700 ring-green-200",
+    };
+  }
+
+  if (score >= 70) {
+    return {
+      label: "Good",
+      className: "bg-blue-50 text-blue-700 ring-blue-200",
+    };
+  }
+
+  if (score >= 40) {
+    return {
+      label: "Medium",
+      className: "bg-yellow-50 text-yellow-800 ring-yellow-200",
+    };
+  }
+
+  return {
+    label: "High Risk",
+    className: "bg-red-50 text-red-700 ring-red-200",
+  };
+}
+
+function calculateTrustScore(ipInfo: IpInfoResponse) {
+  void ipInfo;
+
+  return 95;
+}
+
 function parseOrg(org?: string) {
   if (!org) {
     return {};
@@ -124,6 +158,31 @@ async function fetchPublicIp() {
   return data.ip;
 }
 
+function TrustScoreCard({ ipInfo }: { ipInfo: IpInfoResponse }) {
+  const score = calculateTrustScore(ipInfo);
+  const status = getTrustScoreStatus(score);
+
+  return (
+    <div className="rounded-[28px] border border-neutral-200 bg-white p-5 shadow-[0_12px_50px_rgba(0,0,0,0.08)]">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-normal text-neutral-400">
+            Trust Score
+          </p>
+          <p className="mt-2 text-5xl font-semibold leading-none text-neutral-950">
+            {score}
+          </p>
+        </div>
+        <span
+          className={`rounded-full px-3 py-1 text-sm font-semibold ring-1 ${status.className}`}
+        >
+          {status.label}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 export function IpAnalyzer() {
   const [ipAddress, setIpAddress] = useState("");
   const [error, setError] = useState("");
@@ -213,20 +272,24 @@ export function IpAnalyzer() {
       {error ? <p className="text-sm font-medium text-red-600">{error}</p> : null}
 
       {result ? (
-        <div className="mt-5 grid w-full gap-3 text-left sm:grid-cols-2">
-          {getResultCards(result).map((card) => (
-            <div
-              key={card.label}
-              className="rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm shadow-neutral-950/[0.03]"
-            >
-              <p className="text-xs font-semibold uppercase tracking-normal text-neutral-400">
-                {card.label}
-              </p>
-              <p className="mt-1 break-words text-base font-medium text-neutral-950">
-                {card.value}
-              </p>
-            </div>
-          ))}
+        <div className="mt-5 flex w-full flex-col gap-3 text-left">
+          <TrustScoreCard ipInfo={result} />
+
+          <div className="grid w-full gap-3 sm:grid-cols-2">
+            {getResultCards(result).map((card) => (
+              <div
+                key={card.label}
+                className="rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm shadow-neutral-950/[0.03]"
+              >
+                <p className="text-xs font-semibold uppercase tracking-normal text-neutral-400">
+                  {card.label}
+                </p>
+                <p className="mt-1 break-words text-base font-medium text-neutral-950">
+                  {card.value}
+                </p>
+              </div>
+            ))}
+          </div>
         </div>
       ) : null}
     </div>

@@ -4,11 +4,48 @@ import type {
   IpqsResponse,
 } from "@/lib/trust-engine";
 
+export type ReputationSourceStatus =
+  | "Available"
+  | "Unavailable"
+  | "Not configured"
+  | "Error";
+
+export type ReputationSourceKey = "ipinfo" | "abuseipdb" | "ipqs";
+
+export type ReputationSourceStatuses = Record<
+  ReputationSourceKey,
+  ReputationSourceStatus
+>;
+
 export type AnalysisResult = {
   ipInfo: IpInfoResponse;
   abuseIpDb: AbuseIpDbResponse | null;
   ipqs: IpqsResponse | null;
+  sourceStatuses: ReputationSourceStatuses;
 };
+
+type OptionalProviderResult<T> = {
+  data: T | null;
+  status: ReputationSourceStatus;
+};
+
+async function parseErrorMessage(response: Response) {
+  try {
+    const data = (await response.json()) as { error?: unknown };
+
+    return typeof data.error === "string" ? data.error : "";
+  } catch {
+    return "";
+  }
+}
+
+function getUnavailableProviderStatus(message: string): ReputationSourceStatus {
+  if (message.toLowerCase().includes("api key is not configured")) {
+    return "Not configured";
+  }
+
+  return message ? "Error" : "Unavailable";
+}
 
 async function fetchIpInfo(nextIpAddress?: string) {
   const url = new URL("/api/ipinfo", window.location.origin);
@@ -23,10 +60,18 @@ async function fetchIpInfo(nextIpAddress?: string) {
     throw new Error("Unable to fetch IP information.");
   }
 
-  return (await response.json()) as IpInfoResponse;
+  const data = (await response.json()) as IpInfoResponse;
+
+  if (!data) {
+    throw new Error("IP information was unavailable.");
+  }
+
+  return data;
 }
 
-async function fetchAbuseIpDb(nextIpAddress: string) {
+async function fetchAbuseIpDb(
+  nextIpAddress: string,
+): Promise<OptionalProviderResult<AbuseIpDbResponse>> {
   const url = new URL("/api/abuseipdb", window.location.origin);
   url.searchParams.set("ip", nextIpAddress);
 
@@ -34,16 +79,26 @@ async function fetchAbuseIpDb(nextIpAddress: string) {
     const response = await fetch(url);
 
     if (!response.ok) {
-      return null;
+      return {
+        data: null,
+        status: getUnavailableProviderStatus(await parseErrorMessage(response)),
+      };
     }
 
-    return (await response.json()) as AbuseIpDbResponse;
+    const data = (await response.json()) as AbuseIpDbResponse | null;
+
+    return {
+      data,
+      status: data ? "Available" : "Unavailable",
+    };
   } catch {
-    return null;
+    return { data: null, status: "Error" };
   }
 }
 
-async function fetchIpqs(nextIpAddress: string) {
+async function fetchIpqs(
+  nextIpAddress: string,
+): Promise<OptionalProviderResult<IpqsResponse>> {
   const url = new URL("/api/ipqs", window.location.origin);
   url.searchParams.set("ip", nextIpAddress);
 
@@ -51,12 +106,20 @@ async function fetchIpqs(nextIpAddress: string) {
     const response = await fetch(url);
 
     if (!response.ok) {
-      return null;
+      return {
+        data: null,
+        status: getUnavailableProviderStatus(await parseErrorMessage(response)),
+      };
     }
 
-    return (await response.json()) as IpqsResponse;
+    const data = (await response.json()) as IpqsResponse | null;
+
+    return {
+      data,
+      status: data ? "Available" : "Unavailable",
+    };
   } catch {
-    return null;
+    return { data: null, status: "Error" };
   }
 }
 
@@ -75,7 +138,16 @@ export async function fetchIpAnalysis(
     fetchIpqs(trimmedIpAddress),
   ]);
 
-  return { ipInfo, abuseIpDb, ipqs };
+  return {
+    ipInfo,
+    abuseIpDb: abuseIpDb.data,
+    ipqs: ipqs.data,
+    sourceStatuses: {
+      ipinfo: "Available",
+      abuseipdb: abuseIpDb.status,
+      ipqs: ipqs.status,
+    },
+  };
 }
 
 export async function fetchPublicIp() {

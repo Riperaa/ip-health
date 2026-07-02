@@ -7,6 +7,8 @@ import {
   fetchIpAnalysis,
   fetchPublicIp,
   type AnalysisResult,
+  type ReputationSourceStatuses,
+  type ReputationSourceStatus,
 } from "@/lib/client-ip-analysis";
 import {
   buildReasons,
@@ -43,6 +45,12 @@ type IpHistoryRecord = {
   abuseConfidence: number | null;
   usageType: string;
   ipType: IpTypeBadge;
+};
+
+type ReputationSourceRow = {
+  name: string;
+  status: ReputationSourceStatus;
+  contribution: string;
 };
 
 type CompatibilityExplanationSignals = {
@@ -444,6 +452,28 @@ function formatHistoryAbuseConfidence(abuseConfidence: number | null) {
   return abuseConfidence === null ? "No abuse score" : `${abuseConfidence}%`;
 }
 
+function getReputationSourceRows(
+  sourceStatuses: ReputationSourceStatuses,
+): ReputationSourceRow[] {
+  return [
+    {
+      name: "IPinfo",
+      status: sourceStatuses.ipinfo,
+      contribution: "Location, ASN, ISP, privacy signals",
+    },
+    {
+      name: "AbuseIPDB",
+      status: sourceStatuses.abuseipdb,
+      contribution: "Abuse confidence, usage type, reports",
+    },
+    {
+      name: "IPQualityScore",
+      status: sourceStatuses.ipqs,
+      contribution: "Fraud score, VPN/proxy/bot signals",
+    },
+  ];
+}
+
 function formatHosting(value?: boolean, usageType?: string | null) {
   if (value === true || isInfrastructureUsage(usageType)) {
     return "Infrastructure";
@@ -619,11 +649,13 @@ function TrustScoreCard({
   abuseIpDb,
   ipqs,
   ipHistoryRecords,
+  sourceStatuses,
 }: {
   ipInfo: IpInfoResponse;
   abuseIpDb: AbuseIpDbResponse | null;
   ipqs: IpqsResponse | null;
   ipHistoryRecords: IpHistoryRecord[];
+  sourceStatuses: ReputationSourceStatuses;
 }) {
   const [expandedServiceKey, setExpandedServiceKey] = useState<string | null>(
     null,
@@ -648,6 +680,7 @@ function TrustScoreCard({
     abuseIpDb,
     ipqs,
   );
+  const reputationSourceRows = getReputationSourceRows(sourceStatuses);
 
   return (
     <div className="rounded-[28px] border border-neutral-200 bg-white p-5 shadow-[0_12px_50px_rgba(0,0,0,0.08)]">
@@ -721,6 +754,33 @@ function TrustScoreCard({
           </ul>
         </div>
       ) : null}
+      <div className="mt-5 border-t border-neutral-100 pt-4">
+        <p className="text-sm font-semibold text-neutral-950">
+          Reputation Sources
+        </p>
+        <div className="mt-3 divide-y divide-neutral-100 rounded-2xl border border-neutral-200 bg-white">
+          {reputationSourceRows.map((source) => (
+            <div
+              key={source.name}
+              className="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4"
+            >
+              <div>
+                <p className="text-sm font-medium text-neutral-950">
+                  {source.name}
+                </p>
+                {source.status === "Available" ? (
+                  <p className="mt-1 text-sm text-neutral-500">
+                    {source.contribution}
+                  </p>
+                ) : null}
+              </div>
+              <p className="shrink-0 text-sm font-medium text-neutral-600">
+                {source.status}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
       <div className="mt-5 border-t border-neutral-100 pt-4">
         <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm shadow-neutral-950/[0.03]">
           <button
@@ -991,6 +1051,7 @@ export function IpAnalyzer() {
             abuseIpDb={result.abuseIpDb}
             ipqs={result.ipqs}
             ipHistoryRecords={currentIpHistory}
+            sourceStatuses={result.sourceStatuses}
           />
 
           <p className="text-sm font-semibold text-neutral-950">IP Details</p>

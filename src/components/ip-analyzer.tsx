@@ -19,6 +19,8 @@ import {
   type AbuseIpDbResponse,
   type IpInfoResponse,
   type IpqsResponse,
+  type RecommendationConfidence,
+  type RecommendationLabel,
   type ServiceCompatibilityStatus,
 } from "@/lib/trust-engine";
 
@@ -30,6 +32,17 @@ type ResultCard = {
 type RecentCheck = {
   ip: string;
   timestamp: number;
+};
+
+type IpHistoryRecord = {
+  ip: string;
+  timestamp: number;
+  trustScore: number;
+  recommendationLabel: RecommendationLabel;
+  confidence: RecommendationConfidence;
+  abuseConfidence: number | null;
+  usageType: string;
+  ipType: IpTypeBadge;
 };
 
 type CompatibilityExplanationSignals = {
@@ -52,6 +65,8 @@ type IpTypeBadge =
 
 const RECENT_CHECKS_STORAGE_KEY = "ip-health:recent-checks";
 const MAX_RECENT_CHECKS = 5;
+const IP_HISTORY_STORAGE_KEY = "ip-health:ip-history";
+const MAX_IP_HISTORY_RECORDS = 20;
 
 function getTrustScoreStatus(score: number) {
   if (score >= 90) {
@@ -298,6 +313,137 @@ function getNextRecentChecks(recentChecks: RecentCheck[], ipAddress: string) {
   ].slice(0, MAX_RECENT_CHECKS);
 }
 
+function isRecommendationLabel(value: unknown): value is RecommendationLabel {
+  return (
+    value === "Recommended" ||
+    value === "Use with Caution" ||
+    value === "Not Recommended"
+  );
+}
+
+function isRecommendationConfidence(
+  value: unknown,
+): value is RecommendationConfidence {
+  return value === "High" || value === "Medium" || value === "Low";
+}
+
+function isIpTypeBadge(value: unknown): value is IpTypeBadge {
+  return (
+    value === "Residential" ||
+    value === "Mobile" ||
+    value === "Business" ||
+    value === "Infrastructure" ||
+    value === "Hosting" ||
+    value === "Unknown"
+  );
+}
+
+function normalizeIpHistory(value: unknown): IpHistoryRecord[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .filter((item): item is IpHistoryRecord => {
+      if (!item || typeof item !== "object") {
+        return false;
+      }
+
+      const historyRecord = item as IpHistoryRecord;
+
+      return (
+        typeof historyRecord.ip === "string" &&
+        historyRecord.ip.trim().length > 0 &&
+        typeof historyRecord.timestamp === "number" &&
+        Number.isFinite(historyRecord.timestamp) &&
+        typeof historyRecord.trustScore === "number" &&
+        Number.isFinite(historyRecord.trustScore) &&
+        isRecommendationLabel(historyRecord.recommendationLabel) &&
+        isRecommendationConfidence(historyRecord.confidence) &&
+        ((typeof historyRecord.abuseConfidence === "number" &&
+          Number.isFinite(historyRecord.abuseConfidence)) ||
+          historyRecord.abuseConfidence === null) &&
+        typeof historyRecord.usageType === "string" &&
+        isIpTypeBadge(historyRecord.ipType)
+      );
+    })
+    .sort((first, second) => second.timestamp - first.timestamp)
+    .slice(0, MAX_IP_HISTORY_RECORDS);
+}
+
+function loadIpHistory(): IpHistoryRecord[] {
+  try {
+    const storedValue = window.localStorage.getItem(IP_HISTORY_STORAGE_KEY);
+
+    if (!storedValue) {
+      return [];
+    }
+
+    return normalizeIpHistory(JSON.parse(storedValue));
+  } catch {
+    return [];
+  }
+}
+
+function persistIpHistory(historyRecords: IpHistoryRecord[]) {
+  try {
+    window.localStorage.setItem(
+      IP_HISTORY_STORAGE_KEY,
+      JSON.stringify(historyRecords),
+    );
+  } catch {
+    return;
+  }
+}
+
+function getHistoryForIp(historyRecords: IpHistoryRecord[], ipAddress: string) {
+  const normalizedIpAddress = ipAddress.trim().toLowerCase();
+
+  return historyRecords.filter(
+    (historyRecord) =>
+      historyRecord.ip.trim().toLowerCase() === normalizedIpAddress,
+  );
+}
+
+function getNextIpHistory(
+  historyRecords: IpHistoryRecord[],
+  historyRecord: IpHistoryRecord,
+) {
+  return [historyRecord, ...historyRecords].slice(0, MAX_IP_HISTORY_RECORDS);
+}
+
+function buildIpHistoryRecord(
+  result: AnalysisResult,
+  fallbackIpAddress: string,
+): IpHistoryRecord {
+  const { ipInfo, abuseIpDb, ipqs } = result;
+  const recommendation = buildRecommendation(ipInfo, abuseIpDb, ipqs);
+
+  return {
+    ip: ipInfo.ip || fallbackIpAddress,
+    timestamp: Date.now(),
+    trustScore: calculateTrustScore(ipInfo, abuseIpDb, ipqs),
+    recommendationLabel: recommendation.label,
+    confidence: buildRecommendationConfidence(ipInfo, abuseIpDb, ipqs),
+    abuseConfidence: abuseIpDb?.abuseConfidence ?? null,
+    usageType: formatUsageType(abuseIpDb?.usageType, ipInfo.privacy),
+    ipType: getIpTypeBadge(abuseIpDb?.usageType, ipInfo.privacy),
+  };
+}
+
+function formatHistoryTime(timestamp: number) {
+  return new Intl.DateTimeFormat(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date(timestamp));
+}
+
+function formatHistoryAbuseConfidence(abuseConfidence: number | null) {
+  return abuseConfidence === null ? "No abuse score" : `${abuseConfidence}%`;
+}
+
 function formatHosting(value?: boolean, usageType?: string | null) {
   if (value === true || isInfrastructureUsage(usageType)) {
     return "Infrastructure";
@@ -472,10 +618,12 @@ function TrustScoreCard({
   ipInfo,
   abuseIpDb,
   ipqs,
+  ipHistoryRecords,
 }: {
   ipInfo: IpInfoResponse;
   abuseIpDb: AbuseIpDbResponse | null;
   ipqs: IpqsResponse | null;
+  ipHistoryRecords: IpHistoryRecord[];
 }) {
   const [expandedServiceKey, setExpandedServiceKey] = useState<string | null>(
     null,
@@ -539,6 +687,40 @@ function TrustScoreCard({
           Confidence: {recommendationConfidence}
         </p>
       </div>
+      {ipHistoryRecords.length > 0 ? (
+        <div className="mt-5 border-t border-neutral-100 pt-4">
+          <p className="text-sm font-semibold text-neutral-950">IP History</p>
+          <p className="mt-1 text-xs font-medium text-neutral-400">
+            Saved in this browser only
+          </p>
+          <p className="mt-3 text-sm font-medium text-neutral-600">
+            Latest checks:
+          </p>
+          <ul className="mt-2 divide-y divide-neutral-100 rounded-2xl border border-neutral-200 bg-white">
+            {ipHistoryRecords.map((historyRecord) => (
+              <li
+                key={`${historyRecord.timestamp}:${historyRecord.ip}`}
+                className="grid gap-2 px-4 py-3 text-sm sm:grid-cols-[1.2fr_0.8fr_1fr_1fr]"
+              >
+                <span className="font-medium text-neutral-950">
+                  {formatHistoryTime(historyRecord.timestamp)}
+                </span>
+                <span className="text-neutral-600">
+                  {historyRecord.trustScore}/100
+                </span>
+                <span className="text-neutral-600">
+                  {historyRecord.recommendationLabel}
+                </span>
+                <span className="text-neutral-600">
+                  {formatHistoryAbuseConfidence(
+                    historyRecord.abuseConfidence,
+                  )}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
       <div className="mt-5 border-t border-neutral-100 pt-4">
         <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm shadow-neutral-950/[0.03]">
           <button
@@ -652,6 +834,9 @@ export function IpAnalyzer() {
   const [error, setError] = useState("");
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [recentChecks, setRecentChecks] = useState<RecentCheck[]>([]);
+  const [currentIpHistory, setCurrentIpHistory] = useState<IpHistoryRecord[]>(
+    [],
+  );
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isDetecting, setIsDetecting] = useState(true);
 
@@ -679,10 +864,22 @@ export function IpAnalyzer() {
     setIsAnalyzing(true);
 
     try {
-      setResult(await fetchIpAnalysis(trimmedIpAddress));
+      const nextResult = await fetchIpAnalysis(trimmedIpAddress);
+      const storedIpHistory = loadIpHistory();
+      const historyRecord = buildIpHistoryRecord(nextResult, trimmedIpAddress);
+      const previousIpHistory = getHistoryForIp(
+        storedIpHistory,
+        historyRecord.ip,
+      );
+      const nextIpHistory = getNextIpHistory(storedIpHistory, historyRecord);
+
+      persistIpHistory(nextIpHistory);
+      setCurrentIpHistory(previousIpHistory);
+      setResult(nextResult);
       saveRecentCheck(trimmedIpAddress);
     } catch {
       setResult(null);
+      setCurrentIpHistory([]);
       setError("Unable to detect your IP.");
     } finally {
       setIsAnalyzing(false);
@@ -793,6 +990,7 @@ export function IpAnalyzer() {
             ipInfo={result.ipInfo}
             abuseIpDb={result.abuseIpDb}
             ipqs={result.ipqs}
+            ipHistoryRecords={currentIpHistory}
           />
 
           <p className="text-sm font-semibold text-neutral-950">IP Details</p>

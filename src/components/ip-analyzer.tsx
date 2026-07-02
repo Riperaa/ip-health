@@ -26,6 +26,11 @@ type ResultCard = {
   value: string;
 };
 
+type RecentCheck = {
+  ip: string;
+  timestamp: number;
+};
+
 type IpTypeBadge =
   | "Residential"
   | "Mobile"
@@ -33,6 +38,9 @@ type IpTypeBadge =
   | "Infrastructure"
   | "Hosting"
   | "Unknown";
+
+const RECENT_CHECKS_STORAGE_KEY = "ip-health:recent-checks";
+const MAX_RECENT_CHECKS = 5;
 
 function getTrustScoreStatus(score: number) {
   if (score >= 90) {
@@ -138,6 +146,70 @@ function getIpTypeBadge(
   }
 
   return "Unknown";
+}
+
+function normalizeRecentChecks(value: unknown): RecentCheck[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .filter((item): item is RecentCheck => {
+      if (!item || typeof item !== "object") {
+        return false;
+      }
+
+      const recentCheck = item as RecentCheck;
+
+      return (
+        typeof recentCheck.ip === "string" &&
+        recentCheck.ip.trim().length > 0 &&
+        typeof recentCheck.timestamp === "number" &&
+        Number.isFinite(recentCheck.timestamp)
+      );
+    })
+    .sort((first, second) => second.timestamp - first.timestamp)
+    .slice(0, MAX_RECENT_CHECKS);
+}
+
+function loadRecentChecks(): RecentCheck[] {
+  try {
+    const storedValue = window.localStorage.getItem(RECENT_CHECKS_STORAGE_KEY);
+
+    if (!storedValue) {
+      return [];
+    }
+
+    return normalizeRecentChecks(JSON.parse(storedValue));
+  } catch {
+    return [];
+  }
+}
+
+function persistRecentChecks(recentChecks: RecentCheck[]) {
+  try {
+    window.localStorage.setItem(
+      RECENT_CHECKS_STORAGE_KEY,
+      JSON.stringify(recentChecks),
+    );
+  } catch {
+    return;
+  }
+}
+
+function getNextRecentChecks(recentChecks: RecentCheck[], ipAddress: string) {
+  const trimmedIpAddress = ipAddress.trim();
+  const normalizedIpAddress = trimmedIpAddress.toLowerCase();
+
+  return [
+    {
+      ip: trimmedIpAddress,
+      timestamp: Date.now(),
+    },
+    ...recentChecks.filter(
+      (recentCheck) => recentCheck.ip.toLowerCase() !== normalizedIpAddress,
+    ),
+  ].slice(0, MAX_RECENT_CHECKS);
 }
 
 function formatHosting(value?: boolean, usageType?: string | null) {
@@ -481,8 +553,48 @@ export function IpAnalyzer() {
   const [ipAddress, setIpAddress] = useState("");
   const [error, setError] = useState("");
   const [result, setResult] = useState<AnalysisResult | null>(null);
+  const [recentChecks, setRecentChecks] = useState<RecentCheck[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isDetecting, setIsDetecting] = useState(true);
+
+  const saveRecentCheck = useCallback((nextIpAddress: string) => {
+    setRecentChecks((currentRecentChecks) => {
+      const nextRecentChecks = getNextRecentChecks(
+        currentRecentChecks,
+        nextIpAddress,
+      );
+      persistRecentChecks(nextRecentChecks);
+
+      return nextRecentChecks;
+    });
+  }, []);
+
+  const analyzeIpAddress = useCallback(async (nextIpAddress: string) => {
+    const trimmedIpAddress = nextIpAddress.trim();
+
+    if (!trimmedIpAddress) {
+      setError("Unable to detect your IP.");
+      return;
+    }
+
+    setError("");
+    setIsAnalyzing(true);
+
+    try {
+      const [ipInfo, abuseIpDb, ipqs] = await Promise.all([
+        fetchIpInfo(trimmedIpAddress),
+        fetchAbuseIpDb(trimmedIpAddress),
+        fetchIpqs(trimmedIpAddress),
+      ]);
+      setResult({ ipInfo, abuseIpDb, ipqs });
+      saveRecentCheck(trimmedIpAddress);
+    } catch {
+      setResult(null);
+      setError("Unable to detect your IP.");
+    } finally {
+      setIsAnalyzing(false);
+    }
+  }, [saveRecentCheck]);
 
   const detectPublicIp = useCallback(async () => {
     setError("");
@@ -502,32 +614,18 @@ export function IpAnalyzer() {
     void detectPublicIp();
   }, [detectPublicIp]);
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  useEffect(() => {
+    setRecentChecks(loadRecentChecks());
+  }, []);
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    void analyzeIpAddress(ipAddress);
+  }
 
-    const trimmedIpAddress = ipAddress.trim();
-
-    if (!trimmedIpAddress) {
-      setError("Unable to detect your IP.");
-      return;
-    }
-
-    setError("");
-    setIsAnalyzing(true);
-
-    try {
-      const [ipInfo, abuseIpDb, ipqs] = await Promise.all([
-        fetchIpInfo(trimmedIpAddress),
-        fetchAbuseIpDb(trimmedIpAddress),
-        fetchIpqs(trimmedIpAddress),
-      ]);
-      setResult({ ipInfo, abuseIpDb, ipqs });
-    } catch {
-      setResult(null);
-      setError("Unable to detect your IP.");
-    } finally {
-      setIsAnalyzing(false);
-    }
+  function handleRecentCheckClick(nextIpAddress: string) {
+    setIpAddress(nextIpAddress);
+    void analyzeIpAddress(nextIpAddress);
   }
 
   return (
@@ -568,6 +666,25 @@ export function IpAnalyzer() {
       </form>
 
       {error ? <p className="text-sm font-medium text-red-600">{error}</p> : null}
+
+      {recentChecks.length > 0 ? (
+        <div className="w-full text-left">
+          <p className="text-sm font-semibold text-neutral-950">Recent Checks</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {recentChecks.map((recentCheck) => (
+              <button
+                key={recentCheck.ip}
+                type="button"
+                onClick={() => handleRecentCheckClick(recentCheck.ip)}
+                disabled={isAnalyzing}
+                className="rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-sm font-medium text-neutral-700 shadow-sm shadow-neutral-950/[0.03] transition hover:border-neutral-300 hover:bg-neutral-50 hover:text-neutral-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {recentCheck.ip}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       {result ? (
         <div className="mt-5 flex w-full flex-col gap-3 text-left">

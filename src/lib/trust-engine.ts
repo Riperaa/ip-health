@@ -529,12 +529,61 @@ export function buildServiceCompatibility(
       ],
     },
     {
+      category: "STREAMING",
+      services: [
+        { name: "Netflix", profile: "general" },
+        { name: "Disney+", profile: "general" },
+        { name: "Prime Video", profile: "general" },
+        { name: "Max", profile: "general" },
+      ],
+    },
+    {
       category: "DEVELOPER",
       services: [
         { name: "GitHub", profile: "developer" },
         { name: "GitLab", profile: "developer" },
         { name: "Cloudflare", profile: "developer" },
         { name: "Vercel", profile: "developer" },
+      ],
+    },
+    {
+      category: "CLOUD",
+      services: [
+        { name: "AWS", profile: "developer" },
+        { name: "Azure", profile: "developer" },
+        { name: "Google Cloud", profile: "developer" },
+      ],
+    },
+    {
+      category: "GOOGLE",
+      services: [
+        { name: "Google Voice", profile: "social" },
+        { name: "Google Account", profile: "social" },
+        { name: "Gmail", profile: "social" },
+        { name: "Google Play", profile: "social" },
+      ],
+    },
+    {
+      category: "APPLE",
+      services: [
+        { name: "Apple ID", profile: "social" },
+        { name: "iCloud", profile: "social" },
+      ],
+    },
+    {
+      category: "COMMUNICATION",
+      services: [
+        { name: "Discord", profile: "social" },
+        { name: "Telegram", profile: "social" },
+      ],
+    },
+    {
+      category: "GAMING",
+      services: [
+        { name: "Steam", profile: "social" },
+        { name: "Epic Games", profile: "social" },
+        { name: "PlayStation Network", profile: "social" },
+        { name: "Xbox Live", profile: "social" },
       ],
     },
     {

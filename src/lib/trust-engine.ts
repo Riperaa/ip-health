@@ -6,6 +6,19 @@ export type { ProviderResult as AbuseIpDbResponse } from "./providers/abuseipdb"
 export type { ProviderResult as IpInfoResponse } from "./providers/ipinfo";
 export type { ProviderResult as IpqsResponse } from "./providers/ipqs";
 
+export type ServiceCompatibilityStatus =
+  | "Good"
+  | "Use with Caution"
+  | "High Risk";
+
+export type ServiceCompatibilityCategory = {
+  category: string;
+  services: {
+    name: string;
+    status: ServiceCompatibilityStatus;
+  }[];
+};
+
 function parseOrg(org?: string) {
   if (!org) {
     return {};
@@ -137,6 +150,103 @@ function getPrivacySignalSummary(
   }
 
   return `Detected privacy or infrastructure signals: ${signals.join(", ")}.`;
+}
+
+function getCompatibilitySignals(
+  ipInfo: IpInfoResponse,
+  abuseIpDb?: AbuseIpDbResponse | null,
+  ipqs?: IpqsResponse | null,
+) {
+  const privacy = ipInfo.privacy;
+
+  return {
+    score: calculateTrustScore(ipInfo, abuseIpDb, ipqs),
+    abuseConfidence: abuseIpDb?.abuseConfidence ?? null,
+    hosting:
+      privacy?.hosting === true || isDatacenterUsage(abuseIpDb?.usageType),
+    vpn:
+      privacy?.vpn === true ||
+      ipqs?.vpn === true ||
+      ipqs?.activeVpn === true,
+    proxy: privacy?.proxy === true || ipqs?.proxy === true,
+    tor: privacy?.tor === true || ipqs?.tor === true,
+  };
+}
+
+function getServiceCompatibilityStatus(
+  profile: "general" | "developer" | "finance" | "crypto",
+  signals: ReturnType<typeof getCompatibilitySignals>,
+): ServiceCompatibilityStatus {
+  const elevatedAbuse =
+    signals.abuseConfidence !== null && signals.abuseConfidence >= 50;
+  const highAbuse =
+    signals.abuseConfidence !== null && signals.abuseConfidence >= 80;
+
+  if (signals.tor || highAbuse || signals.score < 35) {
+    return "High Risk";
+  }
+
+  if (profile === "finance") {
+    if (signals.proxy || signals.score < 50) {
+      return "High Risk";
+    }
+
+    if (
+      elevatedAbuse ||
+      signals.score < 80 ||
+      signals.vpn ||
+      signals.hosting
+    ) {
+      return "Use with Caution";
+    }
+
+    return "Good";
+  }
+
+  if (profile === "crypto") {
+    if (
+      signals.proxy ||
+      signals.score < 50 ||
+      (signals.vpn && signals.score < 70)
+    ) {
+      return "High Risk";
+    }
+
+    if (
+      elevatedAbuse ||
+      signals.score < 85 ||
+      signals.vpn ||
+      signals.hosting
+    ) {
+      return "Use with Caution";
+    }
+
+    return "Good";
+  }
+
+  if (profile === "developer") {
+    if (signals.score < 40) {
+      return "High Risk";
+    }
+
+    if (elevatedAbuse || signals.score < 70 || signals.vpn || signals.proxy) {
+      return "Use with Caution";
+    }
+
+    return "Good";
+  }
+
+  if (
+    elevatedAbuse ||
+    signals.score < 70 ||
+    signals.vpn ||
+    signals.proxy ||
+    signals.hosting
+  ) {
+    return "Use with Caution";
+  }
+
+  return "Good";
 }
 
 function getAbuseIpDbReasons(abuseIpDb?: AbuseIpDbResponse | null) {
@@ -272,4 +382,42 @@ export function buildRiskSummary(
     getUsageSummary(abuseIpDb),
     getPrivacySignalSummary(ipInfo, ipqs),
   ].join(" ");
+}
+
+export function buildServiceCompatibility(
+  ipInfo: IpInfoResponse,
+  abuseIpDb?: AbuseIpDbResponse | null,
+  ipqs?: IpqsResponse | null,
+): ServiceCompatibilityCategory[] {
+  const signals = getCompatibilitySignals(ipInfo, abuseIpDb, ipqs);
+  const groups = [
+    {
+      category: "General Web",
+      profile: "general" as const,
+      services: ["YouTube", "Reddit", "Wikipedia"],
+    },
+    {
+      category: "Developer",
+      profile: "developer" as const,
+      services: ["GitHub", "Cloudflare"],
+    },
+    {
+      category: "Finance",
+      profile: "finance" as const,
+      services: ["PayPal", "Wise"],
+    },
+    {
+      category: "Crypto",
+      profile: "crypto" as const,
+      services: ["Binance", "Coinbase"],
+    },
+  ];
+
+  return groups.map((group) => ({
+    category: group.category,
+    services: group.services.map((service) => ({
+      name: service,
+      status: getServiceCompatibilityStatus(group.profile, signals),
+    })),
+  }));
 }

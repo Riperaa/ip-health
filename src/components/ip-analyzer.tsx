@@ -5,10 +5,12 @@ import { FormEvent, useCallback, useEffect, useState } from "react";
 import {
   buildReasons,
   buildRiskSummary,
+  buildServiceCompatibility,
   calculateTrustScore,
   type AbuseIpDbResponse,
   type IpInfoResponse,
   type IpqsResponse,
+  type ServiceCompatibilityStatus,
 } from "@/lib/trust-engine";
 
 type AnalysisResult = {
@@ -48,6 +50,18 @@ function getTrustScoreStatus(score: number) {
     label: "High Risk",
     className: "bg-red-50 text-red-700 ring-red-200",
   };
+}
+
+function getServiceStatusLabel(status: ServiceCompatibilityStatus) {
+  if (status === "Good") {
+    return "✓ Good";
+  }
+
+  if (status === "Use with Caution") {
+    return "⚠ Use with Caution";
+  }
+
+  return "✕ High Risk";
 }
 
 function parseOrg(org?: string) {
@@ -188,6 +202,7 @@ function TrustScoreCard({
   const score = calculateTrustScore(ipInfo, abuseIpDb, ipqs);
   const reasons = buildReasons(ipInfo, abuseIpDb, ipqs);
   const riskSummary = buildRiskSummary(ipInfo, abuseIpDb, ipqs);
+  const serviceCompatibility = buildServiceCompatibility(ipInfo, abuseIpDb, ipqs);
   const status = getTrustScoreStatus(score);
 
   return (
@@ -210,6 +225,38 @@ function TrustScoreCard({
       <div className="mt-5 border-t border-neutral-100 pt-4">
         <p className="text-sm font-semibold text-neutral-950">Risk Summary</p>
         <p className="mt-2 text-sm leading-6 text-neutral-600">{riskSummary}</p>
+      </div>
+      <div className="mt-5 border-t border-neutral-100 pt-4">
+        <p className="text-sm font-semibold text-neutral-950">
+          Service Compatibility
+        </p>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          {serviceCompatibility.map((category) => (
+            <div
+              key={category.category}
+              className="rounded-2xl border border-neutral-200 p-4"
+            >
+              <p className="text-xs font-semibold uppercase tracking-normal text-neutral-400">
+                {category.category}
+              </p>
+              <ul className="mt-3 space-y-2">
+                {category.services.map((service) => (
+                  <li
+                    key={service.name}
+                    className="flex items-center justify-between gap-3 text-sm"
+                  >
+                    <span className="font-medium text-neutral-950">
+                      {service.name}
+                    </span>
+                    <span className="shrink-0 text-right font-semibold text-neutral-500">
+                      {getServiceStatusLabel(service.status)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
       </div>
       <div className="mt-5 border-t border-neutral-100 pt-4">
         <p className="text-sm font-semibold text-neutral-950">Why this score?</p>

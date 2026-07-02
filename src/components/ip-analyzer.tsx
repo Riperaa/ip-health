@@ -606,23 +606,26 @@ function TrustScoreCard({
         </p>
       </div>
       <div className="mt-5 border-t border-neutral-100 pt-4">
-        <button
-          type="button"
-          aria-expanded={isServiceCompatibilityVisible}
-          onClick={() =>
-            setIsServiceCompatibilityVisible(
-              (currentVisibility) => !currentVisibility,
-            )
-          }
-          className="text-sm font-semibold text-neutral-950 transition hover:text-neutral-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950"
-        >
-          {isServiceCompatibilityVisible
-            ? "Hide Service Compatibility"
-            : "Show Service Compatibility"}
-        </button>
+        <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm shadow-neutral-950/[0.03]">
+          <button
+            type="button"
+            aria-expanded={isServiceCompatibilityVisible}
+            onClick={() =>
+              setIsServiceCompatibilityVisible(
+                (currentVisibility) => !currentVisibility,
+              )
+            }
+            className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-semibold text-neutral-950 transition hover:bg-neutral-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950"
+          >
+            <span className="w-4 text-xs text-neutral-400" aria-hidden="true">
+              {isServiceCompatibilityVisible ? "▾" : "▸"}
+            </span>
+            <span>Service Compatibility</span>
+          </button>
+        </div>
         {isServiceCompatibilityVisible ? (
-          <>
-            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <div className="mt-3 rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm shadow-neutral-950/[0.03]">
+            <div className="grid gap-3 sm:grid-cols-2">
               {serviceCompatibility.map((category) => (
                 <div
                   key={category.category}
@@ -677,24 +680,29 @@ function TrustScoreCard({
               infrastructure signals. Services may also consider account
               history, device reputation, browser fingerprint, and behavior.
             </p>
-          </>
+          </div>
         ) : null}
       </div>
       <div className="mt-5 border-t border-neutral-100 pt-4">
-        <button
-          type="button"
-          aria-expanded={isScoreDetailsVisible}
-          onClick={() =>
-            setIsScoreDetailsVisible(
-              (currentVisibility) => !currentVisibility,
-            )
-          }
-          className="text-sm font-semibold text-neutral-950 transition hover:text-neutral-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950"
-        >
-          {isScoreDetailsVisible ? "Hide score details" : "Show score details"}
-        </button>
+        <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm shadow-neutral-950/[0.03]">
+          <button
+            type="button"
+            aria-expanded={isScoreDetailsVisible}
+            onClick={() =>
+              setIsScoreDetailsVisible(
+                (currentVisibility) => !currentVisibility,
+              )
+            }
+            className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-semibold text-neutral-950 transition hover:bg-neutral-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950"
+          >
+            <span className="w-4 text-xs text-neutral-400" aria-hidden="true">
+              {isScoreDetailsVisible ? "▾" : "▸"}
+            </span>
+            <span>Why this score?</span>
+          </button>
+        </div>
         {isScoreDetailsVisible ? (
-          <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-neutral-600">
+          <ul className="mt-3 list-disc space-y-1 rounded-2xl border border-neutral-200 bg-white p-4 pl-9 text-sm text-neutral-600 shadow-sm shadow-neutral-950/[0.03]">
             {reasons.map((reason) => (
               <li key={reason}>{reason}</li>
             ))}

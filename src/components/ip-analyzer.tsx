@@ -16,6 +16,8 @@ import {
   buildRecommendationConfidence,
   buildRiskSummary,
   buildServiceCompatibility,
+  buildServiceCompatibilityReason,
+  buildServiceCompatibilitySignals,
   calculateTrustScore,
   isInfrastructureUsage,
   type AbuseIpDbResponse,
@@ -51,16 +53,6 @@ type ReputationSourceRow = {
   name: string;
   status: ReputationSourceStatus;
   contribution: string;
-};
-
-type CompatibilityExplanationSignals = {
-  score: number;
-  abuseConfidence: number | null;
-  hosting: boolean;
-  vpn: boolean;
-  proxy: boolean;
-  tor: boolean;
-  relay: boolean;
 };
 
 type IpTypeBadge =
@@ -114,81 +106,6 @@ function getServiceStatusLabel(status: ServiceCompatibilityStatus) {
   }
 
   return "✕ High Risk";
-}
-
-function getCompatibilityExplanationSignals(
-  ipInfo: IpInfoResponse,
-  abuseIpDb?: AbuseIpDbResponse | null,
-  ipqs?: IpqsResponse | null,
-): CompatibilityExplanationSignals {
-  const privacy = ipInfo.privacy;
-
-  return {
-    score: calculateTrustScore(ipInfo, abuseIpDb, ipqs),
-    abuseConfidence: abuseIpDb?.abuseConfidence ?? null,
-    hosting:
-      privacy?.hosting === true || isInfrastructureUsage(abuseIpDb?.usageType),
-    vpn:
-      privacy?.vpn === true ||
-      ipqs?.vpn === true ||
-      ipqs?.activeVpn === true,
-    proxy: privacy?.proxy === true || ipqs?.proxy === true,
-    tor: privacy?.tor === true || ipqs?.tor === true,
-    relay: privacy?.relay === true,
-  };
-}
-
-function getPrivacySignalLabels(signals: CompatibilityExplanationSignals) {
-  return [
-    signals.vpn ? "VPN" : null,
-    signals.proxy ? "proxy" : null,
-    signals.tor ? "Tor" : null,
-    signals.relay ? "relay" : null,
-  ].filter((signal): signal is string => Boolean(signal));
-}
-
-function getCompatibilitySignalReasons(
-  signals: CompatibilityExplanationSignals,
-) {
-  const privacySignals = getPrivacySignalLabels(signals);
-
-  return [
-    signals.score < 85 ? `trust score ${signals.score}/100` : null,
-    signals.abuseConfidence !== null && signals.abuseConfidence >= 50
-      ? `abuse confidence ${signals.abuseConfidence}%`
-      : null,
-    signals.hosting ? "hosting/infrastructure" : null,
-    privacySignals.length > 0 ? privacySignals.join(", ") : null,
-  ].filter((reason): reason is string => Boolean(reason));
-}
-
-function getServiceCompatibilityReason(
-  status: ServiceCompatibilityStatus,
-  signals: CompatibilityExplanationSignals,
-) {
-  const signalReasons = getCompatibilitySignalReasons(signals);
-
-  if (status === "High Risk") {
-    if (signalReasons.length > 0) {
-      return `High risk because of ${signalReasons.join(", ")}.`;
-    }
-
-    return `High risk because the trust score is ${signals.score}/100.`;
-  }
-
-  if (status === "Use with Caution") {
-    if (signalReasons.length > 0) {
-      return `Use caution because of ${signalReasons.join(", ")}.`;
-    }
-
-    return `Trust score is ${signals.score}/100, but stricter services may review IP reputation closely.`;
-  }
-
-  if (signalReasons.length > 0) {
-    return `Generally usable, with ${signalReasons.join(", ")} to keep in mind.`;
-  }
-
-  return `Good because trust score is ${signals.score}/100 with no major abuse, hosting, or privacy signals.`;
 }
 
 function parseOrg(org?: string) {
@@ -675,7 +592,7 @@ function TrustScoreCard({
   );
   const status = getTrustScoreStatus(score);
   const ipType = getIpTypeBadge(abuseIpDb?.usageType, ipInfo.privacy);
-  const compatibilitySignals = getCompatibilityExplanationSignals(
+  const compatibilitySignals = buildServiceCompatibilitySignals(
     ipInfo,
     abuseIpDb,
     ipqs,
@@ -837,7 +754,9 @@ function TrustScoreCard({
                             </span>
                             {isExpanded ? (
                               <span className="mt-1 block text-xs leading-5 text-neutral-500">
-                                {getServiceCompatibilityReason(
+                                {buildServiceCompatibilityReason(
+                                  service.name,
+                                  category.category,
                                   service.status,
                                   compatibilitySignals,
                                 )}

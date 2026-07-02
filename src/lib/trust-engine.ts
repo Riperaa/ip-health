@@ -31,6 +31,18 @@ export type Recommendation = {
   summary: string;
 };
 
+export type ServiceCompatibilityReasonSignals = {
+  score: number;
+  abuseConfidence: number | null;
+  usageType?: string | null;
+  hosting: boolean;
+  vpn: boolean;
+  proxy: boolean;
+  tor: boolean;
+  relay: boolean;
+  recommendationStatus: RecommendationLabel;
+};
+
 type ServiceCompatibilityProfile =
   | "general"
   | "social"
@@ -209,6 +221,20 @@ function getCompatibilitySignals(
   };
 }
 
+export function buildServiceCompatibilitySignals(
+  ipInfo: IpInfoResponse,
+  abuseIpDb?: AbuseIpDbResponse | null,
+  ipqs?: IpqsResponse | null,
+): ServiceCompatibilityReasonSignals {
+  const signals = getCompatibilitySignals(ipInfo, abuseIpDb, ipqs);
+
+  return {
+    ...signals,
+    usageType: abuseIpDb?.usageType ?? null,
+    recommendationStatus: getBaseRecommendationLabel(signals.score),
+  };
+}
+
 function hasUsageType(usageType?: string | null) {
   return Boolean(usageType?.trim());
 }
@@ -320,6 +346,104 @@ function getServiceCompatibilityStatus(
   return profile === "general" || profile === "ai" || profile === "developer"
     ? "Good"
     : "Use with Caution";
+}
+
+function normalizeServiceName(serviceName: string) {
+  return serviceName.trim().toLowerCase();
+}
+
+function getServiceCompatibilityTemplate(serviceName: string, category: string) {
+  const service = normalizeServiceName(serviceName);
+
+  if (["youtube", "reddit", "wikipedia"].includes(service)) {
+    return "General browsing is usually less sensitive to IP reputation, but elevated abuse or infrastructure signals may still affect access.";
+  }
+
+  if (["facebook", "instagram", "x", "tiktok"].includes(service)) {
+    return "Social platforms are more sensitive to account abuse and unusual login patterns, so infrastructure or abuse signals may trigger extra checks.";
+  }
+
+  if (["chatgpt", "claude", "gemini", "perplexity", "grok"].includes(service)) {
+    return "AI services may apply additional checks to hosting or high-abuse IPs, especially for account creation, frequent switching, or unusual usage.";
+  }
+
+  if (["netflix", "disney+", "prime video", "max"].includes(service)) {
+    return "Streaming platforms often use IP reputation and location signals for region access, so hosting infrastructure may affect availability or playback.";
+  }
+
+  if (["github", "gitlab", "cloudflare", "vercel"].includes(service)) {
+    return "Developer platforms usually allow normal access, but hosting networks or elevated abuse history may trigger login verification or rate limits.";
+  }
+
+  if (["aws", "azure", "google cloud"].includes(service)) {
+    return "Cloud providers apply stricter abuse and fraud controls, so infrastructure or high-abuse IPs may face more verification.";
+  }
+
+  if (service === "google voice") {
+    return "Google Voice is sensitive to registration abuse and phone verification patterns, so infrastructure or high-abuse IPs may increase failure risk.";
+  }
+
+  if (["google account", "gmail", "google play"].includes(service)) {
+    return "Google services may consider IP reputation and login behavior, so use caution when abuse or infrastructure signals are present.";
+  }
+
+  if (["paypal", "wise", "stripe", "revolut"].includes(service)) {
+    return "Financial services apply strict fraud controls, so hosting or high-abuse IPs may trigger verification, review, or restricted actions.";
+  }
+
+  if (["binance", "coinbase", "kraken", "bybit", "okx"].includes(service)) {
+    return "Crypto exchanges usually apply strict risk controls, so high-abuse or infrastructure IPs may increase security checks or account restrictions.";
+  }
+
+  if (["discord", "telegram"].includes(service)) {
+    return "Communication platforms may flag abuse-prone IPs, especially for new accounts, frequent logins, or spam-like behavior.";
+  }
+
+  if (
+    ["steam", "epic games", "playstation network", "xbox live"].includes(
+      service,
+    )
+  ) {
+    return "Gaming platforms are usually usable, but unusual location or infrastructure signals may trigger login checks or marketplace restrictions.";
+  }
+
+  if (category === "APPLE") {
+    return "Apple services may apply extra checks around account access, so use caution when abuse or infrastructure signals are present.";
+  }
+
+  return "This service may review IP reputation differently, so use caution when abuse or infrastructure signals are present.";
+}
+
+export function buildServiceCompatibilityReason(
+  serviceName: string,
+  category: string,
+  status: ServiceCompatibilityStatus,
+  signals: ServiceCompatibilityReasonSignals,
+) {
+  const template = getServiceCompatibilityTemplate(serviceName, category);
+  const hasRiskSignals =
+    signals.score < 65 ||
+    (signals.abuseConfidence !== null && signals.abuseConfidence >= 50) ||
+    signals.hosting ||
+    signals.vpn ||
+    signals.proxy ||
+    signals.tor ||
+    signals.relay ||
+    signals.recommendationStatus === "Not Recommended";
+
+  if (status === "High Risk") {
+    return `This IP has stronger risk signals, so avoid sensitive account actions on this service. ${template}`;
+  }
+
+  if (status === "Good") {
+    if (!hasRiskSignals) {
+      return `No major IP reputation issue is detected for this type of service. ${template}`;
+    }
+
+    return `This service is more likely to be usable, but use caution if stricter checks review the current IP signals. ${template}`;
+  }
+
+  return `Use caution with this service because the current IP signals may trigger extra checks. ${template}`;
 }
 
 function getAbuseIpDbReasons(abuseIpDb?: AbuseIpDbResponse | null) {

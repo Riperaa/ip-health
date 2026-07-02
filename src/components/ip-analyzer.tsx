@@ -257,6 +257,11 @@ function TrustScoreCard({
             </div>
           ))}
         </div>
+        <p className="mt-3 text-sm leading-6 text-neutral-500">
+          These recommendations are based on IP reputation and infrastructure
+          signals. Services may also consider account history, device reputation,
+          browser fingerprint, and behavior.
+        </p>
       </div>
       <div className="mt-5 border-t border-neutral-100 pt-4">
         <p className="text-sm font-semibold text-neutral-950">Why this score?</p>

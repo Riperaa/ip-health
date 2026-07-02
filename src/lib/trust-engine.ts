@@ -179,7 +179,7 @@ function getCompatibilitySignals(
 }
 
 function getServiceCompatibilityStatus(
-  profile: "general" | "developer" | "finance" | "crypto",
+  profile: "general" | "ai" | "developer" | "finance" | "crypto",
   signals: ReturnType<typeof getCompatibilitySignals>,
 ): ServiceCompatibilityStatus {
   if (signals.score < 40) {
@@ -187,20 +187,20 @@ function getServiceCompatibilityStatus(
   }
 
   if (signals.score < 65) {
-    return profile === "general" || profile === "developer"
+    return profile === "general" || profile === "ai" || profile === "developer"
       ? "Use with Caution"
       : "High Risk";
   }
 
   if (signals.score < 85) {
-    if (profile === "developer" || profile === "finance") {
+    if (profile === "ai" || profile === "developer" || profile === "finance") {
       return "Use with Caution";
     }
 
     return profile === "general" ? "Good" : "High Risk";
   }
 
-  return profile === "general" || profile === "developer"
+  return profile === "general" || profile === "ai" || profile === "developer"
     ? "Good"
     : "Use with Caution";
 }
@@ -350,24 +350,37 @@ export function buildServiceCompatibility(
   const signals = getCompatibilitySignals(ipInfo, abuseIpDb, ipqs);
   const groups = [
     {
-      category: "General Web",
+      category: "GENERAL WEB",
       profile: "general" as const,
-      services: ["YouTube", "Reddit", "Wikipedia"],
+      services: [
+        "YouTube",
+        "Reddit",
+        "Wikipedia",
+        "Facebook",
+        "Instagram",
+        "X",
+        "TikTok",
+      ],
     },
     {
-      category: "Developer",
+      category: "AI SERVICES",
+      profile: "ai" as const,
+      services: ["ChatGPT", "Claude", "Gemini", "Perplexity", "Grok"],
+    },
+    {
+      category: "DEVELOPER",
       profile: "developer" as const,
-      services: ["GitHub", "Cloudflare"],
+      services: ["GitHub", "GitLab", "Cloudflare", "Vercel"],
     },
     {
-      category: "Finance",
+      category: "FINANCE",
       profile: "finance" as const,
-      services: ["PayPal", "Wise"],
+      services: ["PayPal", "Wise", "Stripe", "Revolut"],
     },
     {
-      category: "Crypto",
+      category: "CRYPTO",
       profile: "crypto" as const,
-      services: ["Binance", "Coinbase"],
+      services: ["Binance", "Coinbase", "Kraken", "Bybit", "OKX"],
     },
   ];
 

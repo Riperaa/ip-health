@@ -542,6 +542,9 @@ function TrustScoreCard({
   abuseIpDb: AbuseIpDbResponse | null;
   ipqs: IpqsResponse | null;
 }) {
+  const [expandedServiceKey, setExpandedServiceKey] = useState<string | null>(
+    null,
+  );
   const score = calculateTrustScore(ipInfo, abuseIpDb, ipqs);
   const reasons = buildReasons(ipInfo, abuseIpDb, ipqs);
   const riskSummary = buildRiskSummary(ipInfo, abuseIpDb, ipqs);
@@ -603,28 +606,43 @@ function TrustScoreCard({
               <p className="text-xs font-semibold uppercase tracking-normal text-neutral-400">
                 {category.category}
               </p>
-              <ul className="mt-3 space-y-2">
-                {category.services.map((service) => (
-                  <li
-                    key={service.name}
-                    className="text-sm"
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="font-medium text-neutral-950">
-                        {service.name}
-                      </span>
-                      <span className="shrink-0 text-right font-semibold text-neutral-500">
-                        {getServiceStatusLabel(service.status)}
-                      </span>
-                    </div>
-                    <p className="mt-1 text-xs leading-5 text-neutral-500">
-                      {getServiceCompatibilityReason(
-                        service.status,
-                        compatibilitySignals,
-                      )}
-                    </p>
-                  </li>
-                ))}
+              <ul className="mt-3 space-y-1">
+                {category.services.map((service) => {
+                  const serviceKey = `${category.category}:${service.name}`;
+                  const isExpanded = expandedServiceKey === serviceKey;
+
+                  return (
+                    <li key={service.name} className="text-sm">
+                      <button
+                        type="button"
+                        aria-expanded={isExpanded}
+                        onClick={() =>
+                          setExpandedServiceKey(
+                            isExpanded ? null : serviceKey,
+                          )
+                        }
+                        className="w-full rounded-xl px-2 py-1.5 text-left transition hover:bg-neutral-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950"
+                      >
+                        <span className="flex items-center justify-between gap-3">
+                          <span className="font-medium text-neutral-950">
+                            {service.name}
+                          </span>
+                          <span className="shrink-0 text-right font-semibold text-neutral-500">
+                            {getServiceStatusLabel(service.status)}
+                          </span>
+                        </span>
+                        {isExpanded ? (
+                          <span className="mt-1 block text-xs leading-5 text-neutral-500">
+                            {getServiceCompatibilityReason(
+                              service.status,
+                              compatibilitySignals,
+                            )}
+                          </span>
+                        ) : null}
+                      </button>
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           ))}

@@ -19,6 +19,22 @@ export type ServiceCompatibilityCategory = {
   }[];
 };
 
+type ServiceCompatibilityProfile =
+  | "general"
+  | "social"
+  | "ai"
+  | "developer"
+  | "finance"
+  | "crypto";
+
+type ServiceCompatibilityGroup = {
+  category: string;
+  services: {
+    name: string;
+    profile: ServiceCompatibilityProfile;
+  }[];
+};
+
 function parseOrg(org?: string) {
   if (!org) {
     return {};
@@ -179,9 +195,31 @@ function getCompatibilitySignals(
 }
 
 function getServiceCompatibilityStatus(
-  profile: "general" | "ai" | "developer" | "finance" | "crypto",
+  profile: ServiceCompatibilityProfile,
   signals: ReturnType<typeof getCompatibilitySignals>,
 ): ServiceCompatibilityStatus {
+  const abuseConfidence = signals.abuseConfidence;
+
+  if (profile === "social") {
+    if (signals.hosting || (abuseConfidence !== null && abuseConfidence >= 50)) {
+      return "Use with Caution";
+    }
+
+    if (
+      signals.score >= 85 &&
+      abuseConfidence !== null &&
+      abuseConfidence < 25
+    ) {
+      return "Good";
+    }
+
+    if (signals.score < 40) {
+      return "High Risk";
+    }
+
+    return "Use with Caution";
+  }
+
   if (signals.score < 40) {
     return "High Risk";
   }
@@ -348,47 +386,64 @@ export function buildServiceCompatibility(
   ipqs?: IpqsResponse | null,
 ): ServiceCompatibilityCategory[] {
   const signals = getCompatibilitySignals(ipInfo, abuseIpDb, ipqs);
-  const groups = [
+  const groups: ServiceCompatibilityGroup[] = [
     {
       category: "GENERAL WEB",
-      profile: "general" as const,
       services: [
-        "YouTube",
-        "Reddit",
-        "Wikipedia",
-        "Facebook",
-        "Instagram",
-        "X",
-        "TikTok",
+        { name: "YouTube", profile: "general" },
+        { name: "Reddit", profile: "general" },
+        { name: "Wikipedia", profile: "general" },
+        { name: "Facebook", profile: "social" },
+        { name: "Instagram", profile: "social" },
+        { name: "X", profile: "social" },
+        { name: "TikTok", profile: "social" },
       ],
     },
     {
       category: "AI SERVICES",
-      profile: "ai" as const,
-      services: ["ChatGPT", "Claude", "Gemini", "Perplexity", "Grok"],
+      services: [
+        { name: "ChatGPT", profile: "ai" },
+        { name: "Claude", profile: "ai" },
+        { name: "Gemini", profile: "ai" },
+        { name: "Perplexity", profile: "ai" },
+        { name: "Grok", profile: "ai" },
+      ],
     },
     {
       category: "DEVELOPER",
-      profile: "developer" as const,
-      services: ["GitHub", "GitLab", "Cloudflare", "Vercel"],
+      services: [
+        { name: "GitHub", profile: "developer" },
+        { name: "GitLab", profile: "developer" },
+        { name: "Cloudflare", profile: "developer" },
+        { name: "Vercel", profile: "developer" },
+      ],
     },
     {
       category: "FINANCE",
-      profile: "finance" as const,
-      services: ["PayPal", "Wise", "Stripe", "Revolut"],
+      services: [
+        { name: "PayPal", profile: "finance" },
+        { name: "Wise", profile: "finance" },
+        { name: "Stripe", profile: "finance" },
+        { name: "Revolut", profile: "finance" },
+      ],
     },
     {
       category: "CRYPTO",
-      profile: "crypto" as const,
-      services: ["Binance", "Coinbase", "Kraken", "Bybit", "OKX"],
+      services: [
+        { name: "Binance", profile: "crypto" },
+        { name: "Coinbase", profile: "crypto" },
+        { name: "Kraken", profile: "crypto" },
+        { name: "Bybit", profile: "crypto" },
+        { name: "OKX", profile: "crypto" },
+      ],
     },
   ];
 
   return groups.map((group) => ({
     category: group.category,
     services: group.services.map((service) => ({
-      name: service,
-      status: getServiceCompatibilityStatus(group.profile, signals),
+      name: service.name,
+      status: getServiceCompatibilityStatus(service.profile, signals),
     })),
   }));
 }

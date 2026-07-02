@@ -26,6 +26,14 @@ type ResultCard = {
   value: string;
 };
 
+type IpTypeBadge =
+  | "Residential"
+  | "Mobile"
+  | "Business"
+  | "Infrastructure"
+  | "Hosting"
+  | "Unknown";
+
 function getTrustScoreStatus(score: number) {
   if (score >= 90) {
     return {
@@ -101,6 +109,35 @@ function isDataCenterHostingTransitUsage(usageType?: string | null) {
   const normalized = usageType?.toLowerCase().replace(/\s+/g, "") ?? "";
 
   return normalized.includes("datacenter/webhosting/transit");
+}
+
+function getIpTypeBadge(
+  usageType?: string | null,
+  privacy?: IpInfoResponse["privacy"],
+): IpTypeBadge {
+  const normalized = usageType?.toLowerCase() ?? "";
+
+  if (isInfrastructureUsage(usageType)) {
+    return "Infrastructure";
+  }
+
+  if (normalized.includes("residential")) {
+    return "Residential";
+  }
+
+  if (normalized.includes("mobile")) {
+    return "Mobile";
+  }
+
+  if (normalized.includes("business")) {
+    return "Business";
+  }
+
+  if (privacy?.hosting === true) {
+    return "Infrastructure";
+  }
+
+  return "Unknown";
 }
 
 function formatHosting(value?: boolean, usageType?: string | null) {
@@ -354,6 +391,7 @@ function TrustScoreCard({
   const serviceCompatibility = buildServiceCompatibility(ipInfo, abuseIpDb, ipqs);
   const recommendation = buildRecommendation(ipInfo, abuseIpDb, ipqs);
   const status = getTrustScoreStatus(score);
+  const ipType = getIpTypeBadge(abuseIpDb?.usageType, ipInfo.privacy);
 
   return (
     <div className="rounded-[28px] border border-neutral-200 bg-white p-5 shadow-[0_12px_50px_rgba(0,0,0,0.08)]">
@@ -366,15 +404,29 @@ function TrustScoreCard({
             {score}
           </p>
         </div>
-        <span
-          className={`rounded-full px-3 py-1 text-sm font-semibold ring-1 ${status.className}`}
-        >
-          {status.label}
-        </span>
+        <div className="flex shrink-0 flex-col items-end gap-2">
+          <span
+            className={`rounded-full px-3 py-1 text-sm font-semibold ring-1 ${status.className}`}
+          >
+            {status.label}
+          </span>
+          <span className="rounded-full bg-neutral-50 px-2.5 py-1 text-xs font-medium text-neutral-500 ring-1 ring-neutral-200">
+            {ipType}
+          </span>
+        </div>
       </div>
       <div className="mt-5 border-t border-neutral-100 pt-4">
         <p className="text-sm font-semibold text-neutral-950">Risk Summary</p>
         <p className="mt-2 text-sm leading-6 text-neutral-600">{riskSummary}</p>
+      </div>
+      <div className="mt-5 border-t border-neutral-100 pt-4">
+        <p className="text-sm font-semibold text-neutral-950">Recommendation</p>
+        <p className="mt-2 text-base font-semibold text-neutral-950">
+          {recommendation.label}
+        </p>
+        <p className="mt-2 text-sm leading-6 text-neutral-600">
+          {recommendation.summary}
+        </p>
       </div>
       <div className="mt-5 border-t border-neutral-100 pt-4">
         <p className="text-sm font-semibold text-neutral-950">
@@ -411,15 +463,6 @@ function TrustScoreCard({
           These recommendations are based on IP reputation and infrastructure
           signals. Services may also consider account history, device reputation,
           browser fingerprint, and behavior.
-        </p>
-      </div>
-      <div className="mt-5 border-t border-neutral-100 pt-4">
-        <p className="text-sm font-semibold text-neutral-950">Recommendation</p>
-        <p className="mt-2 text-base font-semibold text-neutral-950">
-          {recommendation.label}
-        </p>
-        <p className="mt-2 text-sm leading-6 text-neutral-600">
-          {recommendation.summary}
         </p>
       </div>
       <div className="mt-5 border-t border-neutral-100 pt-4">
@@ -534,6 +577,7 @@ export function IpAnalyzer() {
             ipqs={result.ipqs}
           />
 
+          <p className="text-sm font-semibold text-neutral-950">IP Details</p>
           <div className="grid w-full gap-3 sm:grid-cols-2">
             {getResultCards(
               result.ipInfo,

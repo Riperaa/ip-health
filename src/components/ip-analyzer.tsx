@@ -4,6 +4,7 @@ import { FormEvent, useCallback, useEffect, useState } from "react";
 
 import {
   buildReasons,
+  buildRecommendation,
   buildRiskSummary,
   buildServiceCompatibility,
   calculateTrustScore,
@@ -351,6 +352,7 @@ function TrustScoreCard({
   const reasons = buildReasons(ipInfo, abuseIpDb, ipqs);
   const riskSummary = buildRiskSummary(ipInfo, abuseIpDb, ipqs);
   const serviceCompatibility = buildServiceCompatibility(ipInfo, abuseIpDb, ipqs);
+  const recommendation = buildRecommendation(ipInfo, abuseIpDb, ipqs);
   const status = getTrustScoreStatus(score);
 
   return (
@@ -409,6 +411,15 @@ function TrustScoreCard({
           These recommendations are based on IP reputation and infrastructure
           signals. Services may also consider account history, device reputation,
           browser fingerprint, and behavior.
+        </p>
+      </div>
+      <div className="mt-5 border-t border-neutral-100 pt-4">
+        <p className="text-sm font-semibold text-neutral-950">Recommendation</p>
+        <p className="mt-2 text-base font-semibold text-neutral-950">
+          {recommendation.label}
+        </p>
+        <p className="mt-2 text-sm leading-6 text-neutral-600">
+          {recommendation.summary}
         </p>
       </div>
       <div className="mt-5 border-t border-neutral-100 pt-4">

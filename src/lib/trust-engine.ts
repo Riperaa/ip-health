@@ -19,6 +19,16 @@ export type ServiceCompatibilityCategory = {
   }[];
 };
 
+export type RecommendationLabel =
+  | "Recommended"
+  | "Use with Caution"
+  | "Not Recommended";
+
+export type Recommendation = {
+  label: RecommendationLabel;
+  summary: string;
+};
+
 type ServiceCompatibilityProfile =
   | "general"
   | "social"
@@ -193,7 +203,36 @@ function getCompatibilitySignals(
       ipqs?.activeVpn === true,
     proxy: privacy?.proxy === true || ipqs?.proxy === true,
     tor: privacy?.tor === true || ipqs?.tor === true,
+    relay: privacy?.relay === true,
   };
+}
+
+function getBaseRecommendationLabel(score: number): RecommendationLabel {
+  if (score >= 85) {
+    return "Recommended";
+  }
+
+  if (score >= 40) {
+    return "Use with Caution";
+  }
+
+  return "Not Recommended";
+}
+
+function getBaseRecommendationSummary(score: number) {
+  if (score >= 85) {
+    return "Suitable for most common online services.";
+  }
+
+  if (score >= 65) {
+    return "Suitable for general browsing, but use caution with accounts, payments, and crypto services.";
+  }
+
+  if (score >= 40) {
+    return "Acceptable for basic browsing, but not recommended for sensitive accounts, payments, or crypto exchanges.";
+  }
+
+  return "This IP has significant risk signals and should not be used for sensitive services.";
 }
 
 function getServiceCompatibilityStatus(
@@ -448,4 +487,74 @@ export function buildServiceCompatibility(
       status: getServiceCompatibilityStatus(service.profile, signals),
     })),
   }));
+}
+
+export function buildRecommendation(
+  ipInfo: IpInfoResponse,
+  abuseIpDb?: AbuseIpDbResponse | null,
+  ipqs?: IpqsResponse | null,
+): Recommendation {
+  const score = calculateTrustScore(ipInfo, abuseIpDb, ipqs);
+  const abuseConfidence = abuseIpDb?.abuseConfidence ?? null;
+  const signals = getCompatibilitySignals(ipInfo, abuseIpDb, ipqs);
+  const serviceCompatibility = buildServiceCompatibility(ipInfo, abuseIpDb, ipqs);
+  const hasHighRiskService = serviceCompatibility.some((category) =>
+    category.services.some((service) => service.status === "High Risk"),
+  );
+  const hasCautionService = serviceCompatibility.some((category) =>
+    category.services.some((service) => service.status === "Use with Caution"),
+  );
+  const hasPrivacyOrInfrastructureSignal =
+    signals.vpn ||
+    signals.proxy ||
+    signals.tor ||
+    signals.relay ||
+    signals.hosting;
+
+  if (abuseConfidence !== null && abuseConfidence >= 85) {
+    return {
+      label: "Not Recommended",
+      summary:
+        "This IP has severe abuse history and should not be used for sensitive services.",
+    };
+  }
+
+  if (signals.tor) {
+    return {
+      label: "Not Recommended",
+      summary:
+        "Tor is detected, so this IP should not be used for sensitive accounts, payments, or crypto exchanges.",
+    };
+  }
+
+  const label = getBaseRecommendationLabel(score);
+
+  if (label === "Recommended" && hasPrivacyOrInfrastructureSignal) {
+    return {
+      label,
+      summary:
+        "Suitable for most common online services, though privacy or infrastructure signals may affect stricter platforms.",
+    };
+  }
+
+  if (label === "Use with Caution" && hasPrivacyOrInfrastructureSignal) {
+    return {
+      label,
+      summary:
+        "Privacy or infrastructure signals affect this IP, so use caution with accounts, payments, and crypto services.",
+    };
+  }
+
+  if (label === "Use with Caution" && (hasHighRiskService || hasCautionService)) {
+    return {
+      label,
+      summary:
+        "Suitable for general browsing, but some services may restrict accounts, payments, or crypto activity.",
+    };
+  }
+
+  return {
+    label,
+    summary: getBaseRecommendationSummary(score),
+  };
 }

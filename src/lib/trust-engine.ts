@@ -32,13 +32,14 @@ function parseOrg(org?: string) {
   };
 }
 
-function isDatacenterUsage(usageType?: string | null) {
+function isInfrastructureUsage(usageType?: string | null) {
   const normalized = usageType?.toLowerCase() ?? "";
 
   return (
     normalized.includes("data center") ||
     normalized.includes("web hosting") ||
-    normalized.includes("transit")
+    normalized.includes("transit") ||
+    normalized.includes("hosting")
   );
 }
 
@@ -54,7 +55,7 @@ function getAbuseIpDbPenalties(abuseIpDb?: AbuseIpDbResponse | null) {
     abuseConfidence !== null && abuseConfidence >= 50 && abuseConfidence < 80
       ? 15
       : 0,
-    isDatacenterUsage(abuseIpDb.usageType) ? 20 : 0,
+    isInfrastructureUsage(abuseIpDb.usageType) ? 20 : 0,
   ];
 }
 
@@ -123,7 +124,7 @@ function getUsageSummary(abuseIpDb?: AbuseIpDbResponse | null) {
     return "No specific usage type was reported.";
   }
 
-  if (isDatacenterUsage(abuseIpDb.usageType)) {
+  if (isInfrastructureUsage(abuseIpDb.usageType)) {
     return `The usage type is ${abuseIpDb.usageType}, which is commonly associated with hosting or infrastructure networks.`;
   }
 
@@ -132,9 +133,11 @@ function getUsageSummary(abuseIpDb?: AbuseIpDbResponse | null) {
 
 function getPrivacySignalSummary(
   ipInfo: IpInfoResponse,
+  abuseIpDb?: AbuseIpDbResponse | null,
   ipqs?: IpqsResponse | null,
 ) {
   const privacy = ipInfo.privacy;
+  const hasInfrastructureUsage = isInfrastructureUsage(abuseIpDb?.usageType);
   const signals = [
     privacy?.vpn === true || ipqs?.vpn === true || ipqs?.activeVpn === true
       ? "VPN"
@@ -142,7 +145,9 @@ function getPrivacySignalSummary(
     privacy?.proxy === true || ipqs?.proxy === true ? "proxy" : null,
     privacy?.tor === true || ipqs?.tor === true ? "Tor" : null,
     privacy?.relay === true ? "relay" : null,
-    privacy?.hosting === true ? "hosting" : null,
+    privacy?.hosting === true || hasInfrastructureUsage
+      ? "hosting or infrastructure"
+      : null,
   ].filter((signal): signal is string => Boolean(signal));
 
   if (signals.length === 0) {
@@ -163,7 +168,7 @@ function getCompatibilitySignals(
     score: calculateTrustScore(ipInfo, abuseIpDb, ipqs),
     abuseConfidence: abuseIpDb?.abuseConfidence ?? null,
     hosting:
-      privacy?.hosting === true || isDatacenterUsage(abuseIpDb?.usageType),
+      privacy?.hosting === true || isInfrastructureUsage(abuseIpDb?.usageType),
     vpn:
       privacy?.vpn === true ||
       ipqs?.vpn === true ||
@@ -177,76 +182,27 @@ function getServiceCompatibilityStatus(
   profile: "general" | "developer" | "finance" | "crypto",
   signals: ReturnType<typeof getCompatibilitySignals>,
 ): ServiceCompatibilityStatus {
-  const elevatedAbuse =
-    signals.abuseConfidence !== null && signals.abuseConfidence >= 50;
-  const highAbuse =
-    signals.abuseConfidence !== null && signals.abuseConfidence >= 80;
-
-  if (signals.tor || highAbuse || signals.score < 35) {
+  if (signals.score < 40) {
     return "High Risk";
   }
 
-  if (profile === "finance") {
-    if (signals.proxy || signals.score < 50) {
-      return "High Risk";
-    }
+  if (signals.score < 65) {
+    return profile === "general" || profile === "developer"
+      ? "Use with Caution"
+      : "High Risk";
+  }
 
-    if (
-      elevatedAbuse ||
-      signals.score < 80 ||
-      signals.vpn ||
-      signals.hosting
-    ) {
+  if (signals.score < 85) {
+    if (profile === "developer" || profile === "finance") {
       return "Use with Caution";
     }
 
-    return "Good";
+    return profile === "general" ? "Good" : "High Risk";
   }
 
-  if (profile === "crypto") {
-    if (
-      signals.proxy ||
-      signals.score < 50 ||
-      (signals.vpn && signals.score < 70)
-    ) {
-      return "High Risk";
-    }
-
-    if (
-      elevatedAbuse ||
-      signals.score < 85 ||
-      signals.vpn ||
-      signals.hosting
-    ) {
-      return "Use with Caution";
-    }
-
-    return "Good";
-  }
-
-  if (profile === "developer") {
-    if (signals.score < 40) {
-      return "High Risk";
-    }
-
-    if (elevatedAbuse || signals.score < 70 || signals.vpn || signals.proxy) {
-      return "Use with Caution";
-    }
-
-    return "Good";
-  }
-
-  if (
-    elevatedAbuse ||
-    signals.score < 70 ||
-    signals.vpn ||
-    signals.proxy ||
-    signals.hosting
-  ) {
-    return "Use with Caution";
-  }
-
-  return "Good";
+  return profile === "general" || profile === "developer"
+    ? "Good"
+    : "Use with Caution";
 }
 
 function getAbuseIpDbReasons(abuseIpDb?: AbuseIpDbResponse | null) {
@@ -266,7 +222,7 @@ function getAbuseIpDbReasons(abuseIpDb?: AbuseIpDbResponse | null) {
     abuseConfidence !== null && abuseConfidence < 50
       ? `AbuseIPDB confidence is ${abuseConfidence}%`
       : null,
-    isDatacenterUsage(abuseIpDb.usageType)
+    isInfrastructureUsage(abuseIpDb.usageType)
       ? `AbuseIPDB usage type is ${abuseIpDb.usageType}`
       : null,
     abuseIpDb.isWhitelisted === true ? "AbuseIPDB whitelist match" : null,
@@ -353,14 +309,16 @@ export function buildReasons(
 ) {
   const { hasAsn, hasIspOrOrg } = getIpInfoSignals(ipInfo);
   const privacy = ipInfo.privacy;
+  const hasHostingOrInfrastructure =
+    privacy?.hosting === true || isInfrastructureUsage(abuseIpDb?.usageType);
 
   return [
     privacy?.vpn === true ? "VPN detected" : "No obvious VPN detected",
     privacy?.proxy === true ? "Proxy detected" : "No obvious proxy detected",
     privacy?.tor === true ? "Tor detected" : "No obvious Tor detected",
     privacy?.relay === true ? "Relay detected" : "No obvious relay detected",
-    privacy?.hosting === true
-      ? "Hosting network detected"
+    hasHostingOrInfrastructure
+      ? "Hosting or infrastructure usage detected"
       : "No hosting network detected",
     hasAsn ? "ASN available" : "ASN missing",
     hasIspOrOrg ? "ISP/org available" : "ISP/org missing",
@@ -380,7 +338,7 @@ export function buildRiskSummary(
     `This IP has a trust score of ${score}/100, which suggests ${getScoreSummary(score)}.`,
     getAbuseIpDbSummary(abuseIpDb),
     getUsageSummary(abuseIpDb),
-    getPrivacySignalSummary(ipInfo, ipqs),
+    getPrivacySignalSummary(ipInfo, abuseIpDb, ipqs),
   ].join(" ");
 }
 

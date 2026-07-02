@@ -31,6 +31,16 @@ type RecentCheck = {
   timestamp: number;
 };
 
+type CompatibilityExplanationSignals = {
+  score: number;
+  abuseConfidence: number | null;
+  hosting: boolean;
+  vpn: boolean;
+  proxy: boolean;
+  tor: boolean;
+  relay: boolean;
+};
+
 type IpTypeBadge =
   | "Residential"
   | "Mobile"
@@ -80,6 +90,81 @@ function getServiceStatusLabel(status: ServiceCompatibilityStatus) {
   }
 
   return "✕ High Risk";
+}
+
+function getCompatibilityExplanationSignals(
+  ipInfo: IpInfoResponse,
+  abuseIpDb?: AbuseIpDbResponse | null,
+  ipqs?: IpqsResponse | null,
+): CompatibilityExplanationSignals {
+  const privacy = ipInfo.privacy;
+
+  return {
+    score: calculateTrustScore(ipInfo, abuseIpDb, ipqs),
+    abuseConfidence: abuseIpDb?.abuseConfidence ?? null,
+    hosting:
+      privacy?.hosting === true || isInfrastructureUsage(abuseIpDb?.usageType),
+    vpn:
+      privacy?.vpn === true ||
+      ipqs?.vpn === true ||
+      ipqs?.activeVpn === true,
+    proxy: privacy?.proxy === true || ipqs?.proxy === true,
+    tor: privacy?.tor === true || ipqs?.tor === true,
+    relay: privacy?.relay === true,
+  };
+}
+
+function getPrivacySignalLabels(signals: CompatibilityExplanationSignals) {
+  return [
+    signals.vpn ? "VPN" : null,
+    signals.proxy ? "proxy" : null,
+    signals.tor ? "Tor" : null,
+    signals.relay ? "relay" : null,
+  ].filter((signal): signal is string => Boolean(signal));
+}
+
+function getCompatibilitySignalReasons(
+  signals: CompatibilityExplanationSignals,
+) {
+  const privacySignals = getPrivacySignalLabels(signals);
+
+  return [
+    signals.score < 85 ? `trust score ${signals.score}/100` : null,
+    signals.abuseConfidence !== null && signals.abuseConfidence >= 50
+      ? `abuse confidence ${signals.abuseConfidence}%`
+      : null,
+    signals.hosting ? "hosting/infrastructure" : null,
+    privacySignals.length > 0 ? privacySignals.join(", ") : null,
+  ].filter((reason): reason is string => Boolean(reason));
+}
+
+function getServiceCompatibilityReason(
+  status: ServiceCompatibilityStatus,
+  signals: CompatibilityExplanationSignals,
+) {
+  const signalReasons = getCompatibilitySignalReasons(signals);
+
+  if (status === "High Risk") {
+    if (signalReasons.length > 0) {
+      return `High risk because of ${signalReasons.join(", ")}.`;
+    }
+
+    return `High risk because the trust score is ${signals.score}/100.`;
+  }
+
+  if (status === "Use with Caution") {
+    if (signalReasons.length > 0) {
+      return `Use caution because of ${signalReasons.join(", ")}.`;
+    }
+
+    return `Trust score is ${signals.score}/100, but stricter services may review IP reputation closely.`;
+  }
+
+  if (signalReasons.length > 0) {
+    return `Generally usable, with ${signalReasons.join(", ")} to keep in mind.`;
+  }
+
+  return `Good because trust score is ${signals.score}/100 with no major abuse, hosting, or privacy signals.`;
 }
 
 function parseOrg(org?: string) {
@@ -464,6 +549,11 @@ function TrustScoreCard({
   const recommendation = buildRecommendation(ipInfo, abuseIpDb, ipqs);
   const status = getTrustScoreStatus(score);
   const ipType = getIpTypeBadge(abuseIpDb?.usageType, ipInfo.privacy);
+  const compatibilitySignals = getCompatibilityExplanationSignals(
+    ipInfo,
+    abuseIpDb,
+    ipqs,
+  );
 
   return (
     <div className="rounded-[28px] border border-neutral-200 bg-white p-5 shadow-[0_12px_50px_rgba(0,0,0,0.08)]">
@@ -517,14 +607,22 @@ function TrustScoreCard({
                 {category.services.map((service) => (
                   <li
                     key={service.name}
-                    className="flex items-center justify-between gap-3 text-sm"
+                    className="text-sm"
                   >
-                    <span className="font-medium text-neutral-950">
-                      {service.name}
-                    </span>
-                    <span className="shrink-0 text-right font-semibold text-neutral-500">
-                      {getServiceStatusLabel(service.status)}
-                    </span>
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="font-medium text-neutral-950">
+                        {service.name}
+                      </span>
+                      <span className="shrink-0 text-right font-semibold text-neutral-500">
+                        {getServiceStatusLabel(service.status)}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-xs leading-5 text-neutral-500">
+                      {getServiceCompatibilityReason(
+                        service.status,
+                        compatibilitySignals,
+                      )}
+                    </p>
                   </li>
                 ))}
               </ul>

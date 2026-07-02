@@ -77,19 +77,43 @@ function parseOrg(org?: string) {
   };
 }
 
-function formatBoolean(value?: boolean) {
-  if (value === undefined) {
-    return "Unknown";
+function formatDetail(value?: string | null) {
+  const trimmedValue = value?.trim();
+
+  if (!trimmedValue || trimmedValue.toLowerCase() === "unknown") {
+    return "Not identified";
   }
 
-  return value ? "Yes" : "No";
+  return trimmedValue;
+}
+
+function pickDetail(...values: (string | null | undefined)[]) {
+  return values.find((value) => formatDetail(value) !== "Not identified");
+}
+
+function formatHosting(value?: boolean) {
+  if (value === true) {
+    return "Detected";
+  }
+
+  if (value === false) {
+    return "Not detected";
+  }
+
+  return "Not identified";
 }
 
 function getPrivacySummary(privacy?: IpInfoResponse["privacy"]) {
   if (!privacy) {
-    return "Unknown";
+    return "Not identified";
   }
 
+  const privacySignals = [
+    privacy.vpn,
+    privacy.proxy,
+    privacy.tor,
+    privacy.relay,
+  ];
   const enabledSignals = [
     privacy.vpn && "VPN",
     privacy.proxy && "Proxy",
@@ -101,26 +125,59 @@ function getPrivacySummary(privacy?: IpInfoResponse["privacy"]) {
     return enabledSignals.join(", ");
   }
 
-  if (privacy.service) {
-    return privacy.service;
+  if (privacy.service?.trim()) {
+    return formatDetail(privacy.service);
   }
 
-  return "No obvious privacy service";
+  if (!privacySignals.some((signal) => signal !== undefined)) {
+    return "Not identified";
+  }
+
+  return "Clean";
 }
 
-function getResultCards(result: IpInfoResponse): ResultCard[] {
+function formatAbuseConfidence(abuseIpDb?: AbuseIpDbResponse | null) {
+  const abuseConfidence = abuseIpDb?.abuseConfidence ?? null;
+
+  if (abuseConfidence === null) {
+    return "Not identified";
+  }
+
+  return `${abuseConfidence}%`;
+}
+
+function getResultCards(
+  result: IpInfoResponse,
+  abuseIpDb?: AbuseIpDbResponse | null,
+): ResultCard[] {
   const parsedOrg = parseOrg(result.org);
-  const asn = result.asn?.asn ?? parsedOrg.asn;
-  const isp = result.company?.name ?? result.asn?.name ?? parsedOrg.name;
+  const asn = pickDetail(result.asn?.asn, parsedOrg.asn);
+  const isp = pickDetail(
+    result.company?.name,
+    abuseIpDb?.isp,
+    result.asn?.name,
+    parsedOrg.name,
+  );
+  const organization = pickDetail(
+    parsedOrg.name,
+    result.org,
+    result.company?.name,
+    result.asn?.name,
+    isp,
+  );
 
   return [
-    { label: "IP", value: result.ip ?? "Unknown" },
-    { label: "Country", value: result.country_name ?? result.country ?? "Unknown" },
-    { label: "City", value: result.city ?? "Unknown" },
-    { label: "ASN", value: asn ?? "Unknown" },
-    { label: "ISP", value: isp ?? "Unknown" },
-    { label: "Hosting", value: formatBoolean(result.privacy?.hosting) },
+    { label: "IP", value: formatDetail(result.ip) },
+    { label: "Country", value: formatDetail(result.country_name ?? result.country) },
+    { label: "Region / State", value: formatDetail(result.region) },
+    { label: "City", value: formatDetail(result.city) },
+    { label: "ISP", value: formatDetail(isp) },
+    { label: "Organization", value: formatDetail(organization) },
+    { label: "ASN", value: formatDetail(asn) },
+    { label: "Usage Type", value: formatDetail(abuseIpDb?.usageType) },
+    { label: "Hosting", value: formatHosting(result.privacy?.hosting) },
     { label: "Privacy", value: getPrivacySummary(result.privacy) },
+    { label: "Abuse Confidence", value: formatAbuseConfidence(abuseIpDb) },
   ];
 }
 
@@ -376,7 +433,7 @@ export function IpAnalyzer() {
           />
 
           <div className="grid w-full gap-3 sm:grid-cols-2">
-            {getResultCards(result.ipInfo).map((card) => (
+            {getResultCards(result.ipInfo, result.abuseIpDb).map((card) => (
               <div
                 key={card.label}
                 className="rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm shadow-neutral-950/[0.03]"

@@ -46,7 +46,17 @@ function parseNumber(value: unknown) {
 }
 
 function parseString(value: unknown) {
-  return typeof value === "string" && value.trim() ? value : null;
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const trimmedValue = value.trim();
+
+  if (!trimmedValue || trimmedValue.toLowerCase() === "unknown") {
+    return null;
+  }
+
+  return trimmedValue;
 }
 
 function parseNullableBoolean(value: unknown) {

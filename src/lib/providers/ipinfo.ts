@@ -5,6 +5,7 @@ type Params = {
 type IpWhoResponse = {
   ip?: string;
   city?: string;
+  region?: string;
   country?: string;
   country_code?: string;
   connection?: {
@@ -24,6 +25,7 @@ type IpWhoResponse = {
 export type ProviderResult = {
   ip?: string;
   city?: string;
+  region?: string;
   country?: string;
   country_name?: string;
   org?: string;
@@ -71,6 +73,7 @@ function normalizeFallbackResponse(data: IpWhoResponse): ProviderResult {
   return {
     ip: data.ip,
     city: data.city,
+    region: data.region,
     country: data.country_code,
     country_name: data.country,
     asn: {

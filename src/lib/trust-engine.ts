@@ -24,6 +24,8 @@ export type RecommendationLabel =
   | "Use with Caution"
   | "Not Recommended";
 
+export type RecommendationConfidence = "High" | "Medium" | "Low";
+
 export type Recommendation = {
   label: RecommendationLabel;
   summary: string;
@@ -205,6 +207,42 @@ function getCompatibilitySignals(
     tor: privacy?.tor === true || ipqs?.tor === true,
     relay: privacy?.relay === true,
   };
+}
+
+function hasUsageType(usageType?: string | null) {
+  return Boolean(usageType?.trim());
+}
+
+function isResidentialOrMobileUsage(usageType?: string | null) {
+  const normalized = usageType?.toLowerCase() ?? "";
+
+  return (
+    normalized.includes("residential") || normalized.includes("mobile")
+  );
+}
+
+function hasConflictingSignals(
+  ipInfo: IpInfoResponse,
+  abuseIpDb?: AbuseIpDbResponse | null,
+  ipqs?: IpqsResponse | null,
+) {
+  const privacy = ipInfo.privacy;
+  const usageType = abuseIpDb?.usageType;
+  const hasInfrastructureUsage = isInfrastructureUsage(usageType);
+  const hasResidentialOrMobileUsage = isResidentialOrMobileUsage(usageType);
+
+  return (
+    (privacy?.hosting === true && hasResidentialOrMobileUsage) ||
+    (privacy?.hosting === false && hasInfrastructureUsage) ||
+    (privacy?.vpn === false &&
+      (ipqs?.vpn === true || ipqs?.activeVpn === true)) ||
+    (privacy?.vpn === true &&
+      (ipqs?.vpn === false || ipqs?.activeVpn === false)) ||
+    (privacy?.proxy === false && ipqs?.proxy === true) ||
+    (privacy?.proxy === true && ipqs?.proxy === false) ||
+    (privacy?.tor === false && ipqs?.tor === true) ||
+    (privacy?.tor === true && ipqs?.tor === false)
+  );
 }
 
 function getBaseRecommendationLabel(score: number): RecommendationLabel {
@@ -419,6 +457,46 @@ export function buildRiskSummary(
     getUsageSummary(abuseIpDb),
     getPrivacySignalSummary(ipInfo, abuseIpDb, ipqs),
   ].join(" ");
+}
+
+export function buildRecommendationConfidence(
+  ipInfo: IpInfoResponse,
+  abuseIpDb?: AbuseIpDbResponse | null,
+  ipqs?: IpqsResponse | null,
+): RecommendationConfidence {
+  const { hasAsn, hasIspOrOrg } = getIpInfoSignals(ipInfo);
+  const hasAbuseIpDb = Boolean(abuseIpDb);
+  const hasAbuseConfidence = (abuseIpDb?.abuseConfidence ?? null) !== null;
+  const hasUsage = hasUsageType(abuseIpDb?.usageType);
+  const hasPrivacy = Boolean(ipInfo.privacy);
+  const hasConflicts = hasConflictingSignals(ipInfo, abuseIpDb, ipqs);
+  const coverageScore = [
+    hasAbuseIpDb ? 1 : -1,
+    hasAbuseConfidence ? 1 : -1,
+    hasUsage ? 1 : -1,
+    hasAsn ? 1 : -1,
+    hasIspOrOrg ? 1 : -1,
+    hasPrivacy ? 1 : -1,
+    hasConflicts ? -2 : 0,
+  ].reduce((total, value) => total + value, 0);
+
+  if (
+    coverageScore >= 4 &&
+    hasAbuseIpDb &&
+    hasAbuseConfidence &&
+    hasUsage &&
+    hasAsn &&
+    hasIspOrOrg &&
+    !hasConflicts
+  ) {
+    return "High";
+  }
+
+  if (coverageScore <= 0) {
+    return "Low";
+  }
+
+  return "Medium";
 }
 
 export function buildServiceCompatibility(

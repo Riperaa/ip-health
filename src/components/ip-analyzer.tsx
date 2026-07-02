@@ -5,6 +5,7 @@ import { FormEvent, useCallback, useEffect, useState } from "react";
 import {
   buildReasons,
   buildRecommendation,
+  buildRecommendationConfidence,
   buildRiskSummary,
   buildServiceCompatibility,
   calculateTrustScore,
@@ -550,6 +551,11 @@ function TrustScoreCard({
   const riskSummary = buildRiskSummary(ipInfo, abuseIpDb, ipqs);
   const serviceCompatibility = buildServiceCompatibility(ipInfo, abuseIpDb, ipqs);
   const recommendation = buildRecommendation(ipInfo, abuseIpDb, ipqs);
+  const recommendationConfidence = buildRecommendationConfidence(
+    ipInfo,
+    abuseIpDb,
+    ipqs,
+  );
   const status = getTrustScoreStatus(score);
   const ipType = getIpTypeBadge(abuseIpDb?.usageType, ipInfo.privacy);
   const compatibilitySignals = getCompatibilityExplanationSignals(
@@ -591,6 +597,9 @@ function TrustScoreCard({
         </p>
         <p className="mt-2 text-sm leading-6 text-neutral-600">
           {recommendation.summary}
+        </p>
+        <p className="mt-2 text-sm font-medium text-neutral-500">
+          Confidence: {recommendationConfidence}
         </p>
       </div>
       <div className="mt-5 border-t border-neutral-100 pt-4">

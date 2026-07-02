@@ -546,6 +546,9 @@ function TrustScoreCard({
   const [expandedServiceKey, setExpandedServiceKey] = useState<string | null>(
     null,
   );
+  const [isServiceCompatibilityVisible, setIsServiceCompatibilityVisible] =
+    useState(false);
+  const [isScoreDetailsVisible, setIsScoreDetailsVisible] = useState(false);
   const score = calculateTrustScore(ipInfo, abuseIpDb, ipqs);
   const reasons = buildReasons(ipInfo, abuseIpDb, ipqs);
   const riskSummary = buildRiskSummary(ipInfo, abuseIpDb, ipqs);
@@ -603,72 +606,100 @@ function TrustScoreCard({
         </p>
       </div>
       <div className="mt-5 border-t border-neutral-100 pt-4">
-        <p className="text-sm font-semibold text-neutral-950">
-          Service Compatibility
-        </p>
-        <div className="mt-3 grid gap-3 sm:grid-cols-2">
-          {serviceCompatibility.map((category) => (
-            <div
-              key={category.category}
-              className="rounded-2xl border border-neutral-200 p-4"
-            >
-              <p className="text-xs font-semibold uppercase tracking-normal text-neutral-400">
-                {category.category}
-              </p>
-              <ul className="mt-3 space-y-1">
-                {category.services.map((service) => {
-                  const serviceKey = `${category.category}:${service.name}`;
-                  const isExpanded = expandedServiceKey === serviceKey;
+        <button
+          type="button"
+          aria-expanded={isServiceCompatibilityVisible}
+          onClick={() =>
+            setIsServiceCompatibilityVisible(
+              (currentVisibility) => !currentVisibility,
+            )
+          }
+          className="text-sm font-semibold text-neutral-950 transition hover:text-neutral-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950"
+        >
+          {isServiceCompatibilityVisible
+            ? "Hide Service Compatibility"
+            : "Show Service Compatibility"}
+        </button>
+        {isServiceCompatibilityVisible ? (
+          <>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              {serviceCompatibility.map((category) => (
+                <div
+                  key={category.category}
+                  className="rounded-2xl border border-neutral-200 p-4"
+                >
+                  <p className="text-xs font-semibold uppercase tracking-normal text-neutral-400">
+                    {category.category}
+                  </p>
+                  <ul className="mt-3 space-y-1">
+                    {category.services.map((service) => {
+                      const serviceKey = `${category.category}:${service.name}`;
+                      const isExpanded = expandedServiceKey === serviceKey;
 
-                  return (
-                    <li key={service.name} className="text-sm">
-                      <button
-                        type="button"
-                        aria-expanded={isExpanded}
-                        onClick={() =>
-                          setExpandedServiceKey(
-                            isExpanded ? null : serviceKey,
-                          )
-                        }
-                        className="w-full rounded-xl px-2 py-1.5 text-left transition hover:bg-neutral-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950"
-                      >
-                        <span className="flex items-center justify-between gap-3">
-                          <span className="font-medium text-neutral-950">
-                            {service.name}
-                          </span>
-                          <span className="shrink-0 text-right font-semibold text-neutral-500">
-                            {getServiceStatusLabel(service.status)}
-                          </span>
-                        </span>
-                        {isExpanded ? (
-                          <span className="mt-1 block text-xs leading-5 text-neutral-500">
-                            {getServiceCompatibilityReason(
-                              service.status,
-                              compatibilitySignals,
-                            )}
-                          </span>
-                        ) : null}
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
+                      return (
+                        <li key={service.name} className="text-sm">
+                          <button
+                            type="button"
+                            aria-expanded={isExpanded}
+                            onClick={() =>
+                              setExpandedServiceKey(
+                                isExpanded ? null : serviceKey,
+                              )
+                            }
+                            className="w-full rounded-xl px-2 py-1.5 text-left transition hover:bg-neutral-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950"
+                          >
+                            <span className="flex items-center justify-between gap-3">
+                              <span className="font-medium text-neutral-950">
+                                {service.name}
+                              </span>
+                              <span className="shrink-0 text-right font-semibold text-neutral-500">
+                                {getServiceStatusLabel(service.status)}
+                              </span>
+                            </span>
+                            {isExpanded ? (
+                              <span className="mt-1 block text-xs leading-5 text-neutral-500">
+                                {getServiceCompatibilityReason(
+                                  service.status,
+                                  compatibilitySignals,
+                                )}
+                              </span>
+                            ) : null}
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-        <p className="mt-3 text-sm leading-6 text-neutral-500">
-          These recommendations are based on IP reputation and infrastructure
-          signals. Services may also consider account history, device reputation,
-          browser fingerprint, and behavior.
-        </p>
+            <p className="mt-3 text-sm leading-6 text-neutral-500">
+              These recommendations are based on IP reputation and
+              infrastructure signals. Services may also consider account
+              history, device reputation, browser fingerprint, and behavior.
+            </p>
+          </>
+        ) : null}
       </div>
       <div className="mt-5 border-t border-neutral-100 pt-4">
-        <p className="text-sm font-semibold text-neutral-950">Why this score?</p>
-        <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-neutral-600">
-          {reasons.map((reason) => (
-            <li key={reason}>{reason}</li>
-          ))}
-        </ul>
+        <button
+          type="button"
+          aria-expanded={isScoreDetailsVisible}
+          onClick={() =>
+            setIsScoreDetailsVisible(
+              (currentVisibility) => !currentVisibility,
+            )
+          }
+          className="text-sm font-semibold text-neutral-950 transition hover:text-neutral-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950"
+        >
+          {isScoreDetailsVisible ? "Hide score details" : "Show score details"}
+        </button>
+        {isScoreDetailsVisible ? (
+          <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-neutral-600">
+            {reasons.map((reason) => (
+              <li key={reason}>{reason}</li>
+            ))}
+          </ul>
+        ) : null}
       </div>
     </div>
   );

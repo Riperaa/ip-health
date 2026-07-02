@@ -6,6 +6,7 @@ type AbuseIpDbResponse = {
     usageType?: unknown;
     isp?: unknown;
     domain?: unknown;
+    hostnames?: unknown;
     isWhitelisted?: unknown;
   };
 };

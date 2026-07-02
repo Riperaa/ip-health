@@ -48,14 +48,16 @@ function parseOrg(org?: string) {
   };
 }
 
-function isInfrastructureUsage(usageType?: string | null) {
+export function isInfrastructureUsage(usageType?: string | null) {
   const normalized = usageType?.toLowerCase() ?? "";
 
   return (
     normalized.includes("data center") ||
     normalized.includes("web hosting") ||
     normalized.includes("transit") ||
-    normalized.includes("hosting")
+    normalized.includes("hosting") ||
+    normalized.includes("infrastructure") ||
+    normalized.includes("cloud")
   );
 }
 

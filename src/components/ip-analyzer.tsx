@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 
 import {
@@ -723,14 +724,22 @@ export function IpAnalyzer() {
   return (
     <div className="mx-auto mt-10 flex w-full max-w-xl flex-col items-center gap-3">
       <form onSubmit={handleSubmit} className="flex w-full flex-col items-center gap-3">
-        <button
-          type="button"
-          onClick={detectPublicIp}
-          disabled={isDetecting}
-          className="h-12 rounded-full border border-neutral-200 bg-white px-6 text-sm font-medium text-neutral-700 shadow-sm shadow-neutral-950/[0.04] transition hover:border-neutral-300 hover:bg-neutral-50 hover:text-neutral-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {isDetecting ? "Detecting..." : "Auto Detect My IP"}
-        </button>
+        <div className="flex flex-col items-center gap-3 sm:flex-row">
+          <button
+            type="button"
+            onClick={detectPublicIp}
+            disabled={isDetecting}
+            className="h-12 rounded-full border border-neutral-200 bg-white px-6 text-sm font-medium text-neutral-700 shadow-sm shadow-neutral-950/[0.04] transition hover:border-neutral-300 hover:bg-neutral-50 hover:text-neutral-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isDetecting ? "Detecting..." : "Auto Detect My IP"}
+          </button>
+          <Link
+            href="/compare"
+            className="flex h-12 items-center rounded-full border border-neutral-200 bg-white px-6 text-sm font-medium text-neutral-700 shadow-sm shadow-neutral-950/[0.04] transition hover:border-neutral-300 hover:bg-neutral-50 hover:text-neutral-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950"
+          >
+            Compare IPs
+          </Link>
+        </div>
 
         <div className="mt-3 flex w-full flex-col gap-3 rounded-[28px] border border-neutral-200 bg-white p-2 shadow-[0_12px_50px_rgba(0,0,0,0.08)] transition focus-within:border-neutral-300 sm:flex-row sm:items-center">
           <label htmlFor="ip-address" className="sr-only">

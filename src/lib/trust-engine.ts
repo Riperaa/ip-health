@@ -71,6 +71,74 @@ function getIpInfoSignals(ipInfo: IpInfoResponse) {
   };
 }
 
+function getScoreSummary(score: number) {
+  if (score >= 90) {
+    return "low risk";
+  }
+
+  if (score >= 70) {
+    return "generally trustworthy";
+  }
+
+  if (score >= 40) {
+    return "some risk";
+  }
+
+  return "high risk";
+}
+
+function getAbuseIpDbSummary(abuseIpDb?: AbuseIpDbResponse | null) {
+  const abuseConfidence = abuseIpDb?.abuseConfidence ?? null;
+
+  if (abuseConfidence === null) {
+    return "AbuseIPDB did not provide a confidence score.";
+  }
+
+  if (abuseConfidence >= 80) {
+    return `AbuseIPDB reports a high abuse confidence of ${abuseConfidence}%.`;
+  }
+
+  if (abuseConfidence >= 50) {
+    return `AbuseIPDB reports an elevated abuse confidence of ${abuseConfidence}%.`;
+  }
+
+  return `AbuseIPDB abuse confidence is ${abuseConfidence}%.`;
+}
+
+function getUsageSummary(abuseIpDb?: AbuseIpDbResponse | null) {
+  if (!abuseIpDb?.usageType) {
+    return "No specific usage type was reported.";
+  }
+
+  if (isDatacenterUsage(abuseIpDb.usageType)) {
+    return `The usage type is ${abuseIpDb.usageType}, which is commonly associated with hosting or infrastructure networks.`;
+  }
+
+  return `The usage type is ${abuseIpDb.usageType}.`;
+}
+
+function getPrivacySignalSummary(
+  ipInfo: IpInfoResponse,
+  ipqs?: IpqsResponse | null,
+) {
+  const privacy = ipInfo.privacy;
+  const signals = [
+    privacy?.vpn === true || ipqs?.vpn === true || ipqs?.activeVpn === true
+      ? "VPN"
+      : null,
+    privacy?.proxy === true || ipqs?.proxy === true ? "proxy" : null,
+    privacy?.tor === true || ipqs?.tor === true ? "Tor" : null,
+    privacy?.relay === true ? "relay" : null,
+    privacy?.hosting === true ? "hosting" : null,
+  ].filter((signal): signal is string => Boolean(signal));
+
+  if (signals.length === 0) {
+    return "No obvious VPN, proxy, Tor, relay, or hosting signals were detected.";
+  }
+
+  return `Detected privacy or infrastructure signals: ${signals.join(", ")}.`;
+}
+
 function getAbuseIpDbReasons(abuseIpDb?: AbuseIpDbResponse | null) {
   if (!abuseIpDb) {
     return [];
@@ -189,4 +257,19 @@ export function buildReasons(
     ...getAbuseIpDbReasons(abuseIpDb),
     ...getIpqsReasons(ipqs),
   ];
+}
+
+export function buildRiskSummary(
+  ipInfo: IpInfoResponse,
+  abuseIpDb?: AbuseIpDbResponse | null,
+  ipqs?: IpqsResponse | null,
+) {
+  const score = calculateTrustScore(ipInfo, abuseIpDb, ipqs);
+
+  return [
+    `This IP has a trust score of ${score}/100, which suggests ${getScoreSummary(score)}.`,
+    getAbuseIpDbSummary(abuseIpDb),
+    getUsageSummary(abuseIpDb),
+    getPrivacySignalSummary(ipInfo, ipqs),
+  ].join(" ");
 }

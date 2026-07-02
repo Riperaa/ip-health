@@ -4,6 +4,7 @@ import { FormEvent, useCallback, useEffect, useState } from "react";
 
 import {
   buildReasons,
+  buildRiskSummary,
   calculateTrustScore,
   type AbuseIpDbResponse,
   type IpInfoResponse,
@@ -186,6 +187,7 @@ function TrustScoreCard({
 }) {
   const score = calculateTrustScore(ipInfo, abuseIpDb, ipqs);
   const reasons = buildReasons(ipInfo, abuseIpDb, ipqs);
+  const riskSummary = buildRiskSummary(ipInfo, abuseIpDb, ipqs);
   const status = getTrustScoreStatus(score);
 
   return (
@@ -204,6 +206,10 @@ function TrustScoreCard({
         >
           {status.label}
         </span>
+      </div>
+      <div className="mt-5 border-t border-neutral-100 pt-4">
+        <p className="text-sm font-semibold text-neutral-950">Risk Summary</p>
+        <p className="mt-2 text-sm leading-6 text-neutral-600">{riskSummary}</p>
       </div>
       <div className="mt-5 border-t border-neutral-100 pt-4">
         <p className="text-sm font-semibold text-neutral-950">Why this score?</p>

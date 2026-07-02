@@ -11,6 +11,12 @@ export default function Home() {
       >
         Sponsor
       </Link>
+      <Link
+        href="/compare"
+        className="fixed right-24 top-4 z-10 rounded-full border border-neutral-200 bg-white/80 px-3 py-1.5 text-sm font-medium text-neutral-600 shadow-sm shadow-neutral-950/[0.03] backdrop-blur transition hover:border-neutral-300 hover:text-neutral-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950 sm:right-28 sm:top-7"
+      >
+        Compare IPs
+      </Link>
 
       <section className="mx-auto flex w-full max-w-4xl flex-1 flex-col items-center justify-center px-5 py-24 sm:px-8">
         <div className="w-full max-w-2xl text-center">

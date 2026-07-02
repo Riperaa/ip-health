@@ -3,6 +3,11 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
 
 import {
+  fetchIpAnalysis,
+  fetchPublicIp,
+  type AnalysisResult,
+} from "@/lib/client-ip-analysis";
+import {
   buildReasons,
   buildRecommendation,
   buildRecommendationConfidence,
@@ -15,12 +20,6 @@ import {
   type IpqsResponse,
   type ServiceCompatibilityStatus,
 } from "@/lib/trust-engine";
-
-type AnalysisResult = {
-  ipInfo: IpInfoResponse;
-  abuseIpDb: AbuseIpDbResponse | null;
-  ipqs: IpqsResponse | null;
-};
 
 type ResultCard = {
   label: string;
@@ -468,72 +467,6 @@ function getResultCards(
   ];
 }
 
-async function fetchIpInfo(nextIpAddress?: string) {
-  const url = new URL("/api/ipinfo", window.location.origin);
-
-  if (nextIpAddress) {
-    url.searchParams.set("ip", nextIpAddress);
-  }
-
-  const response = await fetch(url);
-
-  if (!response.ok) {
-    throw new Error("Unable to fetch IP information.");
-  }
-
-  return (await response.json()) as IpInfoResponse;
-}
-
-async function fetchAbuseIpDb(nextIpAddress: string) {
-  const url = new URL("/api/abuseipdb", window.location.origin);
-  url.searchParams.set("ip", nextIpAddress);
-
-  try {
-    const response = await fetch(url);
-
-    if (!response.ok) {
-      return null;
-    }
-
-    return (await response.json()) as AbuseIpDbResponse;
-  } catch {
-    return null;
-  }
-}
-
-async function fetchIpqs(nextIpAddress: string) {
-  const url = new URL("/api/ipqs", window.location.origin);
-  url.searchParams.set("ip", nextIpAddress);
-
-  try {
-    const response = await fetch(url);
-
-    if (!response.ok) {
-      return null;
-    }
-
-    return (await response.json()) as IpqsResponse;
-  } catch {
-    return null;
-  }
-}
-
-async function fetchPublicIp() {
-  const response = await fetch("https://api.ipify.org?format=json");
-
-  if (!response.ok) {
-    throw new Error("Unable to detect IP address.");
-  }
-
-  const data = (await response.json()) as { ip?: string };
-
-  if (!data.ip) {
-    throw new Error("Missing IP address.");
-  }
-
-  return data.ip;
-}
-
 function TrustScoreCard({
   ipInfo,
   abuseIpDb,
@@ -745,12 +678,7 @@ export function IpAnalyzer() {
     setIsAnalyzing(true);
 
     try {
-      const [ipInfo, abuseIpDb, ipqs] = await Promise.all([
-        fetchIpInfo(trimmedIpAddress),
-        fetchAbuseIpDb(trimmedIpAddress),
-        fetchIpqs(trimmedIpAddress),
-      ]);
-      setResult({ ipInfo, abuseIpDb, ipqs });
+      setResult(await fetchIpAnalysis(trimmedIpAddress));
       saveRecentCheck(trimmedIpAddress);
     } catch {
       setResult(null);

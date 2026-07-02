@@ -20,15 +20,15 @@ Set these variables in the Vercel project settings before deploying.
 
 | Name | Required | Purpose |
 | --- | --- | --- |
-| `IPQS_API_KEY` | Yes | Server-side IPQualityScore API key for `/api/ipqs`. |
-| `ABUSEIPDB_API_KEY` | Recommended | Server-side AbuseIPDB API key for `/api/abuseipdb`. If missing, AbuseIPDB results are skipped by the client. |
-| `IPINFO_TOKEN` | Recommended | Server-side IPinfo token for `/api/ipinfo`. If missing, the app can use the fallback provider after IPinfo rate limits. |
+| `ABUSEIPDB_API_KEY` | Yes | Server-side AbuseIPDB API key for `/api/abuseipdb`. |
+| `IPINFO_TOKEN` | Optional | Server-side IPinfo token for `/api/ipinfo`. If missing, the app can use the fallback provider after IPinfo rate limits. |
+| `IPQS_API_KEY` | Optional / currently disabled | Server-side IPQualityScore API key for `/api/ipqs`. Leave unset while IPQS is disabled; the client skips IPQS results when the route is unavailable. |
 | `ABUSEIPDB_TIMEOUT_MS` | Optional | Timeout for AbuseIPDB requests. Defaults to `5000`. |
 | `ABUSEIPDB_MAX_AGE_DAYS` | Optional | AbuseIPDB report lookback window. Defaults to `90`. |
 | `IPQS_TIMEOUT_MS` | Optional | Timeout for IPQualityScore requests. Defaults to `5000`. |
-| `NEXT_PUBLIC_SPONSOR_URL` | Optional | Public sponsor or donation page URL. When unset, the Sponsor button is hidden. |
 
 Do not configure `NEXT_PUBLIC_IPINFO_TOKEN` for production unless a public browser-readable token is intentional. Prefer `IPINFO_TOKEN`.
+Keep `.env.local` local only. It is already covered by `.gitignore` and must not be committed.
 
 ## Preflight
 
@@ -44,7 +44,8 @@ The production build should include these dynamic API routes:
 
 - `/api/ipinfo`
 - `/api/abuseipdb`
-- `/api/ipqs`
+- `/api/ipqs` (available only when IPQS is enabled with `IPQS_API_KEY`)
+- `/sponsor`
 
 ## Deploy
 
@@ -76,7 +77,7 @@ You can also check the IPQS route directly:
 https://your-domain.example/api/ipqs?ip=1.1.1.1
 ```
 
-The response should include:
+When `IPQS_API_KEY` is configured, the response should include:
 
 ```json
 {
@@ -92,3 +93,5 @@ The response should include:
 ```
 
 Actual values will vary by IP address and provider data.
+
+When IPQS is disabled, this route returns a configuration error and the app continues with the other providers.

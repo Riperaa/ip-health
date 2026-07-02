@@ -1,20 +1,16 @@
+import Link from "next/link";
+
 import { IpAnalyzer } from "@/components/ip-analyzer";
 
 export default function Home() {
-  const sponsorUrl = process.env.NEXT_PUBLIC_SPONSOR_URL?.trim();
-
   return (
     <main className="min-h-dvh bg-white text-neutral-950">
-      {sponsorUrl ? (
-        <a
-          href={sponsorUrl}
-          target="_blank"
-          rel="noreferrer"
-          className="fixed right-4 top-4 z-10 rounded-full border border-neutral-200 bg-white/80 px-3 py-1.5 text-sm font-medium text-neutral-600 shadow-sm shadow-neutral-950/[0.03] backdrop-blur transition hover:border-neutral-300 hover:text-neutral-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950 sm:right-8 sm:top-7"
-        >
-          Sponsor
-        </a>
-      ) : null}
+      <Link
+        href="/sponsor"
+        className="fixed right-4 top-4 z-10 rounded-full border border-neutral-200 bg-white/80 px-3 py-1.5 text-sm font-medium text-neutral-600 shadow-sm shadow-neutral-950/[0.03] backdrop-blur transition hover:border-neutral-300 hover:text-neutral-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950 sm:right-8 sm:top-7"
+      >
+        Sponsor
+      </Link>
 
       <section className="mx-auto flex min-h-dvh w-full max-w-4xl flex-col items-center justify-center px-5 py-24 sm:px-8">
         <div className="w-full max-w-2xl text-center">

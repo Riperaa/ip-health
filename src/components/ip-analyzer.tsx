@@ -96,63 +96,82 @@ function hasDetail(value?: string | null) {
   return formatDetail(value) !== "Not identified";
 }
 
+function isDataCenterHostingTransitUsage(usageType?: string | null) {
+  const normalized = usageType?.toLowerCase().replace(/\s+/g, "") ?? "";
+
+  return normalized.includes("datacenter/webhosting/transit");
+}
+
 function formatHosting(value?: boolean, usageType?: string | null) {
   if (value === true || isInfrastructureUsage(usageType)) {
-    return "Detected";
+    return "Infrastructure";
   }
 
-  if (value === false || hasDetail(usageType)) {
+  if (value === false) {
     return "Not detected";
   }
 
-  return "Not identified";
+  return "No hosting signal";
 }
 
 function getPrivacySummary(
   privacy?: IpInfoResponse["privacy"],
   ipqs?: IpqsResponse | null,
 ) {
-  const privacySignals = [
-    { label: "VPN", values: [privacy?.vpn, ipqs?.vpn, ipqs?.activeVpn] },
-    { label: "Proxy", values: [privacy?.proxy, ipqs?.proxy] },
-    { label: "Tor", values: [privacy?.tor, ipqs?.tor] },
-    { label: "Relay", values: [privacy?.relay] },
-  ];
-  const enabledSignals = privacySignals
-    .filter(({ values }) => values.some((signal) => signal === true))
-    .map(({ label }) => label);
-
-  if (enabledSignals.length > 0) {
-    return enabledSignals.join(", ");
+  if (privacy?.vpn === true || ipqs?.vpn === true || ipqs?.activeVpn === true) {
+    return "VPN";
   }
 
+  if (privacy?.proxy === true || ipqs?.proxy === true) {
+    return "Proxy";
+  }
+
+  if (privacy?.tor === true || ipqs?.tor === true) {
+    return "Tor";
+  }
+
+  if (privacy?.relay === true) {
+    return "Relay";
+  }
+
+  const ipInfoSignals = [
+    privacy?.vpn,
+    privacy?.proxy,
+    privacy?.tor,
+    privacy?.relay,
+  ];
+  const ipqsSignals = [ipqs?.vpn, ipqs?.proxy, ipqs?.tor, ipqs?.activeVpn];
+
   if (
-    privacySignals.every(
-      ({ values }) =>
-        values.some((signal) => signal !== undefined && signal !== null) &&
-        values.every(
-          (signal) => signal === false || signal === undefined || signal === null,
-        ),
-    )
+    ipInfoSignals.every((signal) => signal === false) ||
+    ipqsSignals.every((signal) => signal === false)
   ) {
     return "Clean";
   }
 
-  if (privacy?.service?.trim()) {
-    return formatDetail(privacy.service);
-  }
-
-  return "Not identified";
+  return "No privacy signal";
 }
 
 function formatAbuseConfidence(abuseIpDb?: AbuseIpDbResponse | null) {
   const abuseConfidence = abuseIpDb?.abuseConfidence ?? null;
 
   if (abuseConfidence === null) {
-    return "Not identified";
+    return "No abuse score";
   }
 
-  return `${abuseConfidence}%`;
+  if (abuseConfidence < 25) {
+    return `Low · ${abuseConfidence}%`;
+  }
+
+  if (abuseConfidence < 60) {
+    return `Elevated · ${abuseConfidence}%`;
+  }
+
+  if (abuseConfidence < 85) {
+    return `High · ${abuseConfidence}%`;
+  }
+
+  return `Severe · ${abuseConfidence}%`;
 }
 
 function formatUsageType(
@@ -160,36 +179,53 @@ function formatUsageType(
   privacy?: IpInfoResponse["privacy"],
 ) {
   if (hasDetail(usageType)) {
+    if (isDataCenterHostingTransitUsage(usageType)) {
+      return "Infrastructure";
+    }
+
     return formatDetail(usageType);
   }
 
   if (privacy?.hosting === true || isInfrastructureUsage(usageType)) {
-    return "Infrastructure / Hosting";
+    return "Infrastructure";
   }
 
   return "Not identified";
 }
 
-function formatReverseDns(abuseIpDb?: AbuseIpDbResponse | null) {
+function getAbuseIpDbHostname(abuseIpDb?: AbuseIpDbResponse | null) {
   const raw = abuseIpDb?.raw;
 
   if (!raw || typeof raw !== "object") {
-    return "Not identified";
+    return null;
   }
 
   const data = (raw as { data?: unknown }).data;
 
   if (!data || typeof data !== "object") {
-    return "Not identified";
+    return null;
   }
 
   const hostnames = (data as { hostnames?: unknown }).hostnames;
 
   if (!Array.isArray(hostnames)) {
-    return "Not identified";
+    return null;
   }
 
-  return formatDetail(typeof hostnames[0] === "string" ? hostnames[0] : null);
+  return typeof hostnames[0] === "string" ? hostnames[0] : null;
+}
+
+function formatReverseDns(
+  result: IpInfoResponse,
+  abuseIpDb?: AbuseIpDbResponse | null,
+) {
+  const reverseDns = pickDetail(getAbuseIpDbHostname(abuseIpDb), result.hostname);
+
+  if (!reverseDns) {
+    return "No PTR record";
+  }
+
+  return formatDetail(reverseDns);
 }
 
 function getResultCards(
@@ -212,10 +248,11 @@ function getResultCards(
     result.asn?.name,
     isp,
   );
+  const country = pickDetail(result.country_name, result.country);
 
   return [
     { label: "IP", value: formatDetail(result.ip) },
-    { label: "Country", value: formatDetail(result.country_name ?? result.country) },
+    { label: "Country", value: formatDetail(country) },
     { label: "Region / State", value: formatDetail(result.region) },
     { label: "City", value: formatDetail(result.city) },
     { label: "ISP", value: formatDetail(isp) },
@@ -230,7 +267,7 @@ function getResultCards(
       value: formatHosting(result.privacy?.hosting, abuseIpDb?.usageType),
     },
     { label: "Privacy", value: getPrivacySummary(result.privacy, ipqs) },
-    { label: "Reverse DNS", value: formatReverseDns(abuseIpDb) },
+    { label: "Reverse DNS", value: formatReverseDns(result, abuseIpDb) },
     { label: "Abuse Confidence", value: formatAbuseConfidence(abuseIpDb) },
   ];
 }

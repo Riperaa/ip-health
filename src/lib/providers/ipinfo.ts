@@ -24,6 +24,7 @@ type IpWhoResponse = {
 
 export type ProviderResult = {
   ip?: string;
+  hostname?: string;
   city?: string;
   region?: string;
   country?: string;

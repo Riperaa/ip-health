@@ -30,12 +30,14 @@ type DisplayResult = {
   confidence: RecommendationConfidence;
   usageType: string;
   abuseConfidence: string;
+  abuseConfidenceValue: number | null;
   country: string;
   ispOrg: string;
   hasSevereAbuseOrTor: boolean;
+  hasInfrastructureSignals: boolean;
 };
 
-type Verdict = "IP A" | "IP B" | "Similar Risk";
+type Verdict = "IP A" | "IP B" | "Similar risk";
 
 function formatDetail(value?: string | null) {
   const trimmedValue = value?.trim();
@@ -103,6 +105,10 @@ function formatAbuseConfidence(abuseIpDb?: AbuseIpDbResponse | null) {
   return `Severe · ${abuseConfidence}%`;
 }
 
+function getAbuseConfidenceValue(abuseIpDb?: AbuseIpDbResponse | null) {
+  return abuseIpDb?.abuseConfidence ?? null;
+}
+
 function hasTor(
   ipInfo: IpInfoResponse,
   ipqs?: IpqsResponse | null,
@@ -116,6 +122,16 @@ function hasSevereAbuseOrTor(
   ipqs?: IpqsResponse | null,
 ) {
   return (abuseIpDb?.abuseConfidence ?? 0) >= 85 || hasTor(ipInfo, ipqs);
+}
+
+function hasInfrastructureSignals(
+  ipInfo: IpInfoResponse,
+  abuseIpDb?: AbuseIpDbResponse | null,
+) {
+  return (
+    ipInfo.privacy?.hosting === true ||
+    isInfrastructureUsage(abuseIpDb?.usageType)
+  );
 }
 
 function getIspOrg(
@@ -147,9 +163,11 @@ function getDisplayResult(result: CompareResult): DisplayResult {
     confidence: buildRecommendationConfidence(ipInfo, abuseIpDb, ipqs),
     usageType: formatUsageType(abuseIpDb?.usageType, ipInfo.privacy),
     abuseConfidence: formatAbuseConfidence(abuseIpDb),
+    abuseConfidenceValue: getAbuseConfidenceValue(abuseIpDb),
     country: formatDetail(pickDetail(ipInfo.country_name, ipInfo.country)),
     ispOrg: getIspOrg(ipInfo, abuseIpDb),
     hasSevereAbuseOrTor: hasSevereAbuseOrTor(ipInfo, abuseIpDb, ipqs),
+    hasInfrastructureSignals: hasInfrastructureSignals(ipInfo, abuseIpDb),
   };
 }
 
@@ -165,10 +183,87 @@ function getVerdict(ipA: DisplayResult, ipB: DisplayResult): Verdict {
   const scoreDifference = ipA.score - ipB.score;
 
   if (Math.abs(scoreDifference) < 10) {
-    return "Similar Risk";
+    return "Similar risk";
   }
 
   return scoreDifference > 0 ? "IP A" : "IP B";
+}
+
+function getAbuseConfidenceDifference(ipA: DisplayResult, ipB: DisplayResult) {
+  if (
+    ipA.abuseConfidenceValue === null ||
+    ipB.abuseConfidenceValue === null
+  ) {
+    return null;
+  }
+
+  return ipA.abuseConfidenceValue - ipB.abuseConfidenceValue;
+}
+
+function getVerdictReason(ipA: DisplayResult, ipB: DisplayResult, verdict: Verdict) {
+  const scoreDifference = ipA.score - ipB.score;
+  const abuseConfidenceDifference = getAbuseConfidenceDifference(ipA, ipB);
+
+  if (verdict === "Similar risk") {
+    return "Both IPs have similar risk levels.";
+  }
+
+  const winner = verdict === "IP A" ? ipA : ipB;
+  const other = verdict === "IP A" ? ipB : ipA;
+  const winnerLabel = verdict;
+  const scoreLead = verdict === "IP A" ? scoreDifference : -scoreDifference;
+  const abuseLead =
+    abuseConfidenceDifference === null
+      ? null
+      : verdict === "IP A"
+        ? -abuseConfidenceDifference
+        : abuseConfidenceDifference;
+
+  if (other.hasSevereAbuseOrTor && !winner.hasSevereAbuseOrTor) {
+    return `${winnerLabel} avoids stronger abuse or Tor signals on the other IP.`;
+  }
+
+  if (other.hasInfrastructureSignals && !winner.hasInfrastructureSignals) {
+    return `${winnerLabel} has fewer infrastructure signals and a cleaner usage profile.`;
+  }
+
+  if (scoreLead >= 10 && abuseLead !== null && abuseLead >= 10) {
+    return `${winnerLabel} has a higher trust score and lower abuse confidence.`;
+  }
+
+  if (scoreLead >= 10) {
+    return `${winnerLabel} has a higher trust score.`;
+  }
+
+  if (abuseLead !== null && abuseLead >= 10) {
+    return `${winnerLabel} has lower abuse confidence.`;
+  }
+
+  return `${winnerLabel} has the stronger overall comparison signals.`;
+}
+
+function VerdictSummary({
+  verdict,
+  reason,
+}: {
+  verdict: Verdict;
+  reason: string;
+}) {
+  return (
+    <div className="mt-3 rounded-[28px] border border-neutral-200 bg-white p-5 text-left shadow-sm shadow-neutral-950/[0.03] sm:flex sm:items-start sm:justify-between sm:gap-6">
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-normal text-neutral-400">
+          Better choice
+        </p>
+        <p className="mt-1 text-2xl font-semibold text-neutral-950">
+          {verdict}
+        </p>
+      </div>
+      <p className="mt-3 text-sm leading-6 text-neutral-600 sm:mt-1 sm:max-w-xl">
+        {reason}
+      </p>
+    </div>
+  );
 }
 
 function ResultCard({
@@ -190,9 +285,9 @@ function ResultCard({
   ];
 
   return (
-    <div className="rounded-[28px] border border-neutral-200 bg-white p-5 text-left shadow-[0_12px_50px_rgba(0,0,0,0.08)]">
+    <div className="flex h-full flex-col rounded-[28px] border border-neutral-200 bg-white p-5 text-left shadow-[0_12px_50px_rgba(0,0,0,0.08)]">
       <div className="flex items-start justify-between gap-4 border-b border-neutral-100 pb-4">
-        <div>
+        <div className="min-w-0">
           <p className="text-xs font-semibold uppercase tracking-normal text-neutral-400">
             {label}
           </p>
@@ -205,11 +300,11 @@ function ResultCard({
         </p>
       </div>
 
-      <dl className="mt-4 space-y-3">
+      <dl className="mt-4 flex flex-1 flex-col">
         {rows.map((row) => (
           <div
             key={row.label}
-            className="flex flex-col gap-1 border-b border-neutral-100 pb-3 last:border-0 last:pb-0"
+            className="flex flex-col gap-1 border-b border-neutral-100 py-3 first:pt-0 last:border-0 last:pb-0"
           >
             <dt className="text-xs font-semibold uppercase tracking-normal text-neutral-400">
               {row.label}
@@ -241,11 +336,13 @@ export function IpCompare() {
 
     const nextIpA = getDisplayResult(results.ipA);
     const nextIpB = getDisplayResult(results.ipB);
+    const verdict = getVerdict(nextIpA, nextIpB);
 
     return {
       ipA: nextIpA,
       ipB: nextIpB,
-      verdict: getVerdict(nextIpA, nextIpB),
+      verdict,
+      verdictReason: getVerdictReason(nextIpA, nextIpB, verdict),
     };
   }, [results]);
 
@@ -338,19 +435,15 @@ export function IpCompare() {
 
       {displayResults ? (
         <div className="mt-8 w-full">
-          <div className="mb-3 rounded-[28px] border border-neutral-200 bg-white p-5 text-center shadow-sm shadow-neutral-950/[0.03]">
-            <p className="text-xs font-semibold uppercase tracking-normal text-neutral-400">
-              Better choice
-            </p>
-            <p className="mt-1 text-2xl font-semibold text-neutral-950">
-              {displayResults.verdict}
-            </p>
-          </div>
-
-          <div className="grid gap-3 md:grid-cols-2">
+          <div className="grid items-stretch gap-3 md:grid-cols-2">
             <ResultCard label="IP A" result={displayResults.ipA} />
             <ResultCard label="IP B" result={displayResults.ipB} />
           </div>
+
+          <VerdictSummary
+            verdict={displayResults.verdict}
+            reason={displayResults.verdictReason}
+          />
         </div>
       ) : null}
     </div>

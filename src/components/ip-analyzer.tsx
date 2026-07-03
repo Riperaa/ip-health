@@ -432,22 +432,7 @@ function getPrivacySummary(
     return "Relay";
   }
 
-  const ipInfoSignals = [
-    privacy?.vpn,
-    privacy?.proxy,
-    privacy?.tor,
-    privacy?.relay,
-  ];
-  const ipqsSignals = [ipqs?.vpn, ipqs?.proxy, ipqs?.tor, ipqs?.activeVpn];
-
-  if (
-    ipInfoSignals.every((signal) => signal === false) ||
-    ipqsSignals.every((signal) => signal === false)
-  ) {
-    return "Clean";
-  }
-
-  return "No privacy signal";
+  return "No VPN/Proxy detected";
 }
 
 function formatAbuseConfidence(abuseIpDb?: AbuseIpDbResponse | null) {
@@ -1069,6 +1054,11 @@ export function IpAnalyzer() {
               </div>
             ))}
           </div>
+          <p className="text-xs leading-5 text-neutral-400">
+            IP Health provides reputation-based guidance only. Services may also
+            consider account history, device signals, payment method, browser
+            fingerprint, and behavior.
+          </p>
         </div>
       ) : null}
     </div>

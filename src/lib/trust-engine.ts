@@ -127,22 +127,6 @@ function getIpInfoSignals(ipInfo: IpInfoResponse) {
   };
 }
 
-function getScoreSummary(score: number) {
-  if (score >= 90) {
-    return "low risk";
-  }
-
-  if (score >= 70) {
-    return "generally trustworthy";
-  }
-
-  if (score >= 40) {
-    return "some risk";
-  }
-
-  return "high risk";
-}
-
 function getAbuseIpDbSummary(abuseIpDb?: AbuseIpDbResponse | null) {
   const abuseConfidence = abuseIpDb?.abuseConfidence ?? null;
 
@@ -197,6 +181,44 @@ function getPrivacySignalSummary(
   }
 
   return `Detected privacy or infrastructure signals: ${signals.join(", ")}.`;
+}
+
+function getTrustScoreSummary(
+  score: number,
+  signals: ReturnType<typeof getCompatibilitySignals>,
+) {
+  const hasMajorSignal =
+    signals.hosting ||
+    signals.vpn ||
+    signals.proxy ||
+    signals.tor ||
+    signals.relay ||
+    (signals.abuseConfidence !== null && signals.abuseConfidence >= 50);
+
+  if (
+    signals.tor ||
+    (signals.abuseConfidence !== null && signals.abuseConfidence >= 85)
+  ) {
+    return "This IP has severe abuse or privacy risk signals and should not be used for sensitive services.";
+  }
+
+  if (score >= 90 && !hasMajorSignal) {
+    return `This IP has a trust score of ${score}/100, with no major reputation or abuse signals detected.`;
+  }
+
+  if (score >= 70 && signals.hosting) {
+    return `This IP has a trust score of ${score}/100, which suggests generally good reputation, but infrastructure signals still require caution.`;
+  }
+
+  if (score >= 70) {
+    return `This IP has a trust score of ${score}/100, which suggests generally good reputation.`;
+  }
+
+  if (score >= 40) {
+    return `This IP has a trust score of ${score}/100, which suggests moderate risk. Use caution with sensitive services.`;
+  }
+
+  return `This IP has a trust score of ${score}/100, which suggests elevated risk.`;
 }
 
 function getCompatibilitySignals(
@@ -574,9 +596,10 @@ export function buildRiskSummary(
   ipqs?: IpqsResponse | null,
 ) {
   const score = calculateTrustScore(ipInfo, abuseIpDb, ipqs);
+  const signals = getCompatibilitySignals(ipInfo, abuseIpDb, ipqs);
 
   return [
-    `This IP has a trust score of ${score}/100, which suggests ${getScoreSummary(score)}.`,
+    getTrustScoreSummary(score, signals),
     getAbuseIpDbSummary(abuseIpDb),
     getUsageSummary(abuseIpDb),
     getPrivacySignalSummary(ipInfo, abuseIpDb, ipqs),
@@ -789,6 +812,18 @@ export function buildRecommendation(
   }
 
   if (label === "Use with Caution" && hasPrivacyOrInfrastructureSignal) {
+    if (
+      signals.hosting &&
+      abuseConfidence !== null &&
+      abuseConfidence < 25
+    ) {
+      return {
+        label,
+        summary:
+          "This IP has clean abuse history, but hosting or infrastructure usage may still trigger checks on sensitive services.",
+      };
+    }
+
     return {
       label,
       summary:

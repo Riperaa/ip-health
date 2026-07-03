@@ -129,13 +129,25 @@ function ServiceCompatibilitySummaryBadges({
 }: {
   summary: ServiceCompatibilitySummary;
 }) {
+  const summaryBadges = (
+    [
+      { count: summary.Good, label: "Good", tone: "good" },
+      {
+        count: summary["Use with Caution"],
+        label: "Caution",
+        tone: "caution",
+      },
+      { count: summary["High Risk"], label: "High Risk", tone: "risk" },
+    ] satisfies { count: number; label: string; tone: StatusTone }[]
+  ).filter((badge) => badge.count > 0);
+
   return (
     <span className="flex flex-wrap gap-1.5 sm:justify-end">
-      <StatusBadge tone="good">{summary.Good} Good</StatusBadge>
-      <StatusBadge tone="caution">
-        {summary["Use with Caution"]} Caution
-      </StatusBadge>
-      <StatusBadge tone="risk">{summary["High Risk"]} High Risk</StatusBadge>
+      {summaryBadges.map((badge) => (
+        <StatusBadge key={badge.label} tone={badge.tone} variant="quiet">
+          {badge.count} {badge.label}
+        </StatusBadge>
+      ))}
     </span>
   );
 }

@@ -10,13 +10,32 @@ export type StatusTone =
   | "infrastructure"
   | "neutral";
 
-const STATUS_TONE_CLASS_NAMES: Record<StatusTone, string> = {
-  good: "border-emerald-200 bg-emerald-50 text-emerald-700 ring-emerald-200",
-  caution: "border-amber-200 bg-amber-50 text-amber-700 ring-amber-200",
-  risk: "border-rose-200 bg-rose-50 text-rose-700 ring-rose-200",
-  infrastructure: "border-slate-200 bg-slate-50 text-slate-600 ring-slate-200",
-  neutral:
-    "border-neutral-200 bg-neutral-50 text-neutral-600 ring-neutral-200",
+export type StatusBadgeVariant = "default" | "quiet";
+
+const STATUS_TONE_CLASS_NAMES: Record<
+  StatusBadgeVariant,
+  Record<StatusTone, string>
+> = {
+  default: {
+    good: "border-emerald-200 bg-emerald-50 text-emerald-700 ring-emerald-200",
+    caution: "border-amber-200 bg-amber-50 text-amber-700 ring-amber-200",
+    risk: "border-rose-200 bg-rose-50 text-rose-700 ring-rose-200",
+    infrastructure:
+      "border-slate-200 bg-slate-50 text-slate-600 ring-slate-200",
+    neutral:
+      "border-neutral-200 bg-neutral-50 text-neutral-600 ring-neutral-200",
+  },
+  quiet: {
+    good:
+      "border-emerald-100 bg-emerald-50/60 text-emerald-700 ring-emerald-100/70",
+    caution:
+      "border-amber-100 bg-amber-50/60 text-amber-800 ring-amber-100/70",
+    risk: "border-rose-100 bg-rose-50/60 text-rose-700 ring-rose-100/70",
+    infrastructure:
+      "border-slate-100 bg-slate-50/60 text-slate-600 ring-slate-100/70",
+    neutral:
+      "border-neutral-100 bg-neutral-50/60 text-neutral-600 ring-neutral-100/70",
+  },
 };
 
 const STATUS_BADGE_BASE_CLASS_NAME =
@@ -25,10 +44,11 @@ const STATUS_BADGE_BASE_CLASS_NAME =
 export function getStatusBadgeClassName(
   tone: StatusTone,
   className?: string,
+  variant: StatusBadgeVariant = "default",
 ) {
   return [
     STATUS_BADGE_BASE_CLASS_NAME,
-    STATUS_TONE_CLASS_NAMES[tone],
+    STATUS_TONE_CLASS_NAMES[variant][tone],
     className,
   ]
     .filter(Boolean)

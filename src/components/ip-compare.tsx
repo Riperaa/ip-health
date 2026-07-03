@@ -6,6 +6,7 @@ import {
   fetchIpAnalysis,
   type AnalysisResult,
 } from "@/lib/client-ip-analysis";
+import { StatusBadge } from "@/components/status-badge";
 import {
   buildRecommendation,
   buildRecommendationConfidence,
@@ -17,6 +18,12 @@ import {
   type Recommendation,
   type RecommendationConfidence,
 } from "@/lib/trust-engine";
+import {
+  getRecommendationTone,
+  getTrustScoreStatusLabel,
+  getTrustScoreTone,
+  getUsageTypeTone,
+} from "@/lib/status-colors";
 
 type CompareResult = AnalysisResult & {
   input: string;
@@ -273,6 +280,7 @@ function ResultCard({
   label: "IP A" | "IP B";
   result: DisplayResult;
 }) {
+  const trustTone = getTrustScoreTone(result.score);
   const rows = [
     { label: "IP", value: result.ip },
     { label: "Trust Score", value: `${result.score}/100` },
@@ -295,25 +303,50 @@ function ResultCard({
             {result.input}
           </p>
         </div>
-        <p className="shrink-0 text-3xl font-semibold leading-none text-neutral-950">
-          {result.score}
-        </p>
+        <div className="shrink-0 text-right">
+          <p className="text-3xl font-semibold leading-none text-neutral-950">
+            {result.score}
+          </p>
+          <StatusBadge tone={trustTone} className="mt-2">
+            {getTrustScoreStatusLabel(result.score)}
+          </StatusBadge>
+        </div>
       </div>
 
       <dl className="mt-4 flex flex-1 flex-col">
-        {rows.map((row) => (
-          <div
-            key={row.label}
-            className="flex flex-col gap-1 border-b border-neutral-100 py-3 first:pt-0 last:border-0 last:pb-0"
-          >
-            <dt className="text-xs font-semibold uppercase tracking-normal text-neutral-400">
-              {row.label}
-            </dt>
-            <dd className="break-words text-sm font-medium text-neutral-950">
-              {row.value}
-            </dd>
-          </div>
-        ))}
+        {rows.map((row) => {
+          const isRecommendation = row.label === "Recommendation";
+          const isUsageType = row.label === "IP Type / Usage Type";
+          const isTrustScore = row.label === "Trust Score";
+
+          return (
+            <div
+              key={row.label}
+              className="flex flex-col gap-1 border-b border-neutral-100 py-3 first:pt-0 last:border-0 last:pb-0"
+            >
+              <dt className="text-xs font-semibold uppercase tracking-normal text-neutral-400">
+                {row.label}
+              </dt>
+              <dd className="break-words text-sm font-medium text-neutral-950">
+                {isRecommendation ? (
+                  <StatusBadge
+                    tone={getRecommendationTone(result.recommendation.label)}
+                  >
+                    {row.value}
+                  </StatusBadge>
+                ) : isUsageType ? (
+                  <StatusBadge tone={getUsageTypeTone(row.value)}>
+                    {row.value}
+                  </StatusBadge>
+                ) : isTrustScore ? (
+                  <StatusBadge tone={trustTone}>{row.value}</StatusBadge>
+                ) : (
+                  row.value
+                )}
+              </dd>
+            </div>
+          );
+        })}
       </dl>
     </div>
   );

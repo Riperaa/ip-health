@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 
+import { StatusBadge } from "@/components/status-badge";
 import {
   fetchIpAnalysis,
   fetchPublicIp,
@@ -27,6 +28,14 @@ import {
   type RecommendationLabel,
   type ServiceCompatibilityStatus,
 } from "@/lib/trust-engine";
+import {
+  getRecommendationTone,
+  getServiceCompatibilityTone,
+  getTrustScoreStatusLabel,
+  getTrustScoreTone,
+  getUsageTypeTone,
+  type StatusTone,
+} from "@/lib/status-colors";
 
 type ResultCard = {
   label: string;
@@ -72,30 +81,9 @@ const MAX_IP_HISTORY_RECORDS = 20;
 const IP_HISTORY_PREVIEW_LIMIT = 5;
 
 function getTrustScoreStatus(score: number) {
-  if (score >= 90) {
-    return {
-      label: "Excellent",
-      className: "bg-green-50 text-green-700 ring-green-200",
-    };
-  }
-
-  if (score >= 70) {
-    return {
-      label: "Good",
-      className: "bg-blue-50 text-blue-700 ring-blue-200",
-    };
-  }
-
-  if (score >= 40) {
-    return {
-      label: "Medium",
-      className: "bg-yellow-50 text-yellow-800 ring-yellow-200",
-    };
-  }
-
   return {
-    label: "High Risk",
-    className: "bg-red-50 text-red-700 ring-red-200",
+    label: getTrustScoreStatusLabel(score),
+    tone: getTrustScoreTone(score),
   };
 }
 
@@ -136,10 +124,34 @@ function getServiceCompatibilitySummary(
   return summary;
 }
 
-function getServiceCompatibilitySummaryLabel(
-  summary: ServiceCompatibilitySummary,
-) {
-  return `${summary.Good} Good · ${summary["Use with Caution"]} Caution · ${summary["High Risk"]} High Risk`;
+function ServiceCompatibilitySummaryBadges({
+  summary,
+}: {
+  summary: ServiceCompatibilitySummary;
+}) {
+  return (
+    <span className="flex flex-wrap gap-1.5 sm:justify-end">
+      <StatusBadge tone="good">{summary.Good} Good</StatusBadge>
+      <StatusBadge tone="caution">
+        {summary["Use with Caution"]} Caution
+      </StatusBadge>
+      <StatusBadge tone="risk">{summary["High Risk"]} High Risk</StatusBadge>
+    </span>
+  );
+}
+
+function getReputationSourceTone(
+  status: ReputationSourceStatus,
+): StatusTone {
+  if (status === "Available") {
+    return "good";
+  }
+
+  if (status === "Error") {
+    return "caution";
+  }
+
+  return "neutral";
 }
 
 function parseOrg(org?: string) {
@@ -635,14 +647,12 @@ function TrustScoreCard({
           </p>
         </div>
         <div className="flex shrink-0 flex-col items-end gap-2">
-          <span
-            className={`rounded-full px-3 py-1 text-sm font-semibold ring-1 ${status.className}`}
-          >
+          <StatusBadge tone={status.tone} className="px-3 text-sm">
             {status.label}
-          </span>
-          <span className="rounded-full bg-neutral-50 px-2.5 py-1 text-xs font-medium text-neutral-500 ring-1 ring-neutral-200">
+          </StatusBadge>
+          <StatusBadge tone={getUsageTypeTone(ipType)}>
             {ipType}
-          </span>
+          </StatusBadge>
         </div>
       </div>
       <div className="mt-5 border-t border-neutral-100 pt-4">
@@ -651,9 +661,12 @@ function TrustScoreCard({
       </div>
       <div className="mt-5 border-t border-neutral-100 pt-4">
         <p className="text-sm font-semibold text-neutral-950">Recommendation</p>
-        <p className="mt-2 text-base font-semibold text-neutral-950">
+        <StatusBadge
+          tone={getRecommendationTone(recommendation.label)}
+          className="mt-2"
+        >
           {recommendation.label}
-        </p>
+        </StatusBadge>
         <p className="mt-2 text-sm leading-6 text-neutral-600">
           {recommendation.summary}
         </p>
@@ -757,8 +770,8 @@ function ServiceCompatibilitySection({
                         {category.category}
                       </span>
                     </span>
-                    <span className="pl-6 text-sm font-medium leading-5 text-neutral-600 sm:pl-0 sm:text-right">
-                      {getServiceCompatibilitySummaryLabel(summary)}
+                    <span className="pl-6 sm:pl-0">
+                      <ServiceCompatibilitySummaryBadges summary={summary} />
                     </span>
                   </button>
                   {isCategoryExpanded ? (
@@ -783,9 +796,14 @@ function ServiceCompatibilitySection({
                                 <span className="font-medium text-neutral-950">
                                   {service.name}
                                 </span>
-                                <span className="font-semibold text-neutral-500 sm:shrink-0 sm:text-right">
+                                <StatusBadge
+                                  tone={getServiceCompatibilityTone(
+                                    service.status,
+                                  )}
+                                  className="sm:shrink-0"
+                                >
                                   {getServiceStatusLabel(service.status)}
-                                </span>
+                                </StatusBadge>
                               </span>
                               {isExpanded ? (
                                 <span className="mt-1 block text-xs leading-5 text-neutral-500">
@@ -892,8 +910,10 @@ function ReputationSourcesSection({
                   </p>
                 ) : null}
               </div>
-              <p className="shrink-0 text-sm font-medium text-neutral-600">
-                {source.status}
+              <p className="shrink-0">
+                <StatusBadge tone={getReputationSourceTone(source.status)}>
+                  {source.status}
+                </StatusBadge>
               </p>
             </div>
           ))
@@ -956,8 +976,14 @@ function IpHistorySection({
                   <span className="text-neutral-600">
                     {historyRecord.trustScore}/100
                   </span>
-                  <span className="text-neutral-600">
-                    {historyRecord.recommendationLabel}
+                  <span>
+                    <StatusBadge
+                      tone={getRecommendationTone(
+                        historyRecord.recommendationLabel,
+                      )}
+                    >
+                      {historyRecord.recommendationLabel}
+                    </StatusBadge>
                   </span>
                   <span className="text-neutral-600">
                     {formatHistoryAbuseConfidence(
@@ -1223,9 +1249,18 @@ export function IpAnalyzer() {
                 <p className="text-xs font-semibold uppercase tracking-normal text-neutral-400">
                   {card.label}
                 </p>
-                <p className="mt-1 break-words text-base font-medium text-neutral-950">
-                  {card.value}
-                </p>
+                {card.label === "Usage Type" || card.label === "Hosting" ? (
+                  <StatusBadge
+                    tone={getUsageTypeTone(card.value)}
+                    className="mt-2"
+                  >
+                    {card.value}
+                  </StatusBadge>
+                ) : (
+                  <p className="mt-1 break-words text-base font-medium text-neutral-950">
+                    {card.value}
+                  </p>
+                )}
               </div>
             ))}
           </div>

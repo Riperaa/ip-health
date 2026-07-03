@@ -55,6 +55,8 @@ type ReputationSourceRow = {
   contribution: string;
 };
 
+type ServiceCompatibilitySummary = Record<ServiceCompatibilityStatus, number>;
+
 type IpTypeBadge =
   | "Residential"
   | "Mobile"
@@ -115,6 +117,28 @@ function getServiceStatusLabel(status: ServiceCompatibilityStatus) {
   }
 
   return "✕ High Risk";
+}
+
+function getServiceCompatibilitySummary(
+  services: { status: ServiceCompatibilityStatus }[],
+): ServiceCompatibilitySummary {
+  const summary: ServiceCompatibilitySummary = {
+    Good: 0,
+    "Use with Caution": 0,
+    "High Risk": 0,
+  };
+
+  services.forEach((service) => {
+    summary[service.status] += 1;
+  });
+
+  return summary;
+}
+
+function getServiceCompatibilitySummaryLabel(
+  summary: ServiceCompatibilitySummary,
+) {
+  return `${summary.Good} Good · ${summary["Use with Caution"]} Caution · ${summary["High Risk"]} High Risk`;
 }
 
 function parseOrg(org?: string) {
@@ -571,6 +595,9 @@ function TrustScoreCard({
   const [expandedServiceKey, setExpandedServiceKey] = useState<string | null>(
     null,
   );
+  const [expandedServiceCategories, setExpandedServiceCategories] = useState<
+    string[]
+  >([]);
   const [isServiceCompatibilityVisible, setIsServiceCompatibilityVisible] =
     useState(false);
   const [isScoreDetailsVisible, setIsScoreDetailsVisible] = useState(false);
@@ -726,60 +753,105 @@ function TrustScoreCard({
           </button>
         </div>
         {isServiceCompatibilityVisible ? (
-          <div className="mt-3 rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm shadow-neutral-950/[0.03]">
-            <div className="grid gap-3 sm:grid-cols-2">
-              {serviceCompatibility.map((category) => (
-                <div
-                  key={category.category}
-                  className="rounded-2xl border border-neutral-200 p-4"
-                >
-                  <p className="text-xs font-semibold uppercase tracking-normal text-neutral-400">
-                    {category.category}
-                  </p>
-                  <ul className="mt-3 space-y-1">
-                    {category.services.map((service) => {
-                      const serviceKey = `${category.category}:${service.name}`;
-                      const isExpanded = expandedServiceKey === serviceKey;
+          <div className="mt-3 overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm shadow-neutral-950/[0.03]">
+            <div className="divide-y divide-neutral-100">
+              {serviceCompatibility.map((category) => {
+                const summary = getServiceCompatibilitySummary(
+                  category.services,
+                );
+                const isCategoryExpanded = expandedServiceCategories.includes(
+                  category.category,
+                );
 
-                      return (
-                        <li key={service.name} className="text-sm">
-                          <button
-                            type="button"
-                            aria-expanded={isExpanded}
-                            onClick={() =>
-                              setExpandedServiceKey(
-                                isExpanded ? null : serviceKey,
+                return (
+                  <div key={category.category}>
+                    <button
+                      type="button"
+                      aria-expanded={isCategoryExpanded}
+                      onClick={() => {
+                        setExpandedServiceCategories((currentCategories) =>
+                          isCategoryExpanded
+                            ? currentCategories.filter(
+                                (currentCategory) =>
+                                  currentCategory !== category.category,
                               )
-                            }
-                            className="w-full rounded-xl px-2 py-1.5 text-left transition hover:bg-neutral-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950"
-                          >
-                            <span className="flex items-center justify-between gap-3">
-                              <span className="font-medium text-neutral-950">
-                                {service.name}
-                              </span>
-                              <span className="shrink-0 text-right font-semibold text-neutral-500">
-                                {getServiceStatusLabel(service.status)}
-                              </span>
-                            </span>
-                            {isExpanded ? (
-                              <span className="mt-1 block text-xs leading-5 text-neutral-500">
-                                {buildServiceCompatibilityReason(
-                                  service.name,
-                                  category.category,
-                                  service.status,
-                                  compatibilitySignals,
-                                )}
-                              </span>
-                            ) : null}
-                          </button>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </div>
-              ))}
+                            : [...currentCategories, category.category],
+                        );
+
+                        if (isCategoryExpanded) {
+                          setExpandedServiceKey((currentServiceKey) =>
+                            currentServiceKey?.startsWith(
+                              `${category.category}:`,
+                            )
+                              ? null
+                              : currentServiceKey,
+                          );
+                        }
+                      }}
+                      className="flex w-full flex-col gap-1 px-4 py-3 text-left transition hover:bg-neutral-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
+                    >
+                      <span className="flex min-w-0 items-center gap-2">
+                        <span
+                          className="w-4 shrink-0 text-xs text-neutral-400"
+                          aria-hidden="true"
+                        >
+                          {isCategoryExpanded ? "▾" : "▸"}
+                        </span>
+                        <span className="min-w-0 text-xs font-semibold uppercase tracking-normal text-neutral-500">
+                          {category.category}
+                        </span>
+                      </span>
+                      <span className="pl-6 text-sm font-medium leading-5 text-neutral-600 sm:pl-0 sm:text-right">
+                        {getServiceCompatibilitySummaryLabel(summary)}
+                      </span>
+                    </button>
+                    {isCategoryExpanded ? (
+                      <ul className="space-y-1 border-t border-neutral-100 bg-neutral-50/50 px-3 py-3 sm:px-4">
+                        {category.services.map((service) => {
+                          const serviceKey = `${category.category}:${service.name}`;
+                          const isExpanded = expandedServiceKey === serviceKey;
+
+                          return (
+                            <li key={service.name} className="text-sm">
+                              <button
+                                type="button"
+                                aria-expanded={isExpanded}
+                                onClick={() =>
+                                  setExpandedServiceKey(
+                                    isExpanded ? null : serviceKey,
+                                  )
+                                }
+                                className="w-full rounded-xl bg-white px-3 py-2 text-left transition hover:bg-neutral-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950"
+                              >
+                                <span className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+                                  <span className="font-medium text-neutral-950">
+                                    {service.name}
+                                  </span>
+                                  <span className="font-semibold text-neutral-500 sm:shrink-0 sm:text-right">
+                                    {getServiceStatusLabel(service.status)}
+                                  </span>
+                                </span>
+                                {isExpanded ? (
+                                  <span className="mt-1 block text-xs leading-5 text-neutral-500">
+                                    {buildServiceCompatibilityReason(
+                                      service.name,
+                                      category.category,
+                                      service.status,
+                                      compatibilitySignals,
+                                    )}
+                                  </span>
+                                ) : null}
+                              </button>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    ) : null}
+                  </div>
+                );
+              })}
             </div>
-            <p className="mt-3 text-sm leading-6 text-neutral-500">
+            <p className="border-t border-neutral-100 px-4 py-3 text-sm leading-6 text-neutral-500">
               These recommendations are based on IP reputation and
               infrastructure signals. Services may also consider account
               history, device reputation, browser fingerprint, and behavior.

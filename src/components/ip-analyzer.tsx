@@ -607,29 +607,13 @@ function TrustScoreCard({
   ipInfo,
   abuseIpDb,
   ipqs,
-  ipHistoryRecords,
-  sourceStatuses,
 }: {
   ipInfo: IpInfoResponse;
   abuseIpDb: AbuseIpDbResponse | null;
   ipqs: IpqsResponse | null;
-  ipHistoryRecords: IpHistoryRecord[];
-  sourceStatuses: ReputationSourceStatuses;
 }) {
-  const [expandedServiceKey, setExpandedServiceKey] = useState<string | null>(
-    null,
-  );
-  const [expandedServiceCategories, setExpandedServiceCategories] = useState<
-    string[]
-  >([]);
-  const [isIpHistoryVisible, setIsIpHistoryVisible] = useState(false);
-  const [isServiceCompatibilityVisible, setIsServiceCompatibilityVisible] =
-    useState(false);
-  const [isScoreDetailsVisible, setIsScoreDetailsVisible] = useState(false);
   const score = calculateTrustScore(ipInfo, abuseIpDb, ipqs);
-  const reasons = buildReasons(ipInfo, abuseIpDb, ipqs);
   const riskSummary = buildRiskSummary(ipInfo, abuseIpDb, ipqs);
-  const serviceCompatibility = buildServiceCompatibility(ipInfo, abuseIpDb, ipqs);
   const recommendation = buildRecommendation(ipInfo, abuseIpDb, ipqs);
   const recommendationConfidence = buildRecommendationConfidence(
     ipInfo,
@@ -638,19 +622,6 @@ function TrustScoreCard({
   );
   const status = getTrustScoreStatus(score);
   const ipType = getIpTypeBadge(abuseIpDb?.usageType, ipInfo.privacy);
-  const compatibilitySignals = buildServiceCompatibilitySignals(
-    ipInfo,
-    abuseIpDb,
-    ipqs,
-  );
-  const reputationSourceRows = getReputationSourceRows(sourceStatuses);
-  const hasAvailableReputationData = reputationSourceRows.some(
-    (source) => source.status === "Available",
-  );
-  const visibleIpHistoryRecords = ipHistoryRecords.slice(
-    0,
-    IP_HISTORY_PREVIEW_LIMIT,
-  );
 
   return (
     <div className="rounded-[28px] border border-neutral-200 bg-white p-5 shadow-[0_12px_50px_rgba(0,0,0,0.08)]">
@@ -690,252 +661,323 @@ function TrustScoreCard({
           Confidence: {recommendationConfidence}
         </p>
       </div>
-      <div className="mt-5 border-t border-neutral-100 pt-4">
-        <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm shadow-neutral-950/[0.03]">
-          <button
-            type="button"
-            aria-expanded={isIpHistoryVisible}
-            onClick={() =>
-              setIsIpHistoryVisible(
-                (currentVisibility) => !currentVisibility,
-              )
-            }
-            className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-semibold text-neutral-950 transition hover:bg-neutral-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950"
-          >
-            <span className="w-4 text-xs text-neutral-400" aria-hidden="true">
-              {isIpHistoryVisible ? "▾" : "▸"}
-            </span>
-            <span>IP History</span>
-          </button>
-        </div>
-        {isIpHistoryVisible ? (
-          <div className="mt-3 overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm shadow-neutral-950/[0.03]">
-            {ipHistoryRecords.length > IP_HISTORY_PREVIEW_LIMIT ? (
-              <p className="border-b border-neutral-100 px-4 py-3 text-sm text-neutral-500">
-                Showing latest {IP_HISTORY_PREVIEW_LIMIT} of{" "}
-                {ipHistoryRecords.length} checks.
-              </p>
-            ) : null}
-            {visibleIpHistoryRecords.length > 0 ? (
-              <ul className="divide-y divide-neutral-100">
-                {visibleIpHistoryRecords.map((historyRecord) => (
-                  <li
-                    key={`${historyRecord.timestamp}:${historyRecord.ip}`}
-                    className="grid gap-1 px-4 py-3 text-sm sm:grid-cols-[1.2fr_0.8fr_1fr_1fr] sm:gap-3"
+    </div>
+  );
+}
+
+function ServiceCompatibilitySection({
+  ipInfo,
+  abuseIpDb,
+  ipqs,
+}: {
+  ipInfo: IpInfoResponse;
+  abuseIpDb: AbuseIpDbResponse | null;
+  ipqs: IpqsResponse | null;
+}) {
+  const [expandedServiceKey, setExpandedServiceKey] = useState<string | null>(
+    null,
+  );
+  const [expandedServiceCategories, setExpandedServiceCategories] = useState<
+    string[]
+  >([]);
+  const [isServiceCompatibilityVisible, setIsServiceCompatibilityVisible] =
+    useState(false);
+  const serviceCompatibility = buildServiceCompatibility(ipInfo, abuseIpDb, ipqs);
+  const compatibilitySignals = buildServiceCompatibilitySignals(
+    ipInfo,
+    abuseIpDb,
+    ipqs,
+  );
+
+  return (
+    <div>
+      <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm shadow-neutral-950/[0.03]">
+        <button
+          type="button"
+          aria-expanded={isServiceCompatibilityVisible}
+          onClick={() =>
+            setIsServiceCompatibilityVisible(
+              (currentVisibility) => !currentVisibility,
+            )
+          }
+          className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-semibold text-neutral-950 transition hover:bg-neutral-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950"
+        >
+          <span className="w-4 text-xs text-neutral-400" aria-hidden="true">
+            {isServiceCompatibilityVisible ? "▾" : "▸"}
+          </span>
+          <span>Service Compatibility</span>
+        </button>
+      </div>
+      {isServiceCompatibilityVisible ? (
+        <div className="mt-3 overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm shadow-neutral-950/[0.03]">
+          <div className="divide-y divide-neutral-100">
+            {serviceCompatibility.map((category) => {
+              const summary = getServiceCompatibilitySummary(
+                category.services,
+              );
+              const isCategoryExpanded = expandedServiceCategories.includes(
+                category.category,
+              );
+
+              return (
+                <div key={category.category}>
+                  <button
+                    type="button"
+                    aria-expanded={isCategoryExpanded}
+                    onClick={() => {
+                      setExpandedServiceCategories((currentCategories) =>
+                        isCategoryExpanded
+                          ? currentCategories.filter(
+                              (currentCategory) =>
+                                currentCategory !== category.category,
+                            )
+                          : [...currentCategories, category.category],
+                      );
+
+                      if (isCategoryExpanded) {
+                        setExpandedServiceKey((currentServiceKey) =>
+                          currentServiceKey?.startsWith(
+                            `${category.category}:`,
+                          )
+                            ? null
+                            : currentServiceKey,
+                        );
+                      }
+                    }}
+                    className="flex w-full flex-col gap-1 px-4 py-3 text-left transition hover:bg-neutral-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
                   >
-                    <span className="font-medium text-neutral-950">
-                      {formatHistoryTime(historyRecord.timestamp)}
+                    <span className="flex min-w-0 items-center gap-2">
+                      <span
+                        className="w-4 shrink-0 text-xs text-neutral-400"
+                        aria-hidden="true"
+                      >
+                        {isCategoryExpanded ? "▾" : "▸"}
+                      </span>
+                      <span className="min-w-0 text-xs font-semibold uppercase tracking-normal text-neutral-500">
+                        {category.category}
+                      </span>
                     </span>
-                    <span className="text-neutral-600">
-                      {historyRecord.trustScore}/100
+                    <span className="pl-6 text-sm font-medium leading-5 text-neutral-600 sm:pl-0 sm:text-right">
+                      {getServiceCompatibilitySummaryLabel(summary)}
                     </span>
-                    <span className="text-neutral-600">
-                      {historyRecord.recommendationLabel}
-                    </span>
-                    <span className="text-neutral-600">
-                      {formatHistoryAbuseConfidence(
-                        historyRecord.abuseConfidence,
-                      )}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="px-4 py-3 text-sm text-neutral-500">
-                No local history for this IP.
-              </p>
-            )}
+                  </button>
+                  {isCategoryExpanded ? (
+                    <ul className="space-y-1 border-t border-neutral-100 bg-neutral-50/50 px-3 py-3 sm:px-4">
+                      {category.services.map((service) => {
+                        const serviceKey = `${category.category}:${service.name}`;
+                        const isExpanded = expandedServiceKey === serviceKey;
+
+                        return (
+                          <li key={service.name} className="text-sm">
+                            <button
+                              type="button"
+                              aria-expanded={isExpanded}
+                              onClick={() =>
+                                setExpandedServiceKey(
+                                  isExpanded ? null : serviceKey,
+                                )
+                              }
+                              className="w-full rounded-xl bg-white px-3 py-2 text-left transition hover:bg-neutral-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950"
+                            >
+                              <span className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+                                <span className="font-medium text-neutral-950">
+                                  {service.name}
+                                </span>
+                                <span className="font-semibold text-neutral-500 sm:shrink-0 sm:text-right">
+                                  {getServiceStatusLabel(service.status)}
+                                </span>
+                              </span>
+                              {isExpanded ? (
+                                <span className="mt-1 block text-xs leading-5 text-neutral-500">
+                                  {buildServiceCompatibilityReason(
+                                    service.name,
+                                    category.category,
+                                    service.status,
+                                    compatibilitySignals,
+                                  )}
+                                </span>
+                              ) : null}
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  ) : null}
+                </div>
+              );
+            })}
           </div>
+          <p className="border-t border-neutral-100 px-4 py-3 text-sm leading-6 text-neutral-500">
+            These recommendations are based on IP reputation and infrastructure
+            signals. Services may also consider account history, device
+            reputation, browser fingerprint, and behavior.
+          </p>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function ScoreDetailsSection({
+  ipInfo,
+  abuseIpDb,
+  ipqs,
+}: {
+  ipInfo: IpInfoResponse;
+  abuseIpDb: AbuseIpDbResponse | null;
+  ipqs: IpqsResponse | null;
+}) {
+  const [isScoreDetailsVisible, setIsScoreDetailsVisible] = useState(false);
+  const reasons = buildReasons(ipInfo, abuseIpDb, ipqs);
+
+  return (
+    <div>
+      <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm shadow-neutral-950/[0.03]">
+        <button
+          type="button"
+          aria-expanded={isScoreDetailsVisible}
+          onClick={() =>
+            setIsScoreDetailsVisible(
+              (currentVisibility) => !currentVisibility,
+            )
+          }
+          className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-semibold text-neutral-950 transition hover:bg-neutral-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950"
+        >
+          <span className="w-4 text-xs text-neutral-400" aria-hidden="true">
+            {isScoreDetailsVisible ? "▾" : "▸"}
+          </span>
+          <span>Why this score?</span>
+        </button>
+      </div>
+      {isScoreDetailsVisible ? (
+        <ul className="mt-3 list-disc space-y-1 rounded-2xl border border-neutral-200 bg-white p-4 pl-9 text-sm text-neutral-600 shadow-sm shadow-neutral-950/[0.03]">
+          {reasons.map((reason) => (
+            <li key={reason}>{reason}</li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  );
+}
+
+function ReputationSourcesSection({
+  sourceStatuses,
+}: {
+  sourceStatuses: ReputationSourceStatuses;
+}) {
+  const reputationSourceRows = getReputationSourceRows(sourceStatuses);
+  const hasAvailableReputationData = reputationSourceRows.some(
+    (source) => source.status === "Available",
+  );
+
+  return (
+    <div>
+      <p className="text-sm font-semibold text-neutral-950">
+        Reputation Sources
+      </p>
+      <div className="mt-3 divide-y divide-neutral-100 rounded-2xl border border-neutral-200 bg-white">
+        {hasAvailableReputationData ? (
+          reputationSourceRows.map((source) => (
+            <div
+              key={source.name}
+              className="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4"
+            >
+              <div>
+                <p className="text-sm font-medium text-neutral-950">
+                  {source.name}
+                </p>
+                {source.status === "Available" ? (
+                  <p className="mt-1 text-sm text-neutral-500">
+                    {source.contribution}
+                  </p>
+                ) : null}
+              </div>
+              <p className="shrink-0 text-sm font-medium text-neutral-600">
+                {source.status}
+              </p>
+            </div>
+          ))
         ) : (
-          <p className="mt-3 rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm leading-6 text-neutral-500 shadow-sm shadow-neutral-950/[0.03]">
-            {getIpHistorySummary(ipHistoryRecords)}
+          <p className="px-4 py-3 text-sm text-neutral-500">
+            No reputation data available.
           </p>
         )}
       </div>
-      <div className="mt-5 border-t border-neutral-100 pt-4">
-        <p className="text-sm font-semibold text-neutral-950">
-          Reputation Sources
-        </p>
-        <div className="mt-3 divide-y divide-neutral-100 rounded-2xl border border-neutral-200 bg-white">
-          {hasAvailableReputationData ? (
-            reputationSourceRows.map((source) => (
-              <div
-                key={source.name}
-                className="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4"
-              >
-                <div>
-                  <p className="text-sm font-medium text-neutral-950">
-                    {source.name}
-                  </p>
-                  {source.status === "Available" ? (
-                    <p className="mt-1 text-sm text-neutral-500">
-                      {source.contribution}
-                    </p>
-                  ) : null}
-                </div>
-                <p className="shrink-0 text-sm font-medium text-neutral-600">
-                  {source.status}
-                </p>
-              </div>
-            ))
+    </div>
+  );
+}
+
+function IpHistorySection({
+  ipHistoryRecords,
+}: {
+  ipHistoryRecords: IpHistoryRecord[];
+}) {
+  const [isIpHistoryVisible, setIsIpHistoryVisible] = useState(false);
+  const visibleIpHistoryRecords = ipHistoryRecords.slice(
+    0,
+    IP_HISTORY_PREVIEW_LIMIT,
+  );
+
+  return (
+    <div>
+      <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm shadow-neutral-950/[0.03]">
+        <button
+          type="button"
+          aria-expanded={isIpHistoryVisible}
+          onClick={() =>
+            setIsIpHistoryVisible((currentVisibility) => !currentVisibility)
+          }
+          className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-semibold text-neutral-950 transition hover:bg-neutral-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950"
+        >
+          <span className="w-4 text-xs text-neutral-400" aria-hidden="true">
+            {isIpHistoryVisible ? "▾" : "▸"}
+          </span>
+          <span>IP History</span>
+        </button>
+      </div>
+      {isIpHistoryVisible ? (
+        <div className="mt-3 overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm shadow-neutral-950/[0.03]">
+          {ipHistoryRecords.length > IP_HISTORY_PREVIEW_LIMIT ? (
+            <p className="border-b border-neutral-100 px-4 py-3 text-sm text-neutral-500">
+              Showing latest {IP_HISTORY_PREVIEW_LIMIT} of{" "}
+              {ipHistoryRecords.length} checks.
+            </p>
+          ) : null}
+          {visibleIpHistoryRecords.length > 0 ? (
+            <ul className="divide-y divide-neutral-100">
+              {visibleIpHistoryRecords.map((historyRecord) => (
+                <li
+                  key={`${historyRecord.timestamp}:${historyRecord.ip}`}
+                  className="grid gap-1 px-4 py-3 text-sm sm:grid-cols-[1.2fr_0.8fr_1fr_1fr] sm:gap-3"
+                >
+                  <span className="font-medium text-neutral-950">
+                    {formatHistoryTime(historyRecord.timestamp)}
+                  </span>
+                  <span className="text-neutral-600">
+                    {historyRecord.trustScore}/100
+                  </span>
+                  <span className="text-neutral-600">
+                    {historyRecord.recommendationLabel}
+                  </span>
+                  <span className="text-neutral-600">
+                    {formatHistoryAbuseConfidence(
+                      historyRecord.abuseConfidence,
+                    )}
+                  </span>
+                </li>
+              ))}
+            </ul>
           ) : (
             <p className="px-4 py-3 text-sm text-neutral-500">
-              No reputation data available.
+              No local history for this IP.
             </p>
           )}
         </div>
-      </div>
-      <div className="mt-5 border-t border-neutral-100 pt-4">
-        <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm shadow-neutral-950/[0.03]">
-          <button
-            type="button"
-            aria-expanded={isServiceCompatibilityVisible}
-            onClick={() =>
-              setIsServiceCompatibilityVisible(
-                (currentVisibility) => !currentVisibility,
-              )
-            }
-            className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-semibold text-neutral-950 transition hover:bg-neutral-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950"
-          >
-            <span className="w-4 text-xs text-neutral-400" aria-hidden="true">
-              {isServiceCompatibilityVisible ? "▾" : "▸"}
-            </span>
-            <span>Service Compatibility</span>
-          </button>
-        </div>
-        {isServiceCompatibilityVisible ? (
-          <div className="mt-3 overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm shadow-neutral-950/[0.03]">
-            <div className="divide-y divide-neutral-100">
-              {serviceCompatibility.map((category) => {
-                const summary = getServiceCompatibilitySummary(
-                  category.services,
-                );
-                const isCategoryExpanded = expandedServiceCategories.includes(
-                  category.category,
-                );
-
-                return (
-                  <div key={category.category}>
-                    <button
-                      type="button"
-                      aria-expanded={isCategoryExpanded}
-                      onClick={() => {
-                        setExpandedServiceCategories((currentCategories) =>
-                          isCategoryExpanded
-                            ? currentCategories.filter(
-                                (currentCategory) =>
-                                  currentCategory !== category.category,
-                              )
-                            : [...currentCategories, category.category],
-                        );
-
-                        if (isCategoryExpanded) {
-                          setExpandedServiceKey((currentServiceKey) =>
-                            currentServiceKey?.startsWith(
-                              `${category.category}:`,
-                            )
-                              ? null
-                              : currentServiceKey,
-                          );
-                        }
-                      }}
-                      className="flex w-full flex-col gap-1 px-4 py-3 text-left transition hover:bg-neutral-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
-                    >
-                      <span className="flex min-w-0 items-center gap-2">
-                        <span
-                          className="w-4 shrink-0 text-xs text-neutral-400"
-                          aria-hidden="true"
-                        >
-                          {isCategoryExpanded ? "▾" : "▸"}
-                        </span>
-                        <span className="min-w-0 text-xs font-semibold uppercase tracking-normal text-neutral-500">
-                          {category.category}
-                        </span>
-                      </span>
-                      <span className="pl-6 text-sm font-medium leading-5 text-neutral-600 sm:pl-0 sm:text-right">
-                        {getServiceCompatibilitySummaryLabel(summary)}
-                      </span>
-                    </button>
-                    {isCategoryExpanded ? (
-                      <ul className="space-y-1 border-t border-neutral-100 bg-neutral-50/50 px-3 py-3 sm:px-4">
-                        {category.services.map((service) => {
-                          const serviceKey = `${category.category}:${service.name}`;
-                          const isExpanded = expandedServiceKey === serviceKey;
-
-                          return (
-                            <li key={service.name} className="text-sm">
-                              <button
-                                type="button"
-                                aria-expanded={isExpanded}
-                                onClick={() =>
-                                  setExpandedServiceKey(
-                                    isExpanded ? null : serviceKey,
-                                  )
-                                }
-                                className="w-full rounded-xl bg-white px-3 py-2 text-left transition hover:bg-neutral-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950"
-                              >
-                                <span className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
-                                  <span className="font-medium text-neutral-950">
-                                    {service.name}
-                                  </span>
-                                  <span className="font-semibold text-neutral-500 sm:shrink-0 sm:text-right">
-                                    {getServiceStatusLabel(service.status)}
-                                  </span>
-                                </span>
-                                {isExpanded ? (
-                                  <span className="mt-1 block text-xs leading-5 text-neutral-500">
-                                    {buildServiceCompatibilityReason(
-                                      service.name,
-                                      category.category,
-                                      service.status,
-                                      compatibilitySignals,
-                                    )}
-                                  </span>
-                                ) : null}
-                              </button>
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    ) : null}
-                  </div>
-                );
-              })}
-            </div>
-            <p className="border-t border-neutral-100 px-4 py-3 text-sm leading-6 text-neutral-500">
-              These recommendations are based on IP reputation and
-              infrastructure signals. Services may also consider account
-              history, device reputation, browser fingerprint, and behavior.
-            </p>
-          </div>
-        ) : null}
-      </div>
-      <div className="mt-5 border-t border-neutral-100 pt-4">
-        <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm shadow-neutral-950/[0.03]">
-          <button
-            type="button"
-            aria-expanded={isScoreDetailsVisible}
-            onClick={() =>
-              setIsScoreDetailsVisible(
-                (currentVisibility) => !currentVisibility,
-              )
-            }
-            className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-semibold text-neutral-950 transition hover:bg-neutral-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950"
-          >
-            <span className="w-4 text-xs text-neutral-400" aria-hidden="true">
-              {isScoreDetailsVisible ? "▾" : "▸"}
-            </span>
-            <span>Why this score?</span>
-          </button>
-        </div>
-        {isScoreDetailsVisible ? (
-          <ul className="mt-3 list-disc space-y-1 rounded-2xl border border-neutral-200 bg-white p-4 pl-9 text-sm text-neutral-600 shadow-sm shadow-neutral-950/[0.03]">
-            {reasons.map((reason) => (
-              <li key={reason}>{reason}</li>
-            ))}
-          </ul>
-        ) : null}
-      </div>
+      ) : (
+        <p className="mt-3 rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm leading-6 text-neutral-500 shadow-sm shadow-neutral-950/[0.03]">
+          {getIpHistorySummary(ipHistoryRecords)}
+        </p>
+      )}
     </div>
   );
 }
@@ -1153,8 +1195,18 @@ export function IpAnalyzer() {
             ipInfo={result.ipInfo}
             abuseIpDb={result.abuseIpDb}
             ipqs={result.ipqs}
-            ipHistoryRecords={currentIpHistory}
-            sourceStatuses={result.sourceStatuses}
+          />
+
+          <ServiceCompatibilitySection
+            ipInfo={result.ipInfo}
+            abuseIpDb={result.abuseIpDb}
+            ipqs={result.ipqs}
+          />
+
+          <ScoreDetailsSection
+            ipInfo={result.ipInfo}
+            abuseIpDb={result.abuseIpDb}
+            ipqs={result.ipqs}
           />
 
           <p className="text-sm font-semibold text-neutral-950">IP Details</p>
@@ -1177,6 +1229,11 @@ export function IpAnalyzer() {
               </div>
             ))}
           </div>
+
+          <ReputationSourcesSection sourceStatuses={result.sourceStatuses} />
+
+          <IpHistorySection ipHistoryRecords={currentIpHistory} />
+
           <p className="text-xs leading-5 text-neutral-400">
             IP Health provides reputation-based guidance only. Services may also
             consider account history, device signals, payment method, browser

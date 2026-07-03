@@ -9,4 +9,13 @@
   <url>
     <loc>https://ip-health.vercel.app/sponsor</loc>
   </url>
+  <url>
+    <loc>https://ip-health.vercel.app/about</loc>
+  </url>
+  <url>
+    <loc>https://ip-health.vercel.app/privacy</loc>
+  </url>
+  <url>
+    <loc>https://ip-health.vercel.app/disclaimer</loc>
+  </url>
 </urlset>

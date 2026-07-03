@@ -1,9 +1,13 @@
 import Link from "next/link";
 
 import { FooterLinks } from "@/components/footer-links";
-import { IpCompare } from "@/components/ip-compare";
 
-export default function ComparePage() {
+type InfoPageProps = {
+  title: string;
+  children: React.ReactNode;
+};
+
+export function InfoPage({ title, children }: InfoPageProps) {
   return (
     <main className="flex min-h-dvh flex-col bg-white text-neutral-950">
       <Link
@@ -13,7 +17,17 @@ export default function ComparePage() {
         IP Health
       </Link>
 
-      <IpCompare />
+      <section className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center px-5 py-24 sm:px-8">
+        <div className="w-full">
+          <h1 className="text-balance text-4xl font-semibold tracking-normal text-neutral-950 sm:text-5xl">
+            {title}
+          </h1>
+          <div className="mt-6 space-y-4 text-base leading-7 text-neutral-500 sm:text-lg">
+            {children}
+          </div>
+        </div>
+      </section>
+
       <FooterLinks />
     </main>
   );

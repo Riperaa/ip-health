@@ -1,10 +1,12 @@
 import Link from "next/link";
 
+import { FooterLinks } from "@/components/footer-links";
+
 const repositoryUrl = "https://github.com/Riperaa/ip-health";
 
 export default function SponsorPage() {
   return (
-    <main className="min-h-dvh bg-white text-neutral-950">
+    <main className="flex min-h-dvh flex-col bg-white text-neutral-950">
       <Link
         href="/"
         className="fixed left-4 top-4 z-10 rounded-full border border-neutral-200 bg-white/80 px-3 py-1.5 text-sm font-medium text-neutral-600 shadow-sm shadow-neutral-950/[0.03] backdrop-blur transition hover:border-neutral-300 hover:text-neutral-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950 sm:left-8 sm:top-7"
@@ -12,7 +14,7 @@ export default function SponsorPage() {
         IP Health
       </Link>
 
-      <section className="mx-auto flex min-h-dvh w-full max-w-4xl flex-col items-center justify-center px-5 py-20 sm:px-8">
+      <section className="mx-auto flex w-full max-w-4xl flex-1 flex-col items-center justify-center px-5 py-20 sm:px-8">
         <div className="w-full max-w-2xl text-center">
           <h1 className="text-balance text-5xl font-semibold tracking-normal text-neutral-950 sm:text-6xl">
             Support IP Health
@@ -58,6 +60,7 @@ export default function SponsorPage() {
           </div>
         </div>
       </section>
+      <FooterLinks />
     </main>
   );
 }

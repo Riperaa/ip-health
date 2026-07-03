@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { FooterLinks } from "@/components/footer-links";
 import { IpAnalyzer } from "@/components/ip-analyzer";
 
 export default function Home() {
@@ -25,9 +26,7 @@ export default function Home() {
         </div>
       </section>
 
-      <footer className="px-5 pb-6 text-center text-sm text-neutral-400">
-        Made with ❤️
-      </footer>
+      <FooterLinks />
     </main>
   );
 }

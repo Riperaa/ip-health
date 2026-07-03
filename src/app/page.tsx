@@ -13,13 +13,17 @@ export default function Home() {
         Sponsor
       </Link>
 
-      <section className="mx-auto flex w-full max-w-4xl flex-1 flex-col items-center justify-center px-5 py-24 sm:px-8">
+      <section className="mx-auto flex w-full max-w-4xl flex-1 flex-col items-center px-5 pb-20 pt-[calc(env(safe-area-inset-top)+7rem)] sm:px-8 sm:pb-24 sm:pt-[calc(env(safe-area-inset-top)+8rem)]">
         <div className="w-full max-w-2xl text-center">
           <h1 className="text-balance text-5xl font-semibold tracking-normal text-neutral-950 sm:text-6xl md:text-7xl">
             IP Health
           </h1>
-          <p className="mx-auto mt-5 max-w-xl text-pretty text-base leading-7 text-neutral-500 sm:text-lg">
+          <p className="mx-auto mt-5 max-w-xl text-pretty text-base leading-7 text-neutral-600 sm:text-lg">
             Know whether you can trust this IP in 5 seconds.
+          </p>
+          <p className="mx-auto mt-2 max-w-xl text-pretty text-sm leading-6 text-neutral-500 sm:text-base">
+            Check IP reputation, risk signals, and service compatibility before
+            logging in.
           </p>
 
           <IpAnalyzer />

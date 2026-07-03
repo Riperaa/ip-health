@@ -939,29 +939,12 @@ export function IpAnalyzer() {
   }
 
   return (
-    <div className="mx-auto mt-10 flex w-full max-w-xl flex-col items-center gap-3">
+    <div className="mx-auto mt-8 flex w-full max-w-xl flex-col items-center gap-4">
       <form
         onSubmit={handleSubmit}
         className="flex w-full flex-col items-center gap-3"
       >
-        <div className="flex flex-col items-center gap-3 sm:flex-row">
-          <button
-            type="button"
-            onClick={detectPublicIp}
-            disabled={isDetecting}
-            className="h-12 rounded-full border border-neutral-200 bg-white px-6 text-sm font-medium text-neutral-700 shadow-sm shadow-neutral-950/[0.04] transition hover:border-neutral-300 hover:bg-neutral-50 hover:text-neutral-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {isDetecting ? "Detecting..." : "Auto Detect My IP"}
-          </button>
-          <Link
-            href="/compare"
-            className="flex h-12 items-center rounded-full border border-neutral-200 bg-white px-6 text-sm font-medium text-neutral-700 shadow-sm shadow-neutral-950/[0.04] transition hover:border-neutral-300 hover:bg-neutral-50 hover:text-neutral-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950"
-          >
-            Compare IPs
-          </Link>
-        </div>
-
-        <div className="mt-3 flex w-full flex-col gap-3 rounded-[28px] border border-neutral-200 bg-white p-2 shadow-[0_12px_50px_rgba(0,0,0,0.08)] transition focus-within:border-neutral-300 sm:flex-row sm:items-center">
+        <div className="flex w-full flex-col gap-3 rounded-[28px] border border-neutral-200 bg-white p-2 shadow-[0_12px_50px_rgba(0,0,0,0.08)] transition focus-within:border-neutral-300 sm:flex-row sm:items-center">
           <label htmlFor="ip-address" className="sr-only">
             IP address
           </label>
@@ -979,7 +962,7 @@ export function IpAnalyzer() {
           <button
             type="submit"
             disabled={isAnalyzing}
-            className="inline-flex h-12 shrink-0 items-center justify-center gap-2 rounded-full bg-neutral-950 px-7 text-sm font-semibold text-white shadow-sm shadow-neutral-950/20 transition hover:bg-neutral-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950 disabled:cursor-not-allowed disabled:opacity-70"
+            className="inline-flex h-12 w-full shrink-0 items-center justify-center gap-2 rounded-full bg-neutral-950 px-7 text-sm font-semibold text-white shadow-sm shadow-neutral-950/20 transition hover:bg-neutral-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950 disabled:cursor-not-allowed disabled:opacity-70 sm:w-auto"
           >
             {isAnalyzing ? (
               <>
@@ -990,6 +973,23 @@ export function IpAnalyzer() {
               "Analyze"
             )}
           </button>
+        </div>
+
+        <div className="flex flex-col items-center gap-2 sm:flex-row">
+          <button
+            type="button"
+            onClick={detectPublicIp}
+            disabled={isDetecting}
+            className="h-10 rounded-full border border-neutral-200 bg-white px-5 text-sm font-medium text-neutral-600 shadow-sm shadow-neutral-950/[0.03] transition hover:border-neutral-300 hover:bg-neutral-50 hover:text-neutral-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isDetecting ? "Detecting..." : "Auto Detect My IP"}
+          </button>
+          <Link
+            href="/compare"
+            className="flex h-10 items-center rounded-full border border-neutral-200 bg-white px-5 text-sm font-medium text-neutral-600 shadow-sm shadow-neutral-950/[0.03] transition hover:border-neutral-300 hover:bg-neutral-50 hover:text-neutral-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950"
+          >
+            Compare IPs
+          </Link>
         </div>
       </form>
 
@@ -1015,7 +1015,9 @@ export function IpAnalyzer() {
       ) : null}
 
       <div className="w-full text-left">
-        <p className="text-sm font-semibold text-neutral-950">Recent Checks</p>
+        <p className="text-xs font-semibold uppercase tracking-normal text-neutral-400">
+          Recent Checks
+        </p>
         {recentChecks.length > 0 ? (
           <div className="mt-2 flex flex-wrap gap-2">
             {recentChecks.map((recentCheck) => (
@@ -1024,14 +1026,14 @@ export function IpAnalyzer() {
                 type="button"
                 onClick={() => handleRecentCheckClick(recentCheck.ip)}
                 disabled={isAnalyzing}
-                className="rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-sm font-medium text-neutral-700 shadow-sm shadow-neutral-950/[0.03] transition hover:border-neutral-300 hover:bg-neutral-50 hover:text-neutral-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950 disabled:cursor-not-allowed disabled:opacity-60"
+                className="rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-neutral-600 shadow-sm shadow-neutral-950/[0.02] transition hover:border-neutral-300 hover:bg-neutral-50 hover:text-neutral-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {recentCheck.ip}
               </button>
             ))}
           </div>
         ) : (
-          <p className="mt-2 rounded-2xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm text-neutral-500">
+          <p className="mt-1 text-sm text-neutral-400">
             No recent checks yet.
           </p>
         )}

@@ -62,7 +62,6 @@ type ServiceCompatibilityGroup = {
   category: string;
   services: {
     name: string;
-    profile: ServiceCompatibilityProfile;
   }[];
 };
 
@@ -795,110 +794,117 @@ export function buildServiceCompatibility(
     {
       category: "GENERAL WEB",
       services: [
-        { name: "YouTube", profile: "general" },
-        { name: "Reddit", profile: "general" },
-        { name: "Wikipedia", profile: "general" },
-        { name: "Facebook", profile: "social" },
-        { name: "Instagram", profile: "social" },
-        { name: "X", profile: "social" },
-        { name: "TikTok", profile: "social" },
+        { name: "YouTube" },
+        { name: "Reddit" },
+        { name: "Wikipedia" },
+        { name: "Facebook" },
+        { name: "Instagram" },
+        { name: "X" },
+        { name: "TikTok" },
       ],
     },
     {
       category: "AI SERVICES",
       services: [
-        { name: "ChatGPT", profile: "ai" },
-        { name: "Claude", profile: "ai" },
-        { name: "Gemini", profile: "ai" },
-        { name: "Perplexity", profile: "ai" },
-        { name: "Grok", profile: "ai" },
+        { name: "ChatGPT" },
+        { name: "Claude" },
+        { name: "Gemini" },
+        { name: "Perplexity" },
+        { name: "Grok" },
       ],
     },
     {
       category: "STREAMING",
       services: [
-        { name: "Netflix", profile: "streaming" },
-        { name: "Disney+", profile: "streaming" },
-        { name: "Prime Video", profile: "streaming" },
-        { name: "Max", profile: "streaming" },
+        { name: "Netflix" },
+        { name: "Disney+" },
+        { name: "Prime Video" },
+        { name: "Max" },
       ],
     },
     {
       category: "DEVELOPER",
       services: [
-        { name: "GitHub", profile: "developer" },
-        { name: "GitLab", profile: "developer" },
-        { name: "Cloudflare", profile: "developer" },
-        { name: "Vercel", profile: "developer" },
+        { name: "GitHub" },
+        { name: "GitLab" },
+        { name: "Cloudflare" },
+        { name: "Vercel" },
       ],
     },
     {
       category: "CLOUD",
       services: [
-        { name: "AWS", profile: "cloud" },
-        { name: "Azure", profile: "cloud" },
-        { name: "Google Cloud", profile: "cloud" },
+        { name: "AWS" },
+        { name: "Azure" },
+        { name: "Google Cloud" },
       ],
     },
     {
       category: "GOOGLE",
       services: [
-        { name: "Google Voice", profile: "googleVoice" },
-        { name: "Google Account", profile: "google" },
-        { name: "Gmail", profile: "google" },
-        { name: "Google Play", profile: "google" },
+        { name: "Google Voice" },
+        { name: "Google Account" },
+        { name: "Gmail" },
+        { name: "Google Play" },
       ],
     },
     {
       category: "APPLE",
       services: [
-        { name: "Apple ID", profile: "apple" },
-        { name: "iCloud", profile: "apple" },
+        { name: "Apple ID" },
+        { name: "iCloud" },
       ],
     },
     {
       category: "COMMUNICATION",
       services: [
-        { name: "Discord", profile: "communication" },
-        { name: "Telegram", profile: "communication" },
+        { name: "Discord" },
+        { name: "Telegram" },
       ],
     },
     {
       category: "GAMING",
       services: [
-        { name: "Steam", profile: "gaming" },
-        { name: "Epic Games", profile: "gaming" },
-        { name: "PlayStation Network", profile: "gaming" },
-        { name: "Xbox Live", profile: "gaming" },
+        { name: "Steam" },
+        { name: "Epic Games" },
+        { name: "PlayStation Network" },
+        { name: "Xbox Live" },
       ],
     },
     {
       category: "FINANCE",
       services: [
-        { name: "PayPal", profile: "finance" },
-        { name: "Wise", profile: "finance" },
-        { name: "Stripe", profile: "finance" },
-        { name: "Revolut", profile: "finance" },
+        { name: "PayPal" },
+        { name: "Wise" },
+        { name: "Stripe" },
+        { name: "Revolut" },
       ],
     },
     {
       category: "CRYPTO",
       services: [
-        { name: "Binance", profile: "crypto" },
-        { name: "Coinbase", profile: "crypto" },
-        { name: "Kraken", profile: "crypto" },
-        { name: "Bybit", profile: "crypto" },
-        { name: "OKX", profile: "crypto" },
+        { name: "Binance" },
+        { name: "Coinbase" },
+        { name: "Kraken" },
+        { name: "Bybit" },
+        { name: "OKX" },
       ],
     },
   ];
 
   return groups.map((group) => ({
     category: group.category,
-    services: group.services.map((service) => ({
-      name: service.name,
-      status: getServiceCompatibilityStatus(service.profile, signals),
-    })),
+    services: group.services.map((service) => {
+      const profile = getServiceExplanationProfile(
+        service.name,
+        group.category,
+      );
+
+      return {
+        name: service.name,
+        status: getServiceCompatibilityStatus(profile, signals),
+      };
+    }),
   }));
 }
 

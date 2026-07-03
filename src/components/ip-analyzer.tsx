@@ -69,6 +69,7 @@ const RECENT_CHECKS_STORAGE_KEY = "ip-health:recent-checks";
 const MAX_RECENT_CHECKS = 5;
 const IP_HISTORY_STORAGE_KEY = "ip-health:ip-history";
 const MAX_IP_HISTORY_RECORDS = 20;
+const IP_HISTORY_PREVIEW_LIMIT = 5;
 
 function getTrustScoreStatus(score: number) {
   if (score >= 90) {
@@ -402,6 +403,29 @@ function formatHistoryAbuseConfidence(abuseConfidence: number | null) {
   return abuseConfidence === null ? "No abuse score" : `${abuseConfidence}%`;
 }
 
+function formatHistorySummaryAbuseConfidence(abuseConfidence: number | null) {
+  return abuseConfidence === null
+    ? "No abuse score"
+    : `${abuseConfidence}% abuse`;
+}
+
+function getIpHistorySummary(historyRecords: IpHistoryRecord[]) {
+  if (historyRecords.length === 0) {
+    return "Saved in this browser only · No local history for this IP";
+  }
+
+  const latestHistoryRecord = historyRecords[0];
+  const checkLabel = historyRecords.length === 1 ? "check" : "checks";
+
+  return [
+    "Saved in this browser only",
+    `${historyRecords.length} ${checkLabel}`,
+    `Latest: ${latestHistoryRecord.trustScore}/100`,
+    latestHistoryRecord.recommendationLabel,
+    formatHistorySummaryAbuseConfidence(latestHistoryRecord.abuseConfidence),
+  ].join(" · ");
+}
+
 function getReputationSourceRows(
   sourceStatuses: ReputationSourceStatuses,
 ): ReputationSourceRow[] {
@@ -598,6 +622,7 @@ function TrustScoreCard({
   const [expandedServiceCategories, setExpandedServiceCategories] = useState<
     string[]
   >([]);
+  const [isIpHistoryVisible, setIsIpHistoryVisible] = useState(false);
   const [isServiceCompatibilityVisible, setIsServiceCompatibilityVisible] =
     useState(false);
   const [isScoreDetailsVisible, setIsScoreDetailsVisible] = useState(false);
@@ -621,6 +646,10 @@ function TrustScoreCard({
   const reputationSourceRows = getReputationSourceRows(sourceStatuses);
   const hasAvailableReputationData = reputationSourceRows.some(
     (source) => source.status === "Available",
+  );
+  const visibleIpHistoryRecords = ipHistoryRecords.slice(
+    0,
+    IP_HISTORY_PREVIEW_LIMIT,
   );
 
   return (
@@ -662,42 +691,64 @@ function TrustScoreCard({
         </p>
       </div>
       <div className="mt-5 border-t border-neutral-100 pt-4">
-        <p className="text-sm font-semibold text-neutral-950">IP History</p>
-        <p className="mt-1 text-xs font-medium text-neutral-400">
-          Saved in this browser only
-        </p>
-        {ipHistoryRecords.length > 0 ? (
-          <>
-            <p className="mt-3 text-sm font-medium text-neutral-600">
-              Latest checks:
-            </p>
-            <ul className="mt-2 divide-y divide-neutral-100 rounded-2xl border border-neutral-200 bg-white">
-              {ipHistoryRecords.map((historyRecord) => (
-                <li
-                  key={`${historyRecord.timestamp}:${historyRecord.ip}`}
-                  className="grid gap-2 px-4 py-3 text-sm sm:grid-cols-[1.2fr_0.8fr_1fr_1fr]"
-                >
-                  <span className="font-medium text-neutral-950">
-                    {formatHistoryTime(historyRecord.timestamp)}
-                  </span>
-                  <span className="text-neutral-600">
-                    {historyRecord.trustScore}/100
-                  </span>
-                  <span className="text-neutral-600">
-                    {historyRecord.recommendationLabel}
-                  </span>
-                  <span className="text-neutral-600">
-                    {formatHistoryAbuseConfidence(
-                      historyRecord.abuseConfidence,
-                    )}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </>
+        <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm shadow-neutral-950/[0.03]">
+          <button
+            type="button"
+            aria-expanded={isIpHistoryVisible}
+            onClick={() =>
+              setIsIpHistoryVisible(
+                (currentVisibility) => !currentVisibility,
+              )
+            }
+            className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-semibold text-neutral-950 transition hover:bg-neutral-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950"
+          >
+            <span className="w-4 text-xs text-neutral-400" aria-hidden="true">
+              {isIpHistoryVisible ? "▾" : "▸"}
+            </span>
+            <span>IP History</span>
+          </button>
+        </div>
+        {isIpHistoryVisible ? (
+          <div className="mt-3 overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm shadow-neutral-950/[0.03]">
+            {ipHistoryRecords.length > IP_HISTORY_PREVIEW_LIMIT ? (
+              <p className="border-b border-neutral-100 px-4 py-3 text-sm text-neutral-500">
+                Showing latest {IP_HISTORY_PREVIEW_LIMIT} of{" "}
+                {ipHistoryRecords.length} checks.
+              </p>
+            ) : null}
+            {visibleIpHistoryRecords.length > 0 ? (
+              <ul className="divide-y divide-neutral-100">
+                {visibleIpHistoryRecords.map((historyRecord) => (
+                  <li
+                    key={`${historyRecord.timestamp}:${historyRecord.ip}`}
+                    className="grid gap-1 px-4 py-3 text-sm sm:grid-cols-[1.2fr_0.8fr_1fr_1fr] sm:gap-3"
+                  >
+                    <span className="font-medium text-neutral-950">
+                      {formatHistoryTime(historyRecord.timestamp)}
+                    </span>
+                    <span className="text-neutral-600">
+                      {historyRecord.trustScore}/100
+                    </span>
+                    <span className="text-neutral-600">
+                      {historyRecord.recommendationLabel}
+                    </span>
+                    <span className="text-neutral-600">
+                      {formatHistoryAbuseConfidence(
+                        historyRecord.abuseConfidence,
+                      )}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="px-4 py-3 text-sm text-neutral-500">
+                No local history for this IP.
+              </p>
+            )}
+          </div>
         ) : (
-          <p className="mt-3 rounded-2xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm text-neutral-500">
-            No local history for this IP.
+          <p className="mt-3 rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm leading-6 text-neutral-500 shadow-sm shadow-neutral-950/[0.03]">
+            {getIpHistorySummary(ipHistoryRecords)}
           </p>
         )}
       </div>

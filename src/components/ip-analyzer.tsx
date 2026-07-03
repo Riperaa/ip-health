@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 
 import {
   fetchIpAnalysis,
@@ -94,6 +94,15 @@ function getTrustScoreStatus(score: number) {
     label: "High Risk",
     className: "bg-red-50 text-red-700 ring-red-200",
   };
+}
+
+function LoadingSpinner() {
+  return (
+    <span
+      aria-hidden="true"
+      className="inline-block size-4 animate-spin rounded-full border-2 border-current border-r-transparent"
+    />
+  );
 }
 
 function getServiceStatusLabel(status: ServiceCompatibilityStatus) {
@@ -598,6 +607,9 @@ function TrustScoreCard({
     ipqs,
   );
   const reputationSourceRows = getReputationSourceRows(sourceStatuses);
+  const hasAvailableReputationData = reputationSourceRows.some(
+    (source) => source.status === "Available",
+  );
 
   return (
     <div className="rounded-[28px] border border-neutral-200 bg-white p-5 shadow-[0_12px_50px_rgba(0,0,0,0.08)]">
@@ -637,65 +649,77 @@ function TrustScoreCard({
           Confidence: {recommendationConfidence}
         </p>
       </div>
-      {ipHistoryRecords.length > 0 ? (
-        <div className="mt-5 border-t border-neutral-100 pt-4">
-          <p className="text-sm font-semibold text-neutral-950">IP History</p>
-          <p className="mt-1 text-xs font-medium text-neutral-400">
-            Saved in this browser only
+      <div className="mt-5 border-t border-neutral-100 pt-4">
+        <p className="text-sm font-semibold text-neutral-950">IP History</p>
+        <p className="mt-1 text-xs font-medium text-neutral-400">
+          Saved in this browser only
+        </p>
+        {ipHistoryRecords.length > 0 ? (
+          <>
+            <p className="mt-3 text-sm font-medium text-neutral-600">
+              Latest checks:
+            </p>
+            <ul className="mt-2 divide-y divide-neutral-100 rounded-2xl border border-neutral-200 bg-white">
+              {ipHistoryRecords.map((historyRecord) => (
+                <li
+                  key={`${historyRecord.timestamp}:${historyRecord.ip}`}
+                  className="grid gap-2 px-4 py-3 text-sm sm:grid-cols-[1.2fr_0.8fr_1fr_1fr]"
+                >
+                  <span className="font-medium text-neutral-950">
+                    {formatHistoryTime(historyRecord.timestamp)}
+                  </span>
+                  <span className="text-neutral-600">
+                    {historyRecord.trustScore}/100
+                  </span>
+                  <span className="text-neutral-600">
+                    {historyRecord.recommendationLabel}
+                  </span>
+                  <span className="text-neutral-600">
+                    {formatHistoryAbuseConfidence(
+                      historyRecord.abuseConfidence,
+                    )}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </>
+        ) : (
+          <p className="mt-3 rounded-2xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm text-neutral-500">
+            No local history for this IP.
           </p>
-          <p className="mt-3 text-sm font-medium text-neutral-600">
-            Latest checks:
-          </p>
-          <ul className="mt-2 divide-y divide-neutral-100 rounded-2xl border border-neutral-200 bg-white">
-            {ipHistoryRecords.map((historyRecord) => (
-              <li
-                key={`${historyRecord.timestamp}:${historyRecord.ip}`}
-                className="grid gap-2 px-4 py-3 text-sm sm:grid-cols-[1.2fr_0.8fr_1fr_1fr]"
-              >
-                <span className="font-medium text-neutral-950">
-                  {formatHistoryTime(historyRecord.timestamp)}
-                </span>
-                <span className="text-neutral-600">
-                  {historyRecord.trustScore}/100
-                </span>
-                <span className="text-neutral-600">
-                  {historyRecord.recommendationLabel}
-                </span>
-                <span className="text-neutral-600">
-                  {formatHistoryAbuseConfidence(
-                    historyRecord.abuseConfidence,
-                  )}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
+        )}
+      </div>
       <div className="mt-5 border-t border-neutral-100 pt-4">
         <p className="text-sm font-semibold text-neutral-950">
           Reputation Sources
         </p>
         <div className="mt-3 divide-y divide-neutral-100 rounded-2xl border border-neutral-200 bg-white">
-          {reputationSourceRows.map((source) => (
-            <div
-              key={source.name}
-              className="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4"
-            >
-              <div>
-                <p className="text-sm font-medium text-neutral-950">
-                  {source.name}
-                </p>
-                {source.status === "Available" ? (
-                  <p className="mt-1 text-sm text-neutral-500">
-                    {source.contribution}
+          {hasAvailableReputationData ? (
+            reputationSourceRows.map((source) => (
+              <div
+                key={source.name}
+                className="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4"
+              >
+                <div>
+                  <p className="text-sm font-medium text-neutral-950">
+                    {source.name}
                   </p>
-                ) : null}
+                  {source.status === "Available" ? (
+                    <p className="mt-1 text-sm text-neutral-500">
+                      {source.contribution}
+                    </p>
+                  ) : null}
+                </div>
+                <p className="shrink-0 text-sm font-medium text-neutral-600">
+                  {source.status}
+                </p>
               </div>
-              <p className="shrink-0 text-sm font-medium text-neutral-600">
-                {source.status}
-              </p>
-            </div>
-          ))}
+            ))
+          ) : (
+            <p className="px-4 py-3 text-sm text-neutral-500">
+              No reputation data available.
+            </p>
+          )}
         </div>
       </div>
       <div className="mt-5 border-t border-neutral-100 pt-4">
@@ -811,6 +835,7 @@ function TrustScoreCard({
 export function IpAnalyzer() {
   const [ipAddress, setIpAddress] = useState("");
   const [error, setError] = useState("");
+  const [analysisErrorIp, setAnalysisErrorIp] = useState("");
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [recentChecks, setRecentChecks] = useState<RecentCheck[]>([]);
   const [currentIpHistory, setCurrentIpHistory] = useState<IpHistoryRecord[]>(
@@ -818,6 +843,7 @@ export function IpAnalyzer() {
   );
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isDetecting, setIsDetecting] = useState(true);
+  const isAnalysisInFlight = useRef(false);
 
   const saveRecentCheck = useCallback((nextIpAddress: string) => {
     setRecentChecks((currentRecentChecks) => {
@@ -832,14 +858,23 @@ export function IpAnalyzer() {
   }, []);
 
   const analyzeIpAddress = useCallback(async (nextIpAddress: string) => {
+    if (isAnalysisInFlight.current) {
+      return;
+    }
+
     const trimmedIpAddress = nextIpAddress.trim();
 
     if (!trimmedIpAddress) {
       setError("Unable to detect your IP.");
+      setAnalysisErrorIp("");
       return;
     }
 
+    isAnalysisInFlight.current = true;
     setError("");
+    setAnalysisErrorIp("");
+    setResult(null);
+    setCurrentIpHistory([]);
     setIsAnalyzing(true);
 
     try {
@@ -859,14 +894,16 @@ export function IpAnalyzer() {
     } catch {
       setResult(null);
       setCurrentIpHistory([]);
-      setError("Unable to detect your IP.");
+      setAnalysisErrorIp(trimmedIpAddress);
     } finally {
+      isAnalysisInFlight.current = false;
       setIsAnalyzing(false);
     }
   }, [saveRecentCheck]);
 
   const detectPublicIp = useCallback(async () => {
     setError("");
+    setAnalysisErrorIp("");
     setIsDetecting(true);
 
     try {
@@ -897,9 +934,16 @@ export function IpAnalyzer() {
     void analyzeIpAddress(nextIpAddress);
   }
 
+  function handleRetry() {
+    void analyzeIpAddress(analysisErrorIp || ipAddress);
+  }
+
   return (
     <div className="mx-auto mt-10 flex w-full max-w-xl flex-col items-center gap-3">
-      <form onSubmit={handleSubmit} className="flex w-full flex-col items-center gap-3">
+      <form
+        onSubmit={handleSubmit}
+        className="flex w-full flex-col items-center gap-3"
+      >
         <div className="flex flex-col items-center gap-3 sm:flex-row">
           <button
             type="button"
@@ -935,18 +979,44 @@ export function IpAnalyzer() {
           <button
             type="submit"
             disabled={isAnalyzing}
-            className="h-12 shrink-0 rounded-full bg-neutral-950 px-7 text-sm font-semibold text-white shadow-sm shadow-neutral-950/20 transition hover:bg-neutral-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950 disabled:cursor-not-allowed disabled:opacity-70"
+            className="inline-flex h-12 shrink-0 items-center justify-center gap-2 rounded-full bg-neutral-950 px-7 text-sm font-semibold text-white shadow-sm shadow-neutral-950/20 transition hover:bg-neutral-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950 disabled:cursor-not-allowed disabled:opacity-70"
           >
-            {isAnalyzing ? "Analyzing..." : "Analyze"}
+            {isAnalyzing ? (
+              <>
+                <LoadingSpinner />
+                <span>Analyzing...</span>
+              </>
+            ) : (
+              "Analyze"
+            )}
           </button>
         </div>
       </form>
 
-      {error ? <p className="text-sm font-medium text-red-600">{error}</p> : null}
+      {analysisErrorIp ? (
+        <div className="w-full rounded-2xl border border-red-100 bg-red-50 p-4 text-left">
+          <p className="text-sm font-semibold text-red-700">Analysis failed</p>
+          <p className="mt-1 text-sm leading-6 text-red-600">
+            Unable to retrieve IP information.
+            <br />
+            Please try again in a moment.
+          </p>
+          <button
+            type="button"
+            onClick={handleRetry}
+            disabled={isAnalyzing}
+            className="mt-3 h-10 rounded-full bg-red-700 px-5 text-sm font-semibold text-white shadow-sm shadow-red-950/10 transition hover:bg-red-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700 disabled:cursor-not-allowed disabled:opacity-70"
+          >
+            Retry
+          </button>
+        </div>
+      ) : error ? (
+        <p className="text-sm font-medium text-red-600">{error}</p>
+      ) : null}
 
-      {recentChecks.length > 0 ? (
-        <div className="w-full text-left">
-          <p className="text-sm font-semibold text-neutral-950">Recent Checks</p>
+      <div className="w-full text-left">
+        <p className="text-sm font-semibold text-neutral-950">Recent Checks</p>
+        {recentChecks.length > 0 ? (
           <div className="mt-2 flex flex-wrap gap-2">
             {recentChecks.map((recentCheck) => (
               <button
@@ -960,10 +1030,14 @@ export function IpAnalyzer() {
               </button>
             ))}
           </div>
-        </div>
-      ) : null}
+        ) : (
+          <p className="mt-2 rounded-2xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm text-neutral-500">
+            No recent checks yet.
+          </p>
+        )}
+      </div>
 
-      {result ? (
+      {result && !isAnalyzing ? (
         <div className="mt-5 flex w-full flex-col gap-3 text-left">
           <TrustScoreCard
             ipInfo={result.ipInfo}

@@ -45,9 +45,16 @@ export type ServiceCompatibilityReasonSignals = {
 
 type ServiceCompatibilityProfile =
   | "general"
+  | "streaming"
   | "social"
   | "ai"
   | "developer"
+  | "cloud"
+  | "google"
+  | "googleVoice"
+  | "apple"
+  | "communication"
+  | "gaming"
   | "finance"
   | "crypto";
 
@@ -326,25 +333,17 @@ function getServiceCompatibilityStatus(
   signals: ReturnType<typeof getCompatibilitySignals>,
 ): ServiceCompatibilityStatus {
   const abuseConfidence = signals.abuseConfidence;
+  const hasLowAbuseConfidence =
+    abuseConfidence !== null && abuseConfidence < 25;
+  const hasElevatedAbuse = abuseConfidence !== null && abuseConfidence >= 50;
+  const hasSevereAbuse = abuseConfidence !== null && abuseConfidence >= 85;
+  const hasNoVpnProxyTor =
+    !signals.vpn && !signals.proxy && !signals.tor;
+  const hasCleanCore = hasLowAbuseConfidence && hasNoVpnProxyTor;
+  const hasCleanSignals = hasCleanCore && !signals.hosting && !signals.relay;
 
-  if (profile === "social") {
-    if (signals.hosting || (abuseConfidence !== null && abuseConfidence >= 50)) {
-      return "Use with Caution";
-    }
-
-    if (
-      signals.score >= 85 &&
-      abuseConfidence !== null &&
-      abuseConfidence < 25
-    ) {
-      return "Good";
-    }
-
-    if (signals.score < 40) {
-      return "High Risk";
-    }
-
-    return "Use with Caution";
+  if (signals.tor || hasSevereAbuse) {
+    return "High Risk";
   }
 
   if (signals.score < 40) {
@@ -352,73 +351,110 @@ function getServiceCompatibilityStatus(
   }
 
   if (signals.score < 65) {
-    return profile === "general" || profile === "ai" || profile === "developer"
-      ? "Use with Caution"
-      : "High Risk";
+    return profile === "finance" ||
+      profile === "crypto" ||
+      profile === "googleVoice"
+      ? "High Risk"
+      : "Use with Caution";
   }
 
-  if (signals.score < 85) {
-    if (profile === "ai" || profile === "developer" || profile === "finance") {
-      return "Use with Caution";
+  if (signals.score < 80) {
+    if (profile === "general" && hasLowAbuseConfidence && hasNoVpnProxyTor) {
+      return "Good";
     }
 
-    return profile === "general" ? "Good" : "High Risk";
+    return "Use with Caution";
   }
 
-  return profile === "general" || profile === "ai" || profile === "developer"
-    ? "Good"
-    : "Use with Caution";
+  if (profile === "finance" || profile === "crypto") {
+    return "Use with Caution";
+  }
+
+  if (profile === "googleVoice") {
+    return signals.hosting || hasElevatedAbuse
+      ? "High Risk"
+      : "Use with Caution";
+  }
+
+  if (profile === "google") {
+    return signals.score >= 90 && hasCleanSignals ? "Good" : "Use with Caution";
+  }
+
+  if (profile === "general" || profile === "developer") {
+    return hasCleanCore ? "Good" : "Use with Caution";
+  }
+
+  if (profile === "streaming" || profile === "ai" || profile === "social") {
+    return signals.hosting || !hasCleanCore ? "Use with Caution" : "Good";
+  }
+
+  if (profile === "cloud") {
+    return hasCleanSignals ? "Good" : "Use with Caution";
+  }
+
+  if (
+    profile === "communication" ||
+    profile === "gaming" ||
+    profile === "apple"
+  ) {
+    return signals.hosting || !hasCleanCore ? "Use with Caution" : "Good";
+  }
+
+  return "Use with Caution";
 }
 
 function normalizeServiceName(serviceName: string) {
   return serviceName.trim().toLowerCase();
 }
 
-function getServiceCompatibilityTemplate(serviceName: string, category: string) {
+function getServiceExplanationProfile(
+  serviceName: string,
+  category: string,
+): ServiceCompatibilityProfile {
   const service = normalizeServiceName(serviceName);
 
   if (["youtube", "reddit", "wikipedia"].includes(service)) {
-    return "General browsing is usually less sensitive to IP reputation, but elevated abuse or infrastructure signals may still affect access.";
+    return "general";
   }
 
   if (["facebook", "instagram", "x", "tiktok"].includes(service)) {
-    return "Social platforms are more sensitive to account abuse and unusual login patterns, so infrastructure or abuse signals may trigger extra checks.";
+    return "social";
   }
 
   if (["chatgpt", "claude", "gemini", "perplexity", "grok"].includes(service)) {
-    return "AI services may apply additional checks to hosting or high-abuse IPs, especially for account creation, frequent switching, or unusual usage.";
+    return "ai";
   }
 
   if (["netflix", "disney+", "prime video", "max"].includes(service)) {
-    return "Streaming platforms often use IP reputation and location signals for region access, so hosting infrastructure may affect availability or playback.";
+    return "streaming";
   }
 
   if (["github", "gitlab", "cloudflare", "vercel"].includes(service)) {
-    return "Developer platforms usually allow normal access, but hosting networks or elevated abuse history may trigger login verification or rate limits.";
+    return "developer";
   }
 
   if (["aws", "azure", "google cloud"].includes(service)) {
-    return "Cloud providers apply stricter abuse and fraud controls, so infrastructure or high-abuse IPs may face more verification.";
+    return "cloud";
   }
 
   if (service === "google voice") {
-    return "Google Voice is sensitive to registration abuse and phone verification patterns, so infrastructure or high-abuse IPs may increase failure risk.";
+    return "googleVoice";
   }
 
   if (["google account", "gmail", "google play"].includes(service)) {
-    return "Google services may consider IP reputation and login behavior, so use caution when abuse or infrastructure signals are present.";
+    return "google";
   }
 
   if (["paypal", "wise", "stripe", "revolut"].includes(service)) {
-    return "Financial services apply strict fraud controls, so hosting or high-abuse IPs may trigger verification, review, or restricted actions.";
+    return "finance";
   }
 
   if (["binance", "coinbase", "kraken", "bybit", "okx"].includes(service)) {
-    return "Crypto exchanges usually apply strict risk controls, so high-abuse or infrastructure IPs may increase security checks or account restrictions.";
+    return "crypto";
   }
 
   if (["discord", "telegram"].includes(service)) {
-    return "Communication platforms may flag abuse-prone IPs, especially for new accounts, frequent logins, or spam-like behavior.";
+    return "communication";
   }
 
   if (
@@ -426,14 +462,14 @@ function getServiceCompatibilityTemplate(serviceName: string, category: string) 
       service,
     )
   ) {
-    return "Gaming platforms are usually usable, but unusual location or infrastructure signals may trigger login checks or marketplace restrictions.";
+    return "gaming";
   }
 
   if (category === "APPLE") {
-    return "Apple services may apply extra checks around account access, so use caution when abuse or infrastructure signals are present.";
+    return "apple";
   }
 
-  return "This service may review IP reputation differently, so use caution when abuse or infrastructure signals are present.";
+  return "social";
 }
 
 export function buildServiceCompatibilityReason(
@@ -442,30 +478,133 @@ export function buildServiceCompatibilityReason(
   status: ServiceCompatibilityStatus,
   signals: ServiceCompatibilityReasonSignals,
 ) {
-  const template = getServiceCompatibilityTemplate(serviceName, category);
-  const hasRiskSignals =
-    signals.score < 65 ||
-    (signals.abuseConfidence !== null && signals.abuseConfidence >= 50) ||
+  const profile = getServiceExplanationProfile(serviceName, category);
+  const hasHostingOrPrivacySignal =
     signals.hosting ||
     signals.vpn ||
     signals.proxy ||
     signals.tor ||
-    signals.relay ||
-    signals.recommendationStatus === "Not Recommended";
+    signals.relay;
 
-  if (status === "High Risk") {
-    return `This IP has stronger risk signals, so avoid sensitive account actions on this service. ${template}`;
+  if (status === "Good" && profile === "general" && hasHostingOrPrivacySignal) {
+    return "General browsing is usually less sensitive to IP reputation. Clean abuse history keeps this in a usable range.";
   }
 
-  if (status === "Good") {
-    if (!hasRiskSignals) {
-      return `No major IP reputation issue is detected for this type of service. ${template}`;
-    }
-
-    return `This service is more likely to be usable, but use caution if stricter checks review the current IP signals. ${template}`;
+  if (status === "Good" && profile === "developer" && !signals.hosting) {
+    return "Developer platforms usually work well when reputation is clean. No major abuse signal is detected.";
   }
 
-  return `Use caution with this service because the current IP signals may trigger extra checks. ${template}`;
+  const reasons: Record<
+    ServiceCompatibilityProfile,
+    Record<ServiceCompatibilityStatus, string>
+  > = {
+    general: {
+      Good:
+        "General browsing is usually less sensitive to IP reputation. No major abuse signal is detected.",
+      "Use with Caution":
+        "General browsing should work, but stricter platforms may still review reputation or infrastructure signals.",
+      "High Risk":
+        "General web access may still load, but this IP has stronger reputation risk than normal.",
+    },
+    streaming: {
+      Good:
+        "Streaming access is usually fine when reputation is clean and location signals are stable.",
+      "Use with Caution":
+        "Streaming platforms may use IP type and location signals for region access, so hosting networks can affect availability.",
+      "High Risk":
+        "Streaming platforms may block access when abuse, VPN, proxy, or Tor signals are strong.",
+    },
+    social: {
+      Good:
+        "Social logins are usually fine when reputation is clean and the location looks consistent.",
+      "Use with Caution":
+        "Social platforms are sensitive to unusual login and signup patterns. Hosting networks may trigger verification.",
+      "High Risk":
+        "Social platforms may block signup or require verification when reputation risk is high.",
+    },
+    ai: {
+      Good:
+        "AI services usually accept clean IPs with stable reputation. Keep login patterns consistent.",
+      "Use with Caution":
+        "AI services may apply extra checks to hosting networks, especially during login, signup, or frequent IP changes.",
+      "High Risk":
+        "AI services may restrict signups or usage when abuse, VPN, proxy, or Tor signals are present.",
+    },
+    developer: {
+      Good:
+        "Developer platforms usually tolerate infrastructure IPs. No major abuse signal is detected.",
+      "Use with Caution":
+        "Developer platforms usually tolerate infrastructure IPs, but abuse history can still trigger verification or rate limits.",
+      "High Risk":
+        "Developer platforms may add verification or rate limits when abuse history is strong.",
+    },
+    cloud: {
+      Good:
+        "Cloud provider dashboards are more likely to work when reputation is clean and signals are stable.",
+      "Use with Caution":
+        "Cloud providers use stricter fraud and abuse checks. Clean reputation helps, but infrastructure signals may still matter.",
+      "High Risk":
+        "Cloud providers may restrict access or signup when abuse or privacy signals are strong.",
+    },
+    google: {
+      Good:
+        "Google account services are usually fine when reputation is clean and no hosting or privacy signal is detected.",
+      "Use with Caution":
+        "Google account services may ask for verification when hosting, location, or reputation signals look unusual.",
+      "High Risk":
+        "Google account services may block sign-in or signup when risk signals are strong.",
+    },
+    googleVoice: {
+      Good:
+        "Google Voice remains stricter than normal Google services because phone verification abuse is common.",
+      "Use with Caution":
+        "Google Voice is stricter than normal Google services because registration and phone verification abuse are common.",
+      "High Risk":
+        "Google Voice has high abuse sensitivity. Hosting, VPN, proxy, or abuse signals can make registration unreliable.",
+    },
+    apple: {
+      Good:
+        "Apple account services usually work when reputation is clean and login context is consistent.",
+      "Use with Caution":
+        "Apple services may add account checks when hosting or reputation signals look unusual.",
+      "High Risk":
+        "Apple services may restrict sensitive account actions when abuse or privacy signals are strong.",
+    },
+    communication: {
+      Good:
+        "Messaging platforms usually work when abuse and automation signals are clean.",
+      "Use with Caution":
+        "Messaging platforms may flag IPs linked to spam or automation, especially for new accounts.",
+      "High Risk":
+        "Messaging platforms may restrict new accounts when spam or automation risk is high.",
+    },
+    gaming: {
+      Good:
+        "Gaming platforms are usually usable when reputation is clean and location looks consistent.",
+      "Use with Caution":
+        "Gaming platforms are usually usable, but unusual location or infrastructure signals may trigger login checks.",
+      "High Risk":
+        "Gaming platforms may require verification or limit marketplace activity when risk signals are strong.",
+    },
+    finance: {
+      Good:
+        "Financial services still review device and account context even when IP reputation looks clean.",
+      "Use with Caution":
+        "Financial services use strict fraud controls. IP reputation is only one factor, but hosting networks may increase review risk.",
+      "High Risk":
+        "Financial services may block or heavily review activity when reputation risk is high.",
+    },
+    crypto: {
+      Good:
+        "Crypto exchanges still review device and account context even when IP reputation looks clean.",
+      "Use with Caution":
+        "Crypto exchanges apply strict risk controls. Hosting or previously abused IPs may increase security checks.",
+      "High Risk":
+        "Crypto exchanges may block or heavily review activity when reputation risk is high.",
+    },
+  };
+
+  return reasons[profile][status];
 }
 
 function getAbuseIpDbReasons(abuseIpDb?: AbuseIpDbResponse | null) {
@@ -678,10 +817,10 @@ export function buildServiceCompatibility(
     {
       category: "STREAMING",
       services: [
-        { name: "Netflix", profile: "general" },
-        { name: "Disney+", profile: "general" },
-        { name: "Prime Video", profile: "general" },
-        { name: "Max", profile: "general" },
+        { name: "Netflix", profile: "streaming" },
+        { name: "Disney+", profile: "streaming" },
+        { name: "Prime Video", profile: "streaming" },
+        { name: "Max", profile: "streaming" },
       ],
     },
     {
@@ -696,41 +835,41 @@ export function buildServiceCompatibility(
     {
       category: "CLOUD",
       services: [
-        { name: "AWS", profile: "developer" },
-        { name: "Azure", profile: "developer" },
-        { name: "Google Cloud", profile: "developer" },
+        { name: "AWS", profile: "cloud" },
+        { name: "Azure", profile: "cloud" },
+        { name: "Google Cloud", profile: "cloud" },
       ],
     },
     {
       category: "GOOGLE",
       services: [
-        { name: "Google Voice", profile: "social" },
-        { name: "Google Account", profile: "social" },
-        { name: "Gmail", profile: "social" },
-        { name: "Google Play", profile: "social" },
+        { name: "Google Voice", profile: "googleVoice" },
+        { name: "Google Account", profile: "google" },
+        { name: "Gmail", profile: "google" },
+        { name: "Google Play", profile: "google" },
       ],
     },
     {
       category: "APPLE",
       services: [
-        { name: "Apple ID", profile: "social" },
-        { name: "iCloud", profile: "social" },
+        { name: "Apple ID", profile: "apple" },
+        { name: "iCloud", profile: "apple" },
       ],
     },
     {
       category: "COMMUNICATION",
       services: [
-        { name: "Discord", profile: "social" },
-        { name: "Telegram", profile: "social" },
+        { name: "Discord", profile: "communication" },
+        { name: "Telegram", profile: "communication" },
       ],
     },
     {
       category: "GAMING",
       services: [
-        { name: "Steam", profile: "social" },
-        { name: "Epic Games", profile: "social" },
-        { name: "PlayStation Network", profile: "social" },
-        { name: "Xbox Live", profile: "social" },
+        { name: "Steam", profile: "gaming" },
+        { name: "Epic Games", profile: "gaming" },
+        { name: "PlayStation Network", profile: "gaming" },
+        { name: "Xbox Live", profile: "gaming" },
       ],
     },
     {

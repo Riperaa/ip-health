@@ -467,8 +467,8 @@ export function IpCompare() {
       </div>
 
       {displayResults ? (
-        <div className="mt-6 w-full">
-          <div className="grid items-stretch gap-3 md:grid-cols-2">
+        <div className="mt-8 w-full">
+          <div className="grid items-stretch gap-4 md:grid-cols-2">
             <ResultCard label="IP A" result={displayResults.ipA} />
             <ResultCard label="IP B" result={displayResults.ipB} />
           </div>

@@ -648,7 +648,7 @@ function TrustScoreCard({
   const ipType = getIpTypeBadge(abuseIpDb?.usageType, ipInfo.privacy);
 
   return (
-    <div className="surface-card rounded-[28px] border bg-white p-5">
+    <div className="surface-card-primary rounded-[28px] border bg-white p-5">
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-xs font-semibold uppercase tracking-normal text-neutral-400">
@@ -725,7 +725,7 @@ function ServiceCompatibilitySection({
               (currentVisibility) => !currentVisibility,
             )
           }
-          className="flex min-h-12 w-full items-center gap-2 px-4 py-3 text-left text-sm font-semibold text-neutral-950 transition hover:bg-neutral-50/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950"
+          className="flex min-h-12 w-full items-center gap-2 px-4 py-3 text-left text-sm font-semibold text-neutral-950 transition hover:bg-[#f3f4f7] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950"
         >
           <span className="w-4 text-xs text-neutral-400" aria-hidden="true">
             {isServiceCompatibilityVisible ? "▾" : "▸"}
@@ -734,7 +734,7 @@ function ServiceCompatibilitySection({
         </button>
       </div>
       {isServiceCompatibilityVisible ? (
-        <div className="surface-card-soft mt-3 overflow-hidden rounded-2xl border bg-white">
+        <div className="surface-card mt-3 overflow-hidden rounded-2xl border bg-white">
           <div className="divide-y divide-neutral-100">
             {serviceCompatibility.map((category) => {
               const summary = getServiceCompatibilitySummary(
@@ -769,7 +769,7 @@ function ServiceCompatibilitySection({
                         );
                       }
                     }}
-                    className="flex min-h-12 w-full flex-col gap-1 px-4 py-3 text-left transition hover:bg-neutral-50/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
+                    className="flex min-h-12 w-full flex-col gap-1 px-4 py-3 text-left transition hover:bg-[#f3f4f7] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
                   >
                     <span className="flex min-w-0 items-center gap-2">
                       <span
@@ -802,7 +802,7 @@ function ServiceCompatibilitySection({
                                   isExpanded ? null : serviceKey,
                                 )
                               }
-                              className="w-full rounded-xl border border-neutral-200/70 bg-white px-3 py-2 text-left shadow-[0_1px_2px_rgba(15,23,42,0.025)] transition hover:bg-neutral-50/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950"
+                              className="w-full rounded-xl border border-slate-200/70 bg-white px-3 py-2 text-left shadow-[0_1px_2px_rgba(15,23,42,0.025)] transition hover:bg-[#f5f6f8] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950"
                             >
                               <span className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
                                 <span className="font-medium text-neutral-950">
@@ -871,7 +871,7 @@ function ScoreDetailsSection({
               (currentVisibility) => !currentVisibility,
             )
           }
-          className="flex min-h-12 w-full items-center gap-2 px-4 py-3 text-left text-sm font-semibold text-neutral-950 transition hover:bg-neutral-50/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950"
+          className="flex min-h-12 w-full items-center gap-2 px-4 py-3 text-left text-sm font-semibold text-neutral-950 transition hover:bg-[#f3f4f7] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950"
         >
           <span className="w-4 text-xs text-neutral-400" aria-hidden="true">
             {isScoreDetailsVisible ? "▾" : "▸"}
@@ -880,7 +880,7 @@ function ScoreDetailsSection({
         </button>
       </div>
       {isScoreDetailsVisible ? (
-        <ul className="surface-card-soft mt-3 list-disc space-y-1 rounded-2xl border bg-white p-4 pl-9 text-sm text-neutral-600">
+        <ul className="surface-card mt-3 list-disc space-y-1 rounded-2xl border bg-white p-4 pl-9 text-sm text-neutral-600">
           {reasons.map((reason) => (
             <li key={reason}>{reason}</li>
           ))}
@@ -905,7 +905,7 @@ function ReputationSourcesSection({
       <p className="text-sm font-semibold text-neutral-950">
         Reputation Sources
       </p>
-      <div className="surface-card-soft mt-3 divide-y divide-neutral-100 rounded-2xl border bg-white">
+      <div className="surface-card mt-3 divide-y divide-neutral-100 rounded-2xl border bg-white">
         {hasAvailableReputationData ? (
           reputationSourceRows.map((source) => (
             <div
@@ -959,7 +959,7 @@ function IpHistorySection({
           onClick={() =>
             setIsIpHistoryVisible((currentVisibility) => !currentVisibility)
           }
-          className="flex min-h-12 w-full items-center gap-2 px-4 py-3 text-left text-sm font-semibold text-neutral-950 transition hover:bg-neutral-50/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950"
+          className="flex min-h-12 w-full items-center gap-2 px-4 py-3 text-left text-sm font-semibold text-neutral-950 transition hover:bg-[#f3f4f7] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950"
         >
           <span className="w-4 text-xs text-neutral-400" aria-hidden="true">
             {isIpHistoryVisible ? "▾" : "▸"}
@@ -968,7 +968,7 @@ function IpHistorySection({
         </button>
       </div>
       {isIpHistoryVisible ? (
-        <div className="surface-card-soft mt-3 overflow-hidden rounded-2xl border bg-white">
+        <div className="surface-card mt-3 overflow-hidden rounded-2xl border bg-white">
           {ipHistoryRecords.length > IP_HISTORY_PREVIEW_LIMIT ? (
             <p className="border-b border-neutral-100 px-4 py-3 text-sm text-neutral-500">
               Showing latest {IP_HISTORY_PREVIEW_LIMIT} of{" "}
@@ -1012,7 +1012,7 @@ function IpHistorySection({
           )}
         </div>
       ) : (
-        <p className="surface-card-soft mt-3 rounded-2xl border bg-white px-4 py-3 text-sm leading-6 text-neutral-500">
+        <p className="surface-card mt-3 rounded-2xl border bg-white px-4 py-3 text-sm leading-6 text-neutral-500">
           {getIpHistorySummary(ipHistoryRecords)}
         </p>
       )}
@@ -1228,7 +1228,7 @@ export function IpAnalyzer() {
       </div>
 
       {result && !isAnalyzing ? (
-        <div className="mt-5 flex w-full flex-col gap-3 text-left">
+        <div className="mt-6 flex w-full flex-col gap-4 text-left">
           <TrustScoreCard
             ipInfo={result.ipInfo}
             abuseIpDb={result.abuseIpDb}

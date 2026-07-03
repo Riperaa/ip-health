@@ -250,7 +250,7 @@ function VerdictSummary({
   reason: string;
 }) {
   return (
-    <div className="mt-3 rounded-[28px] border border-neutral-200 bg-white p-5 text-left shadow-sm shadow-neutral-950/[0.03] sm:flex sm:items-start sm:justify-between sm:gap-6">
+    <div className="mt-2 rounded-[24px] border border-neutral-200 bg-neutral-50 p-5 text-left shadow-sm shadow-neutral-950/[0.03] sm:flex sm:items-start sm:justify-between sm:gap-6">
       <div>
         <p className="text-xs font-semibold uppercase tracking-normal text-neutral-400">
           Better choice
@@ -380,7 +380,7 @@ export function IpCompare() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col items-center px-5 py-24 sm:px-8">
+    <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col items-center px-5 pb-20 pt-[calc(env(safe-area-inset-top)+7rem)] sm:px-8 sm:pb-24 sm:pt-[calc(env(safe-area-inset-top)+8rem)]">
       <div className="w-full max-w-2xl text-center">
         <h1 className="text-balance text-4xl font-semibold tracking-normal text-neutral-950 sm:text-5xl">
           Compare IPs
@@ -434,7 +434,7 @@ export function IpCompare() {
       </div>
 
       {displayResults ? (
-        <div className="mt-8 w-full">
+        <div className="mt-6 w-full">
           <div className="grid items-stretch gap-3 md:grid-cols-2">
             <ResultCard label="IP A" result={displayResults.ipA} />
             <ResultCard label="IP B" result={displayResults.ipB} />

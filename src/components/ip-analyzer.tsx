@@ -648,7 +648,7 @@ function TrustScoreCard({
   const ipType = getIpTypeBadge(abuseIpDb?.usageType, ipInfo.privacy);
 
   return (
-    <div className="rounded-[28px] border border-neutral-200 bg-white p-5 shadow-[0_12px_50px_rgba(0,0,0,0.08)]">
+    <div className="surface-card rounded-[28px] border bg-white p-5">
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-xs font-semibold uppercase tracking-normal text-neutral-400">
@@ -716,7 +716,7 @@ function ServiceCompatibilitySection({
 
   return (
     <div>
-      <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm shadow-neutral-950/[0.03]">
+      <div className="disclosure-card overflow-hidden rounded-2xl border bg-white">
         <button
           type="button"
           aria-expanded={isServiceCompatibilityVisible}
@@ -725,7 +725,7 @@ function ServiceCompatibilitySection({
               (currentVisibility) => !currentVisibility,
             )
           }
-          className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-semibold text-neutral-950 transition hover:bg-neutral-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950"
+          className="flex min-h-12 w-full items-center gap-2 px-4 py-3 text-left text-sm font-semibold text-neutral-950 transition hover:bg-neutral-50/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950"
         >
           <span className="w-4 text-xs text-neutral-400" aria-hidden="true">
             {isServiceCompatibilityVisible ? "▾" : "▸"}
@@ -734,7 +734,7 @@ function ServiceCompatibilitySection({
         </button>
       </div>
       {isServiceCompatibilityVisible ? (
-        <div className="mt-3 overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm shadow-neutral-950/[0.03]">
+        <div className="surface-card-soft mt-3 overflow-hidden rounded-2xl border bg-white">
           <div className="divide-y divide-neutral-100">
             {serviceCompatibility.map((category) => {
               const summary = getServiceCompatibilitySummary(
@@ -769,7 +769,7 @@ function ServiceCompatibilitySection({
                         );
                       }
                     }}
-                    className="flex w-full flex-col gap-1 px-4 py-3 text-left transition hover:bg-neutral-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
+                    className="flex min-h-12 w-full flex-col gap-1 px-4 py-3 text-left transition hover:bg-neutral-50/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
                   >
                     <span className="flex min-w-0 items-center gap-2">
                       <span
@@ -802,7 +802,7 @@ function ServiceCompatibilitySection({
                                   isExpanded ? null : serviceKey,
                                 )
                               }
-                              className="w-full rounded-xl bg-white px-3 py-2 text-left transition hover:bg-neutral-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950"
+                              className="w-full rounded-xl border border-neutral-200/70 bg-white px-3 py-2 text-left shadow-[0_1px_2px_rgba(15,23,42,0.025)] transition hover:bg-neutral-50/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950"
                             >
                               <span className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
                                 <span className="font-medium text-neutral-950">
@@ -862,7 +862,7 @@ function ScoreDetailsSection({
 
   return (
     <div>
-      <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm shadow-neutral-950/[0.03]">
+      <div className="disclosure-card overflow-hidden rounded-2xl border bg-white">
         <button
           type="button"
           aria-expanded={isScoreDetailsVisible}
@@ -871,7 +871,7 @@ function ScoreDetailsSection({
               (currentVisibility) => !currentVisibility,
             )
           }
-          className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-semibold text-neutral-950 transition hover:bg-neutral-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950"
+          className="flex min-h-12 w-full items-center gap-2 px-4 py-3 text-left text-sm font-semibold text-neutral-950 transition hover:bg-neutral-50/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950"
         >
           <span className="w-4 text-xs text-neutral-400" aria-hidden="true">
             {isScoreDetailsVisible ? "▾" : "▸"}
@@ -880,7 +880,7 @@ function ScoreDetailsSection({
         </button>
       </div>
       {isScoreDetailsVisible ? (
-        <ul className="mt-3 list-disc space-y-1 rounded-2xl border border-neutral-200 bg-white p-4 pl-9 text-sm text-neutral-600 shadow-sm shadow-neutral-950/[0.03]">
+        <ul className="surface-card-soft mt-3 list-disc space-y-1 rounded-2xl border bg-white p-4 pl-9 text-sm text-neutral-600">
           {reasons.map((reason) => (
             <li key={reason}>{reason}</li>
           ))}
@@ -905,7 +905,7 @@ function ReputationSourcesSection({
       <p className="text-sm font-semibold text-neutral-950">
         Reputation Sources
       </p>
-      <div className="mt-3 divide-y divide-neutral-100 rounded-2xl border border-neutral-200 bg-white">
+      <div className="surface-card-soft mt-3 divide-y divide-neutral-100 rounded-2xl border bg-white">
         {hasAvailableReputationData ? (
           reputationSourceRows.map((source) => (
             <div
@@ -952,14 +952,14 @@ function IpHistorySection({
 
   return (
     <div>
-      <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm shadow-neutral-950/[0.03]">
+      <div className="disclosure-card overflow-hidden rounded-2xl border bg-white">
         <button
           type="button"
           aria-expanded={isIpHistoryVisible}
           onClick={() =>
             setIsIpHistoryVisible((currentVisibility) => !currentVisibility)
           }
-          className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-semibold text-neutral-950 transition hover:bg-neutral-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950"
+          className="flex min-h-12 w-full items-center gap-2 px-4 py-3 text-left text-sm font-semibold text-neutral-950 transition hover:bg-neutral-50/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950"
         >
           <span className="w-4 text-xs text-neutral-400" aria-hidden="true">
             {isIpHistoryVisible ? "▾" : "▸"}
@@ -968,7 +968,7 @@ function IpHistorySection({
         </button>
       </div>
       {isIpHistoryVisible ? (
-        <div className="mt-3 overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm shadow-neutral-950/[0.03]">
+        <div className="surface-card-soft mt-3 overflow-hidden rounded-2xl border bg-white">
           {ipHistoryRecords.length > IP_HISTORY_PREVIEW_LIMIT ? (
             <p className="border-b border-neutral-100 px-4 py-3 text-sm text-neutral-500">
               Showing latest {IP_HISTORY_PREVIEW_LIMIT} of{" "}
@@ -1012,7 +1012,7 @@ function IpHistorySection({
           )}
         </div>
       ) : (
-        <p className="mt-3 rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm leading-6 text-neutral-500 shadow-sm shadow-neutral-950/[0.03]">
+        <p className="surface-card-soft mt-3 rounded-2xl border bg-white px-4 py-3 text-sm leading-6 text-neutral-500">
           {getIpHistorySummary(ipHistoryRecords)}
         </p>
       )}
@@ -1132,7 +1132,7 @@ export function IpAnalyzer() {
         onSubmit={handleSubmit}
         className="flex w-full flex-col items-center gap-3"
       >
-        <div className="flex w-full flex-col gap-3 rounded-[28px] border border-neutral-200 bg-white p-2 shadow-[0_12px_50px_rgba(0,0,0,0.08)] transition focus-within:border-neutral-300 sm:flex-row sm:items-center">
+        <div className="surface-card flex w-full flex-col gap-3 rounded-[28px] border bg-white p-2 transition focus-within:border-neutral-300 sm:flex-row sm:items-center">
           <label htmlFor="ip-address" className="sr-only">
             IP address
           </label>
@@ -1256,7 +1256,7 @@ export function IpAnalyzer() {
             ).map((card) => (
               <div
                 key={card.label}
-                className="rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm shadow-neutral-950/[0.03]"
+                className="surface-card-soft rounded-2xl border bg-white p-4"
               >
                 <p className="text-xs font-semibold uppercase tracking-normal text-neutral-400">
                   {card.label}

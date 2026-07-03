@@ -5,7 +5,7 @@ import { IpAnalyzer } from "@/components/ip-analyzer";
 
 export default function Home() {
   return (
-    <main className="flex min-h-dvh flex-col bg-white text-neutral-950">
+    <main className="flex min-h-dvh flex-col bg-[#fbfbfa] text-neutral-950">
       <Link
         href="/sponsor"
         className="fixed right-4 top-4 z-10 rounded-full border border-neutral-200 bg-white/80 px-3 py-1.5 text-sm font-medium text-neutral-600 shadow-sm shadow-neutral-950/[0.03] backdrop-blur transition hover:border-neutral-300 hover:text-neutral-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950 sm:right-8 sm:top-7"

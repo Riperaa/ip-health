@@ -257,7 +257,7 @@ function VerdictSummary({
   reason: string;
 }) {
   return (
-    <div className="mt-2 rounded-[24px] border border-neutral-200 bg-neutral-50 p-5 text-left shadow-sm shadow-neutral-950/[0.03] sm:flex sm:items-start sm:justify-between sm:gap-6">
+    <div className="surface-card-soft mt-2 rounded-[24px] border bg-white p-5 text-left sm:flex sm:items-start sm:justify-between sm:gap-6">
       <div>
         <p className="text-xs font-semibold uppercase tracking-normal text-neutral-400">
           Better choice
@@ -293,7 +293,7 @@ function ResultCard({
   ];
 
   return (
-    <div className="flex h-full flex-col rounded-[28px] border border-neutral-200 bg-white p-5 text-left shadow-[0_12px_50px_rgba(0,0,0,0.08)]">
+    <div className="surface-card flex h-full flex-col rounded-[28px] border bg-white p-5 text-left">
       <div className="flex items-start justify-between gap-4 border-b border-neutral-100 pb-4">
         <div className="min-w-0">
           <p className="text-xs font-semibold uppercase tracking-normal text-neutral-400">

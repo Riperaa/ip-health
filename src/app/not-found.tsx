@@ -4,7 +4,7 @@ import { FooterLinks } from "@/components/footer-links";
 
 export default function NotFound() {
   return (
-    <main className="flex min-h-dvh flex-col bg-white text-neutral-950">
+    <main className="flex min-h-dvh flex-col bg-[#fbfbfa] text-neutral-950">
       <section className="mx-auto flex w-full max-w-3xl flex-1 flex-col items-center justify-center px-5 py-24 text-center sm:px-8">
         <h1 className="text-balance text-4xl font-semibold tracking-normal text-neutral-950 sm:text-5xl">
           Page not found

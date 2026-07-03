@@ -6,7 +6,7 @@ const repositoryUrl = "https://github.com/Riperaa/ip-health";
 
 export default function SponsorPage() {
   return (
-    <main className="flex min-h-dvh flex-col bg-white text-neutral-950">
+    <main className="flex min-h-dvh flex-col bg-[#fbfbfa] text-neutral-950">
       <Link
         href="/"
         className="fixed left-4 top-4 z-10 rounded-full border border-neutral-200 bg-white/80 px-3 py-1.5 text-sm font-medium text-neutral-600 shadow-sm shadow-neutral-950/[0.03] backdrop-blur transition hover:border-neutral-300 hover:text-neutral-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950 sm:left-8 sm:top-7"
@@ -25,7 +25,7 @@ export default function SponsorPage() {
           </p>
 
           <div className="mx-auto mt-10 grid w-full max-w-xl gap-3 text-left sm:grid-cols-2">
-            <div className="flex min-h-48 flex-col rounded-[28px] border border-neutral-200 bg-white p-5 shadow-[0_12px_50px_rgba(0,0,0,0.08)]">
+            <div className="surface-card flex min-h-48 flex-col rounded-[28px] border bg-white p-5">
               <h2 className="text-lg font-semibold text-neutral-950">GitHub</h2>
               <p className="mt-2 text-sm leading-6 text-neutral-500">
                 Star the project or contribute.
@@ -40,7 +40,7 @@ export default function SponsorPage() {
               </a>
             </div>
 
-            <div className="flex min-h-48 flex-col rounded-[28px] border border-neutral-200 bg-white p-5 shadow-sm shadow-neutral-950/[0.03]">
+            <div className="surface-card flex min-h-48 flex-col rounded-[28px] border bg-white p-5">
               <h2 className="text-lg font-semibold text-neutral-950">PayPal</h2>
               <p className="mt-2 text-sm leading-6 text-neutral-500">
                 PayPal verification is currently in progress.

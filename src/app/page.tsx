@@ -14,7 +14,7 @@ export default function Home() {
       </Link>
 
       <section className="mx-auto flex w-full max-w-4xl flex-1 flex-col items-center px-5 pb-20 pt-[calc(env(safe-area-inset-top)+7rem)] sm:px-8 sm:pb-24 sm:pt-[calc(env(safe-area-inset-top)+8rem)]">
-        <div className="w-full max-w-2xl text-center">
+        <div className="w-full max-w-3xl text-center">
           <h1 className="text-balance text-5xl font-semibold tracking-normal text-neutral-950 sm:text-6xl md:text-7xl">
             IP Health
           </h1>
@@ -22,8 +22,7 @@ export default function Home() {
             Know whether you can trust this IP in 5 seconds.
           </p>
           <p className="mx-auto mt-2 max-w-xl text-pretty text-sm leading-6 text-neutral-500 sm:text-base">
-            Check IP reputation, risk signals, and service compatibility before
-            logging in.
+            Check IP reputation and risk signals before logging in.
           </p>
 
           <IpAnalyzer />

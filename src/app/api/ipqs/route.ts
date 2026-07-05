@@ -20,14 +20,14 @@ export async function GET(request: NextRequest) {
     if (isProviderLookupError(error)) {
       if (error.raw !== undefined) {
         return NextResponse.json(
-          { error: error.message, raw: error.raw },
+          { error: "Provider lookup failed.", raw: error.raw },
           { status: error.status },
         );
       }
 
-      return errorResponse(error.message, error.status);
+      return errorResponse("Provider lookup failed.", error.status);
     }
 
-    return errorResponse("Unable to fetch IPQualityScore data.", 502);
+    return errorResponse("Provider lookup failed.", 502);
   }
 }

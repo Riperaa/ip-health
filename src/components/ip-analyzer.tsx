@@ -8,84 +8,34 @@ import {
   fetchIpAnalysis,
   fetchPublicIp,
   type AnalysisResult,
-  type ReputationSourceStatuses,
-  type ReputationSourceStatus,
 } from "@/lib/client-ip-analysis";
 import {
-  buildReasons,
   buildRecommendation,
-  buildRecommendationConfidence,
-  buildRiskSummary,
-  buildServiceCompatibility,
-  buildServiceCompatibilityReason,
-  buildServiceCompatibilitySignals,
   calculateTrustScore,
   isInfrastructureUsage,
   type AbuseIpDbResponse,
   type IpInfoResponse,
-  type IpqsResponse,
-  type RecommendationConfidence,
-  type RecommendationLabel,
-  type ServiceCompatibilityStatus,
 } from "@/lib/trust-engine";
 import {
   getRecommendationTone,
-  getServiceCompatibilityTone,
-  getTrustScoreStatusLabel,
-  getTrustScoreTone,
-  getUsageTypeTone,
   type StatusTone,
 } from "@/lib/status-colors";
-
-type ResultCard = {
-  label: string;
-  value: string;
-};
 
 type RecentCheck = {
   ip: string;
   timestamp: number;
 };
 
-type IpHistoryRecord = {
-  ip: string;
-  timestamp: number;
-  trustScore: number;
-  recommendationLabel: RecommendationLabel;
-  confidence: RecommendationConfidence;
-  abuseConfidence: number | null;
-  usageType: string;
-  ipType: IpTypeBadge;
+type RiskLevel = "Low" | "Medium" | "High";
+
+type RiskSignal = {
+  label: string;
+  detail: string;
+  tone: StatusTone;
 };
-
-type ReputationSourceRow = {
-  name: string;
-  status: ReputationSourceStatus;
-  contribution: string;
-};
-
-type ServiceCompatibilitySummary = Record<ServiceCompatibilityStatus, number>;
-
-type IpTypeBadge =
-  | "Residential"
-  | "Mobile"
-  | "Business"
-  | "Infrastructure"
-  | "Hosting"
-  | "Unknown";
 
 const RECENT_CHECKS_STORAGE_KEY = "ip-health:recent-checks";
 const MAX_RECENT_CHECKS = 5;
-const IP_HISTORY_STORAGE_KEY = "ip-health:ip-history";
-const MAX_IP_HISTORY_RECORDS = 20;
-const IP_HISTORY_PREVIEW_LIMIT = 5;
-
-function getTrustScoreStatus(score: number) {
-  return {
-    label: getTrustScoreStatusLabel(score),
-    tone: getTrustScoreTone(score),
-  };
-}
 
 function LoadingSpinner() {
   return (
@@ -94,76 +44,6 @@ function LoadingSpinner() {
       className="inline-block size-4 animate-spin rounded-full border-2 border-current border-r-transparent"
     />
   );
-}
-
-function getServiceStatusLabel(status: ServiceCompatibilityStatus) {
-  if (status === "Good") {
-    return "✓ Good";
-  }
-
-  if (status === "Use with Caution") {
-    return "⚠ Use with Caution";
-  }
-
-  return "✕ High Risk";
-}
-
-function getServiceCompatibilitySummary(
-  services: { status: ServiceCompatibilityStatus }[],
-): ServiceCompatibilitySummary {
-  const summary: ServiceCompatibilitySummary = {
-    Good: 0,
-    "Use with Caution": 0,
-    "High Risk": 0,
-  };
-
-  services.forEach((service) => {
-    summary[service.status] += 1;
-  });
-
-  return summary;
-}
-
-function ServiceCompatibilitySummaryBadges({
-  summary,
-}: {
-  summary: ServiceCompatibilitySummary;
-}) {
-  const summaryBadges = (
-    [
-      { count: summary.Good, label: "Good", tone: "good" },
-      {
-        count: summary["Use with Caution"],
-        label: "Caution",
-        tone: "caution",
-      },
-      { count: summary["High Risk"], label: "High Risk", tone: "risk" },
-    ] satisfies { count: number; label: string; tone: StatusTone }[]
-  ).filter((badge) => badge.count > 0);
-
-  return (
-    <span className="flex flex-wrap gap-1.5 sm:justify-end">
-      {summaryBadges.map((badge) => (
-        <StatusBadge key={badge.label} tone={badge.tone} variant="quiet">
-          {badge.count} {badge.label}
-        </StatusBadge>
-      ))}
-    </span>
-  );
-}
-
-function getReputationSourceTone(
-  status: ReputationSourceStatus,
-): StatusTone {
-  if (status === "Available") {
-    return "good";
-  }
-
-  if (status === "Error") {
-    return "caution";
-  }
-
-  return "neutral";
 }
 
 function parseOrg(org?: string) {
@@ -181,8 +61,13 @@ function parseOrg(org?: string) {
 
 function formatDetail(value?: string | null) {
   const trimmedValue = value?.trim();
+  const normalizedValue = trimmedValue?.toLowerCase();
 
-  if (!trimmedValue || trimmedValue.toLowerCase() === "unknown") {
+  if (
+    !trimmedValue ||
+    normalizedValue === "unknown" ||
+    normalizedValue === "not identified"
+  ) {
     return "Not identified";
   }
 
@@ -195,41 +80,6 @@ function pickDetail(...values: (string | null | undefined)[]) {
 
 function hasDetail(value?: string | null) {
   return formatDetail(value) !== "Not identified";
-}
-
-function isDataCenterHostingTransitUsage(usageType?: string | null) {
-  const normalized = usageType?.toLowerCase().replace(/\s+/g, "") ?? "";
-
-  return normalized.includes("datacenter/webhosting/transit");
-}
-
-function getIpTypeBadge(
-  usageType?: string | null,
-  privacy?: IpInfoResponse["privacy"],
-): IpTypeBadge {
-  const normalized = usageType?.toLowerCase() ?? "";
-
-  if (isInfrastructureUsage(usageType)) {
-    return "Infrastructure";
-  }
-
-  if (normalized.includes("residential")) {
-    return "Residential";
-  }
-
-  if (normalized.includes("mobile")) {
-    return "Mobile";
-  }
-
-  if (normalized.includes("business")) {
-    return "Business";
-  }
-
-  if (privacy?.hosting === true) {
-    return "Infrastructure";
-  }
-
-  return "Unknown";
 }
 
 function normalizeRecentChecks(value: unknown): RecentCheck[] {
@@ -296,237 +146,10 @@ function getNextRecentChecks(recentChecks: RecentCheck[], ipAddress: string) {
   ].slice(0, MAX_RECENT_CHECKS);
 }
 
-function isRecommendationLabel(value: unknown): value is RecommendationLabel {
-  return (
-    value === "Recommended" ||
-    value === "Use with Caution" ||
-    value === "Not Recommended"
-  );
-}
+function isDataCenterHostingTransitUsage(usageType?: string | null) {
+  const normalized = usageType?.toLowerCase().replace(/\s+/g, "") ?? "";
 
-function isRecommendationConfidence(
-  value: unknown,
-): value is RecommendationConfidence {
-  return value === "High" || value === "Medium" || value === "Low";
-}
-
-function isIpTypeBadge(value: unknown): value is IpTypeBadge {
-  return (
-    value === "Residential" ||
-    value === "Mobile" ||
-    value === "Business" ||
-    value === "Infrastructure" ||
-    value === "Hosting" ||
-    value === "Unknown"
-  );
-}
-
-function normalizeIpHistory(value: unknown): IpHistoryRecord[] {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-
-  return value
-    .filter((item): item is IpHistoryRecord => {
-      if (!item || typeof item !== "object") {
-        return false;
-      }
-
-      const historyRecord = item as IpHistoryRecord;
-
-      return (
-        typeof historyRecord.ip === "string" &&
-        historyRecord.ip.trim().length > 0 &&
-        typeof historyRecord.timestamp === "number" &&
-        Number.isFinite(historyRecord.timestamp) &&
-        typeof historyRecord.trustScore === "number" &&
-        Number.isFinite(historyRecord.trustScore) &&
-        isRecommendationLabel(historyRecord.recommendationLabel) &&
-        isRecommendationConfidence(historyRecord.confidence) &&
-        ((typeof historyRecord.abuseConfidence === "number" &&
-          Number.isFinite(historyRecord.abuseConfidence)) ||
-          historyRecord.abuseConfidence === null) &&
-        typeof historyRecord.usageType === "string" &&
-        isIpTypeBadge(historyRecord.ipType)
-      );
-    })
-    .sort((first, second) => second.timestamp - first.timestamp)
-    .slice(0, MAX_IP_HISTORY_RECORDS);
-}
-
-function loadIpHistory(): IpHistoryRecord[] {
-  try {
-    const storedValue = window.localStorage.getItem(IP_HISTORY_STORAGE_KEY);
-
-    if (!storedValue) {
-      return [];
-    }
-
-    return normalizeIpHistory(JSON.parse(storedValue));
-  } catch {
-    return [];
-  }
-}
-
-function persistIpHistory(historyRecords: IpHistoryRecord[]) {
-  try {
-    window.localStorage.setItem(
-      IP_HISTORY_STORAGE_KEY,
-      JSON.stringify(historyRecords),
-    );
-  } catch {
-    return;
-  }
-}
-
-function getHistoryForIp(historyRecords: IpHistoryRecord[], ipAddress: string) {
-  const normalizedIpAddress = ipAddress.trim().toLowerCase();
-
-  return historyRecords.filter(
-    (historyRecord) =>
-      historyRecord.ip.trim().toLowerCase() === normalizedIpAddress,
-  );
-}
-
-function getNextIpHistory(
-  historyRecords: IpHistoryRecord[],
-  historyRecord: IpHistoryRecord,
-) {
-  return [historyRecord, ...historyRecords].slice(0, MAX_IP_HISTORY_RECORDS);
-}
-
-function buildIpHistoryRecord(
-  result: AnalysisResult,
-  fallbackIpAddress: string,
-): IpHistoryRecord {
-  const { ipInfo, abuseIpDb, ipqs } = result;
-  const recommendation = buildRecommendation(ipInfo, abuseIpDb, ipqs);
-
-  return {
-    ip: ipInfo.ip || fallbackIpAddress,
-    timestamp: Date.now(),
-    trustScore: calculateTrustScore(ipInfo, abuseIpDb, ipqs),
-    recommendationLabel: recommendation.label,
-    confidence: buildRecommendationConfidence(ipInfo, abuseIpDb, ipqs),
-    abuseConfidence: abuseIpDb?.abuseConfidence ?? null,
-    usageType: formatUsageType(abuseIpDb?.usageType, ipInfo.privacy),
-    ipType: getIpTypeBadge(abuseIpDb?.usageType, ipInfo.privacy),
-  };
-}
-
-function formatHistoryTime(timestamp: number) {
-  return new Intl.DateTimeFormat(undefined, {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(new Date(timestamp));
-}
-
-function formatHistoryAbuseConfidence(abuseConfidence: number | null) {
-  return abuseConfidence === null ? "No abuse score" : `${abuseConfidence}%`;
-}
-
-function formatHistorySummaryAbuseConfidence(abuseConfidence: number | null) {
-  return abuseConfidence === null
-    ? "No abuse score"
-    : `${abuseConfidence}% abuse`;
-}
-
-function getIpHistorySummary(historyRecords: IpHistoryRecord[]) {
-  if (historyRecords.length === 0) {
-    return "Saved in this browser only · No local history for this IP";
-  }
-
-  const latestHistoryRecord = historyRecords[0];
-  const checkLabel = historyRecords.length === 1 ? "check" : "checks";
-
-  return [
-    "Saved in this browser only",
-    `${historyRecords.length} ${checkLabel}`,
-    `Latest: ${latestHistoryRecord.trustScore}/100`,
-    latestHistoryRecord.recommendationLabel,
-    formatHistorySummaryAbuseConfidence(latestHistoryRecord.abuseConfidence),
-  ].join(" · ");
-}
-
-function getReputationSourceRows(
-  sourceStatuses: ReputationSourceStatuses,
-): ReputationSourceRow[] {
-  return [
-    {
-      name: "IPinfo",
-      status: sourceStatuses.ipinfo,
-      contribution: "Location, ASN, ISP, privacy signals",
-    },
-    {
-      name: "AbuseIPDB",
-      status: sourceStatuses.abuseipdb,
-      contribution: "Abuse confidence, usage type, reports",
-    },
-    {
-      name: "IPQualityScore",
-      status: sourceStatuses.ipqs,
-      contribution: "Fraud score, VPN/proxy/bot signals",
-    },
-  ];
-}
-
-function formatHosting(value?: boolean, usageType?: string | null) {
-  if (value === true || isInfrastructureUsage(usageType)) {
-    return "Infrastructure";
-  }
-
-  if (value === false) {
-    return "Not detected";
-  }
-
-  return "No hosting signal";
-}
-
-function getPrivacySummary(
-  privacy?: IpInfoResponse["privacy"],
-  ipqs?: IpqsResponse | null,
-) {
-  if (privacy?.vpn === true || ipqs?.vpn === true || ipqs?.activeVpn === true) {
-    return "VPN";
-  }
-
-  if (privacy?.proxy === true || ipqs?.proxy === true) {
-    return "Proxy";
-  }
-
-  if (privacy?.tor === true || ipqs?.tor === true) {
-    return "Tor";
-  }
-
-  if (privacy?.relay === true) {
-    return "Relay";
-  }
-
-  return "No VPN/Proxy detected";
-}
-
-function formatAbuseConfidence(abuseIpDb?: AbuseIpDbResponse | null) {
-  const abuseConfidence = abuseIpDb?.abuseConfidence ?? null;
-
-  if (abuseConfidence === null) {
-    return "No abuse score";
-  }
-
-  if (abuseConfidence < 25) {
-    return `Low · ${abuseConfidence}%`;
-  }
-
-  if (abuseConfidence < 60) {
-    return `Elevated · ${abuseConfidence}%`;
-  }
-
-  if (abuseConfidence < 85) {
-    return `High · ${abuseConfidence}%`;
-  }
-
-  return `Severe · ${abuseConfidence}%`;
+  return normalized.includes("datacenter/webhosting/transit");
 }
 
 function formatUsageType(
@@ -546,6 +169,92 @@ function formatUsageType(
   }
 
   return "Not identified";
+}
+
+function getNetworkIdentity(
+  ipInfo: IpInfoResponse,
+  abuseIpDb?: AbuseIpDbResponse | null,
+) {
+  const parsedOrg = parseOrg(ipInfo.org);
+  const asn = pickDetail(ipInfo.asn?.asn, parsedOrg.asn);
+  const isp = pickDetail(
+    ipInfo.company?.name,
+    abuseIpDb?.isp,
+    ipInfo.asn?.name,
+    parsedOrg.name,
+    ipInfo.org,
+  );
+
+  return {
+    asn: formatDetail(asn),
+    isp: formatDetail(isp),
+  };
+}
+
+function formatLocation(ipInfo: IpInfoResponse) {
+  const city = formatDetail(ipInfo.city);
+  const country = formatDetail(pickDetail(ipInfo.country_name, ipInfo.country));
+  const locationParts = [city, country].filter((value) => hasDetail(value));
+
+  return locationParts.length > 0 ? locationParts.join(", ") : "Not identified";
+}
+
+function getRiskLevel(score: number): RiskLevel {
+  if (score >= 70) {
+    return "Low";
+  }
+
+  if (score >= 40) {
+    return "Medium";
+  }
+
+  return "High";
+}
+
+function getRiskLevelTone(riskLevel: RiskLevel): StatusTone {
+  if (riskLevel === "Low") {
+    return "good";
+  }
+
+  if (riskLevel === "Medium") {
+    return "caution";
+  }
+
+  return "risk";
+}
+
+function getRiskLevelSummary(riskLevel: RiskLevel) {
+  if (riskLevel === "Low") {
+    return "No major risk signals were found in the available data.";
+  }
+
+  if (riskLevel === "Medium") {
+    return "Some risk signals need review before using this IP for sensitive accounts.";
+  }
+
+  return "Strong risk signals were found. Avoid this IP for sensitive accounts.";
+}
+
+function formatAbuseConfidence(abuseIpDb?: AbuseIpDbResponse | null) {
+  const abuseConfidence = abuseIpDb?.abuseConfidence ?? null;
+
+  if (abuseConfidence === null) {
+    return "No abuse score";
+  }
+
+  if (abuseConfidence < 25) {
+    return `Low, ${abuseConfidence}%`;
+  }
+
+  if (abuseConfidence < 60) {
+    return `Elevated, ${abuseConfidence}%`;
+  }
+
+  if (abuseConfidence < 85) {
+    return `High, ${abuseConfidence}%`;
+  }
+
+  return `Severe, ${abuseConfidence}%`;
 }
 
 function getAbuseIpDbHostname(abuseIpDb?: AbuseIpDbResponse | null) {
@@ -570,453 +279,419 @@ function getAbuseIpDbHostname(abuseIpDb?: AbuseIpDbResponse | null) {
   return typeof hostnames[0] === "string" ? hostnames[0] : null;
 }
 
-function formatReverseDns(
-  result: IpInfoResponse,
+function getReverseDns(
+  ipInfo: IpInfoResponse,
   abuseIpDb?: AbuseIpDbResponse | null,
 ) {
-  const reverseDns = pickDetail(getAbuseIpDbHostname(abuseIpDb), result.hostname);
-
-  if (!reverseDns) {
-    return "No PTR record";
-  }
-
-  return formatDetail(reverseDns);
+  return pickDetail(getAbuseIpDbHostname(abuseIpDb), ipInfo.hostname);
 }
 
-function getResultCards(
-  result: IpInfoResponse,
-  abuseIpDb?: AbuseIpDbResponse | null,
-  ipqs?: IpqsResponse | null,
-): ResultCard[] {
-  const parsedOrg = parseOrg(result.org);
-  const asn = pickDetail(result.asn?.asn, parsedOrg.asn);
-  const isp = pickDetail(
-    result.company?.name,
-    abuseIpDb?.isp,
-    result.asn?.name,
-    parsedOrg.name,
-  );
-  const organization = pickDetail(
-    parsedOrg.name,
-    result.org,
-    result.company?.name,
-    result.asn?.name,
-    isp,
-  );
-  const country = pickDetail(result.country_name, result.country);
+function getPrivacySignals(ipInfo: IpInfoResponse) {
+  const privacy = ipInfo.privacy;
 
   return [
-    { label: "IP", value: formatDetail(result.ip) },
-    { label: "Country", value: formatDetail(country) },
-    { label: "Region / State", value: formatDetail(result.region) },
-    { label: "City", value: formatDetail(result.city) },
-    { label: "ISP", value: formatDetail(isp) },
-    { label: "Organization", value: formatDetail(organization) },
-    { label: "ASN", value: formatDetail(asn) },
-    {
-      label: "Usage Type",
-      value: formatUsageType(abuseIpDb?.usageType, result.privacy),
-    },
-    {
-      label: "Hosting",
-      value: formatHosting(result.privacy?.hosting, abuseIpDb?.usageType),
-    },
-    { label: "Privacy", value: getPrivacySummary(result.privacy, ipqs) },
-    { label: "Reverse DNS", value: formatReverseDns(result, abuseIpDb) },
-    { label: "Abuse Confidence", value: formatAbuseConfidence(abuseIpDb) },
-  ];
+    privacy?.vpn === true ? "VPN" : null,
+    privacy?.proxy === true ? "proxy" : null,
+    privacy?.tor === true ? "Tor" : null,
+    privacy?.relay === true ? "relay" : null,
+  ].filter((signal): signal is string => Boolean(signal));
 }
 
-function TrustScoreCard({
+function hasInfrastructureSignal(
+  ipInfo: IpInfoResponse,
+  abuseIpDb?: AbuseIpDbResponse | null,
+) {
+  return (
+    ipInfo.privacy?.hosting === true ||
+    isInfrastructureUsage(abuseIpDb?.usageType)
+  );
+}
+
+function formatSignalList(signals: string[]) {
+  if (signals.length === 0) {
+    return "";
+  }
+
+  if (signals.length === 1) {
+    return signals[0];
+  }
+
+  return `${signals.slice(0, -1).join(", ")} and ${signals.at(-1)}`;
+}
+
+function getScoreExplanationItems(
+  ipInfo: IpInfoResponse,
+  abuseIpDb: AbuseIpDbResponse | null,
+  score: number,
+) {
+  const abuseConfidence = abuseIpDb?.abuseConfidence ?? null;
+  const privacySignals = getPrivacySignals(ipInfo);
+  const hasInfrastructure = hasInfrastructureSignal(ipInfo, abuseIpDb);
+  const usageType = formatUsageType(abuseIpDb?.usageType, ipInfo.privacy);
+  const networkIdentity = getNetworkIdentity(ipInfo, abuseIpDb);
+  const reverseDns = getReverseDns(ipInfo, abuseIpDb);
+  const items: string[] = [];
+
+  if (score >= 85) {
+    items.push(
+      "The trust score is high because no major abuse or privacy signals were found.",
+    );
+  } else if (score >= 70) {
+    items.push(
+      "The trust score is strong, with only minor caution signals in the available data.",
+    );
+  } else if (score >= 40) {
+    items.push(
+      "The trust score is medium because one or more risk signals need review.",
+    );
+  } else {
+    items.push(
+      "The trust score is low because stronger abuse, privacy, or network signals were detected.",
+    );
+  }
+
+  if (abuseConfidence === null) {
+    items.push("No abuse database score was returned for this IP.");
+  } else if (abuseConfidence === 0) {
+    items.push("IP not found in recent abuse reports.");
+  } else if (abuseConfidence < 25) {
+    items.push(`Abuse history is low at ${abuseConfidence}% confidence.`);
+  } else if (abuseConfidence < 60) {
+    items.push(`Abuse history is elevated at ${abuseConfidence}% confidence.`);
+  } else {
+    items.push(`Abuse history is high at ${abuseConfidence}% confidence.`);
+  }
+
+  if (privacySignals.length === 0) {
+    items.push("No VPN, proxy, Tor, or relay detected.");
+  } else {
+    items.push(`${formatSignalList(privacySignals)} detected.`);
+  }
+
+  if (hasInfrastructure) {
+    items.push(
+      `Network usage looks like ${usageType.toLowerCase()}, which stricter services may review.`,
+    );
+  } else {
+    items.push("No hosting infrastructure signal was detected.");
+  }
+
+  if (hasDetail(networkIdentity.asn) || hasDetail(networkIdentity.isp)) {
+    items.push(
+      `Network owner is visible: ${[
+        networkIdentity.asn,
+        networkIdentity.isp,
+      ]
+        .filter((value) => hasDetail(value))
+        .join(" / ")}.`,
+    );
+  } else {
+    items.push("ASN/ISP is unknown, so ownership confidence is lower.");
+  }
+
+  if (hasDetail(reverseDns)) {
+    items.push("DNS is present and does not show an obvious conflict.");
+  } else {
+    items.push("DNS consistency could not be confirmed.");
+  }
+
+  return items;
+}
+
+function getRiskSignals(
+  ipInfo: IpInfoResponse,
+  abuseIpDb: AbuseIpDbResponse | null,
+): RiskSignal[] {
+  const privacy = ipInfo.privacy;
+  const abuseConfidence = abuseIpDb?.abuseConfidence ?? null;
+  const networkIdentity = getNetworkIdentity(ipInfo, abuseIpDb);
+  const signals: RiskSignal[] = [];
+
+  if (privacy?.proxy === true) {
+    signals.push({
+      label: "Proxy detected",
+      detail: "Traffic appears to be routed through a proxy service.",
+      tone: "risk",
+    });
+  }
+
+  if (privacy?.vpn === true) {
+    signals.push({
+      label: "VPN detected",
+      detail: "Traffic appears to be routed through a VPN service.",
+      tone: "caution",
+    });
+  }
+
+  if (privacy?.tor === true) {
+    signals.push({
+      label: "Tor detected",
+      detail: "Tor exit traffic is a strong risk signal for many services.",
+      tone: "risk",
+    });
+  }
+
+  if (privacy?.relay === true) {
+    signals.push({
+      label: "Relay detected",
+      detail: "Relay traffic can make the origin of activity harder to verify.",
+      tone: "caution",
+    });
+  }
+
+  if (abuseConfidence !== null && abuseConfidence > 0) {
+    signals.push({
+      label: "Abuse history",
+      detail: `${formatAbuseConfidence(abuseIpDb)} confidence reported.`,
+      tone: abuseConfidence >= 50 ? "risk" : "caution",
+    });
+  }
+
+  if (hasInfrastructureSignal(ipInfo, abuseIpDb)) {
+    signals.push({
+      label: "Suspicious ASN",
+      detail: hasDetail(networkIdentity.asn)
+        ? `${networkIdentity.asn} appears to be hosting or infrastructure.`
+        : "Network appears to be hosting or infrastructure.",
+      tone: "infrastructure",
+    });
+  }
+
+  return signals;
+}
+
+function formatRawData(data: unknown) {
+  if (data === null || data === undefined) {
+    return "No raw data returned.";
+  }
+
+  return JSON.stringify(data, null, 2);
+}
+
+function MainRiskReport({
   ipInfo,
   abuseIpDb,
-  ipqs,
 }: {
   ipInfo: IpInfoResponse;
   abuseIpDb: AbuseIpDbResponse | null;
-  ipqs: IpqsResponse | null;
 }) {
-  const score = calculateTrustScore(ipInfo, abuseIpDb, ipqs);
-  const riskSummary = buildRiskSummary(ipInfo, abuseIpDb, ipqs);
-  const recommendation = buildRecommendation(ipInfo, abuseIpDb, ipqs);
-  const recommendationConfidence = buildRecommendationConfidence(
-    ipInfo,
-    abuseIpDb,
-    ipqs,
-  );
-  const status = getTrustScoreStatus(score);
-  const ipType = getIpTypeBadge(abuseIpDb?.usageType, ipInfo.privacy);
+  const score = calculateTrustScore(ipInfo, abuseIpDb, null);
+  const riskLevel = getRiskLevel(score);
+  const recommendation = buildRecommendation(ipInfo, abuseIpDb, null);
+  const networkIdentity = getNetworkIdentity(ipInfo, abuseIpDb);
+  const facts = [
+    { label: "Location", value: formatLocation(ipInfo) },
+    hasDetail(networkIdentity.asn)
+      ? { label: "ASN", value: networkIdentity.asn }
+      : null,
+    hasDetail(networkIdentity.isp)
+      ? { label: "ISP", value: networkIdentity.isp }
+      : null,
+  ].filter((fact): fact is { label: string; value: string } => Boolean(fact));
 
   return (
-    <div className="surface-card-primary rounded-[28px] border bg-white p-5">
-      <div className="flex items-start justify-between gap-4">
-        <div>
+    <section className="surface-card-primary rounded-[28px] border bg-white p-5 sm:p-6">
+      <div className="grid gap-6 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
+        <div className="min-w-0">
+          <p className="text-xs font-semibold uppercase tracking-normal text-neutral-400">
+            IP Risk Report
+          </p>
+          <h2 className="mt-2 break-all text-3xl font-semibold leading-tight text-neutral-950 sm:text-4xl">
+            {formatDetail(ipInfo.ip)}
+          </h2>
+          <dl className="mt-5 grid gap-3 text-left sm:grid-cols-3">
+            {facts.map((fact) => (
+              <div key={fact.label} className="min-w-0">
+                <dt className="text-xs font-semibold uppercase tracking-normal text-neutral-400">
+                  {fact.label}
+                </dt>
+                <dd className="mt-1 break-words text-sm font-medium leading-6 text-neutral-800">
+                  {fact.value}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+
+        <div className="shrink-0 sm:text-right">
           <p className="text-xs font-semibold uppercase tracking-normal text-neutral-400">
             Trust Score
           </p>
-          <p className="mt-2 text-5xl font-semibold leading-none text-neutral-950">
+          <p className="mt-2 flex items-end gap-1 text-7xl font-semibold leading-none text-neutral-950 sm:justify-end">
             {score}
+            <span className="pb-2 text-xl font-semibold text-neutral-400">
+              /100
+            </span>
           </p>
-        </div>
-        <div className="flex shrink-0 flex-col items-end gap-2">
-          <StatusBadge tone={status.tone} className="px-3 text-sm">
-            {status.label}
-          </StatusBadge>
-          <StatusBadge tone={getUsageTypeTone(ipType)}>
-            {ipType}
-          </StatusBadge>
-        </div>
-      </div>
-      <div className="mt-5 border-t border-neutral-100 pt-4">
-        <p className="text-sm font-semibold text-neutral-950">Risk Summary</p>
-        <p className="mt-2 text-sm leading-6 text-neutral-600">{riskSummary}</p>
-      </div>
-      <div className="mt-5 border-t border-neutral-100 pt-4">
-        <p className="text-sm font-semibold text-neutral-950">Recommendation</p>
-        <StatusBadge
-          tone={getRecommendationTone(recommendation.label)}
-          className="mt-2"
-        >
-          {recommendation.label}
-        </StatusBadge>
-        <p className="mt-2 text-sm leading-6 text-neutral-600">
-          {recommendation.summary}
-        </p>
-        <p className="mt-2 text-sm font-medium text-neutral-500">
-          Confidence: {recommendationConfidence}
-        </p>
-      </div>
-    </div>
-  );
-}
-
-function ServiceCompatibilitySection({
-  ipInfo,
-  abuseIpDb,
-  ipqs,
-}: {
-  ipInfo: IpInfoResponse;
-  abuseIpDb: AbuseIpDbResponse | null;
-  ipqs: IpqsResponse | null;
-}) {
-  const [expandedServiceKey, setExpandedServiceKey] = useState<string | null>(
-    null,
-  );
-  const [expandedServiceCategories, setExpandedServiceCategories] = useState<
-    string[]
-  >([]);
-  const [isServiceCompatibilityVisible, setIsServiceCompatibilityVisible] =
-    useState(false);
-  const serviceCompatibility = buildServiceCompatibility(ipInfo, abuseIpDb, ipqs);
-  const compatibilitySignals = buildServiceCompatibilitySignals(
-    ipInfo,
-    abuseIpDb,
-    ipqs,
-  );
-
-  return (
-    <div>
-      <div className="disclosure-card overflow-hidden rounded-2xl border bg-white">
-        <button
-          type="button"
-          aria-expanded={isServiceCompatibilityVisible}
-          onClick={() =>
-            setIsServiceCompatibilityVisible(
-              (currentVisibility) => !currentVisibility,
-            )
-          }
-          className="flex min-h-12 w-full items-center gap-2 px-4 py-3 text-left text-sm font-semibold text-neutral-950 transition hover:bg-[#f3f4f7] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950"
-        >
-          <span className="w-4 text-xs text-neutral-400" aria-hidden="true">
-            {isServiceCompatibilityVisible ? "▾" : "▸"}
-          </span>
-          <span>Service Compatibility</span>
-        </button>
-      </div>
-      {isServiceCompatibilityVisible ? (
-        <div className="surface-card mt-3 overflow-hidden rounded-2xl border bg-white">
-          <div className="divide-y divide-neutral-100">
-            {serviceCompatibility.map((category) => {
-              const summary = getServiceCompatibilitySummary(
-                category.services,
-              );
-              const isCategoryExpanded = expandedServiceCategories.includes(
-                category.category,
-              );
-
-              return (
-                <div key={category.category}>
-                  <button
-                    type="button"
-                    aria-expanded={isCategoryExpanded}
-                    onClick={() => {
-                      setExpandedServiceCategories((currentCategories) =>
-                        isCategoryExpanded
-                          ? currentCategories.filter(
-                              (currentCategory) =>
-                                currentCategory !== category.category,
-                            )
-                          : [...currentCategories, category.category],
-                      );
-
-                      if (isCategoryExpanded) {
-                        setExpandedServiceKey((currentServiceKey) =>
-                          currentServiceKey?.startsWith(
-                            `${category.category}:`,
-                          )
-                            ? null
-                            : currentServiceKey,
-                        );
-                      }
-                    }}
-                    className="flex min-h-12 w-full flex-col gap-1 px-4 py-3 text-left transition hover:bg-[#f3f4f7] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
-                  >
-                    <span className="flex min-w-0 items-center gap-2">
-                      <span
-                        className="w-4 shrink-0 text-xs text-neutral-400"
-                        aria-hidden="true"
-                      >
-                        {isCategoryExpanded ? "▾" : "▸"}
-                      </span>
-                      <span className="min-w-0 text-xs font-semibold uppercase tracking-normal text-neutral-500">
-                        {category.category}
-                      </span>
-                    </span>
-                    <span className="pl-6 sm:pl-0">
-                      <ServiceCompatibilitySummaryBadges summary={summary} />
-                    </span>
-                  </button>
-                  {isCategoryExpanded ? (
-                    <ul className="space-y-1 border-t border-neutral-100 bg-neutral-50/50 px-3 py-3 sm:px-4">
-                      {category.services.map((service) => {
-                        const serviceKey = `${category.category}:${service.name}`;
-                        const isExpanded = expandedServiceKey === serviceKey;
-
-                        return (
-                          <li key={service.name} className="text-sm">
-                            <button
-                              type="button"
-                              aria-expanded={isExpanded}
-                              onClick={() =>
-                                setExpandedServiceKey(
-                                  isExpanded ? null : serviceKey,
-                                )
-                              }
-                              className="w-full rounded-xl border border-slate-200/70 bg-white px-3 py-2 text-left shadow-[0_1px_2px_rgba(15,23,42,0.025)] transition hover:bg-[#f5f6f8] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950"
-                            >
-                              <span className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
-                                <span className="font-medium text-neutral-950">
-                                  {service.name}
-                                </span>
-                                <StatusBadge
-                                  tone={getServiceCompatibilityTone(
-                                    service.status,
-                                  )}
-                                  className="sm:shrink-0"
-                                >
-                                  {getServiceStatusLabel(service.status)}
-                                </StatusBadge>
-                              </span>
-                              {isExpanded ? (
-                                <span className="mt-1 block text-xs leading-5 text-neutral-500">
-                                  {buildServiceCompatibilityReason(
-                                    service.name,
-                                    category.category,
-                                    service.status,
-                                    compatibilitySignals,
-                                  )}
-                                </span>
-                              ) : null}
-                            </button>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  ) : null}
-                </div>
-              );
-            })}
+          <div className="mt-3 flex flex-wrap gap-2 sm:justify-end">
+            <StatusBadge
+              tone={getRiskLevelTone(riskLevel)}
+              className="px-3 py-1.5 text-sm"
+            >
+              {riskLevel} Risk
+            </StatusBadge>
+            <StatusBadge
+              tone={getRecommendationTone(recommendation.label)}
+              variant="quiet"
+            >
+              {recommendation.label}
+            </StatusBadge>
           </div>
-          <p className="border-t border-neutral-100 px-4 py-3 text-sm leading-6 text-neutral-500">
-            These recommendations are based on IP reputation and infrastructure
-            signals. Services may also consider account history, device
-            reputation, browser fingerprint, and behavior.
-          </p>
         </div>
-      ) : null}
-    </div>
+      </div>
+
+      <p className="mt-5 border-t border-neutral-100 pt-4 text-sm leading-6 text-neutral-600">
+        {getRiskLevelSummary(riskLevel)} {recommendation.summary}
+      </p>
+    </section>
   );
 }
 
-function ScoreDetailsSection({
+function ScoreExplanationSection({
   ipInfo,
   abuseIpDb,
-  ipqs,
 }: {
   ipInfo: IpInfoResponse;
   abuseIpDb: AbuseIpDbResponse | null;
-  ipqs: IpqsResponse | null;
 }) {
-  const [isScoreDetailsVisible, setIsScoreDetailsVisible] = useState(false);
-  const reasons = buildReasons(ipInfo, abuseIpDb, ipqs);
+  const score = calculateTrustScore(ipInfo, abuseIpDb, null);
+  const explanationItems = getScoreExplanationItems(ipInfo, abuseIpDb, score);
 
   return (
-    <div>
-      <div className="disclosure-card overflow-hidden rounded-2xl border bg-white">
-        <button
-          type="button"
-          aria-expanded={isScoreDetailsVisible}
-          onClick={() =>
-            setIsScoreDetailsVisible(
-              (currentVisibility) => !currentVisibility,
-            )
-          }
-          className="flex min-h-12 w-full items-center gap-2 px-4 py-3 text-left text-sm font-semibold text-neutral-950 transition hover:bg-[#f3f4f7] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950"
-        >
-          <span className="w-4 text-xs text-neutral-400" aria-hidden="true">
-            {isScoreDetailsVisible ? "▾" : "▸"}
-          </span>
-          <span>Why this score?</span>
-        </button>
+    <section className="surface-card rounded-2xl border bg-white p-5">
+      <div className="flex flex-col gap-1">
+        <p className="text-sm font-semibold text-neutral-950">
+          Score Explanation
+        </p>
+        <p className="text-sm leading-6 text-neutral-500">
+          Why this IP received a {score}/100 trust score.
+        </p>
       </div>
-      {isScoreDetailsVisible ? (
-        <ul className="surface-card mt-3 list-disc space-y-1 rounded-2xl border bg-white p-4 pl-9 text-sm text-neutral-600">
-          {reasons.map((reason) => (
-            <li key={reason}>{reason}</li>
-          ))}
-        </ul>
-      ) : null}
-    </div>
+      <ul className="mt-4 space-y-3">
+        {explanationItems.map((item) => (
+          <li key={item} className="flex gap-3 text-sm leading-6">
+            <span
+              aria-hidden="true"
+              className="mt-2 size-1.5 shrink-0 rounded-full bg-neutral-900"
+            />
+            <span className="text-neutral-600">{item}</span>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 
-function ReputationSourcesSection({
-  sourceStatuses,
+function RiskSignalsSection({
+  ipInfo,
+  abuseIpDb,
 }: {
-  sourceStatuses: ReputationSourceStatuses;
+  ipInfo: IpInfoResponse;
+  abuseIpDb: AbuseIpDbResponse | null;
 }) {
-  const reputationSourceRows = getReputationSourceRows(sourceStatuses);
-  const hasAvailableReputationData = reputationSourceRows.some(
-    (source) => source.status === "Available",
-  );
+  const riskSignals = getRiskSignals(ipInfo, abuseIpDb);
 
   return (
-    <div>
-      <p className="text-sm font-semibold text-neutral-950">
-        Reputation Sources
-      </p>
-      <div className="surface-card mt-3 divide-y divide-neutral-100 rounded-2xl border bg-white">
-        {hasAvailableReputationData ? (
-          reputationSourceRows.map((source) => (
-            <div
-              key={source.name}
-              className="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4"
+    <section className="surface-card rounded-2xl border bg-white p-5">
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+        <div>
+          <p className="text-sm font-semibold text-neutral-950">
+            Risk Signals
+          </p>
+          <p className="mt-1 text-sm leading-6 text-neutral-500">
+            Detected issues that may affect account access or verification.
+          </p>
+        </div>
+        {riskSignals.length === 0 ? (
+          <StatusBadge tone="good" className="mt-1 sm:mt-0">
+            Clear
+          </StatusBadge>
+        ) : (
+          <StatusBadge tone="caution" className="mt-1 sm:mt-0">
+            {riskSignals.length} found
+          </StatusBadge>
+        )}
+      </div>
+
+      {riskSignals.length > 0 ? (
+        <ul className="mt-4 divide-y divide-neutral-100">
+          {riskSignals.map((signal) => (
+            <li
+              key={signal.label}
+              className="flex flex-col gap-2 py-3 first:pt-0 last:pb-0 sm:flex-row sm:items-start sm:justify-between sm:gap-4"
             >
               <div>
                 <p className="text-sm font-medium text-neutral-950">
-                  {source.name}
+                  {signal.label}
                 </p>
-                {source.status === "Available" ? (
-                  <p className="mt-1 text-sm text-neutral-500">
-                    {source.contribution}
-                  </p>
-                ) : null}
+                <p className="mt-1 text-sm leading-6 text-neutral-500">
+                  {signal.detail}
+                </p>
               </div>
-              <p className="shrink-0">
-                <StatusBadge tone={getReputationSourceTone(source.status)}>
-                  {source.status}
-                </StatusBadge>
-              </p>
-            </div>
-          ))
-        ) : (
-          <p className="px-4 py-3 text-sm text-neutral-500">
-            No reputation data available.
-          </p>
-        )}
-      </div>
-    </div>
+              <StatusBadge tone={signal.tone} variant="quiet">
+                Detected
+              </StatusBadge>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-4 rounded-xl border border-emerald-100 bg-emerald-50/60 px-4 py-3 text-sm leading-6 text-emerald-800">
+          No active proxy, abuse, or suspicious ASN signal was found in the
+          available data.
+        </p>
+      )}
+    </section>
   );
 }
 
-function IpHistorySection({
-  ipHistoryRecords,
+function AdvancedSourcesSection({
+  ipInfo,
+  abuseIpDb,
 }: {
-  ipHistoryRecords: IpHistoryRecord[];
+  ipInfo: IpInfoResponse;
+  abuseIpDb: AbuseIpDbResponse | null;
 }) {
-  const [isIpHistoryVisible, setIsIpHistoryVisible] = useState(false);
-  const visibleIpHistoryRecords = ipHistoryRecords.slice(
-    0,
-    IP_HISTORY_PREVIEW_LIMIT,
-  );
+  const [isAdvancedVisible, setIsAdvancedVisible] = useState(false);
+  const rawSources = [
+    { name: "IPinfo", data: ipInfo },
+    { name: "AbuseIPDB", data: abuseIpDb?.raw ?? abuseIpDb },
+  ];
 
   return (
-    <div>
+    <section>
       <div className="disclosure-card overflow-hidden rounded-2xl border bg-white">
         <button
           type="button"
-          aria-expanded={isIpHistoryVisible}
+          aria-expanded={isAdvancedVisible}
           onClick={() =>
-            setIsIpHistoryVisible((currentVisibility) => !currentVisibility)
+            setIsAdvancedVisible(
+              (currentVisibility) => !currentVisibility,
+            )
           }
-          className="flex min-h-12 w-full items-center gap-2 px-4 py-3 text-left text-sm font-semibold text-neutral-950 transition hover:bg-[#f3f4f7] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950"
+          className="flex min-h-12 w-full items-center justify-between gap-4 px-4 py-3 text-left text-sm font-semibold text-neutral-950 transition hover:bg-[#f3f4f7] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950"
         >
-          <span className="w-4 text-xs text-neutral-400" aria-hidden="true">
-            {isIpHistoryVisible ? "▾" : "▸"}
+          <span>Advanced</span>
+          <span className="text-xs text-neutral-400" aria-hidden="true">
+            {isAdvancedVisible ? "Hide" : "Show"}
           </span>
-          <span>IP History</span>
         </button>
       </div>
-      {isIpHistoryVisible ? (
-        <div className="surface-card mt-3 overflow-hidden rounded-2xl border bg-white">
-          {ipHistoryRecords.length > IP_HISTORY_PREVIEW_LIMIT ? (
-            <p className="border-b border-neutral-100 px-4 py-3 text-sm text-neutral-500">
-              Showing latest {IP_HISTORY_PREVIEW_LIMIT} of{" "}
-              {ipHistoryRecords.length} checks.
-            </p>
-          ) : null}
-          {visibleIpHistoryRecords.length > 0 ? (
-            <ul className="divide-y divide-neutral-100">
-              {visibleIpHistoryRecords.map((historyRecord) => (
-                <li
-                  key={`${historyRecord.timestamp}:${historyRecord.ip}`}
-                  className="grid gap-1 px-4 py-3 text-sm sm:grid-cols-[1.2fr_0.8fr_1fr_1fr] sm:gap-3"
-                >
-                  <span className="font-medium text-neutral-950">
-                    {formatHistoryTime(historyRecord.timestamp)}
-                  </span>
-                  <span className="text-neutral-600">
-                    {historyRecord.trustScore}/100
-                  </span>
-                  <span>
-                    <StatusBadge
-                      tone={getRecommendationTone(
-                        historyRecord.recommendationLabel,
-                      )}
-                    >
-                      {historyRecord.recommendationLabel}
-                    </StatusBadge>
-                  </span>
-                  <span className="text-neutral-600">
-                    {formatHistoryAbuseConfidence(
-                      historyRecord.abuseConfidence,
-                    )}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="px-4 py-3 text-sm text-neutral-500">
-              No local history for this IP.
-            </p>
-          )}
+
+      {isAdvancedVisible ? (
+        <div className="surface-card mt-3 space-y-3 rounded-2xl border bg-white p-4">
+          {rawSources.map((source) => (
+            <div key={source.name}>
+              <p className="text-xs font-semibold uppercase tracking-normal text-neutral-400">
+                {source.name}
+              </p>
+              <pre className="mt-2 max-h-72 overflow-auto rounded-xl bg-neutral-950 p-4 text-xs leading-5 text-neutral-100">
+                {formatRawData(source.data)}
+              </pre>
+            </div>
+          ))}
         </div>
-      ) : (
-        <p className="surface-card mt-3 rounded-2xl border bg-white px-4 py-3 text-sm leading-6 text-neutral-500">
-          {getIpHistorySummary(ipHistoryRecords)}
-        </p>
-      )}
-    </div>
+      ) : null}
+    </section>
   );
 }
 
@@ -1026,9 +701,6 @@ export function IpAnalyzer() {
   const [analysisErrorIp, setAnalysisErrorIp] = useState("");
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [recentChecks, setRecentChecks] = useState<RecentCheck[]>([]);
-  const [currentIpHistory, setCurrentIpHistory] = useState<IpHistoryRecord[]>(
-    [],
-  );
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isDetecting, setIsDetecting] = useState(true);
   const isAnalysisInFlight = useRef(false);
@@ -1062,26 +734,15 @@ export function IpAnalyzer() {
     setError("");
     setAnalysisErrorIp("");
     setResult(null);
-    setCurrentIpHistory([]);
     setIsAnalyzing(true);
 
     try {
       const nextResult = await fetchIpAnalysis(trimmedIpAddress);
-      const storedIpHistory = loadIpHistory();
-      const historyRecord = buildIpHistoryRecord(nextResult, trimmedIpAddress);
-      const previousIpHistory = getHistoryForIp(
-        storedIpHistory,
-        historyRecord.ip,
-      );
-      const nextIpHistory = getNextIpHistory(storedIpHistory, historyRecord);
 
-      persistIpHistory(nextIpHistory);
-      setCurrentIpHistory(previousIpHistory);
       setResult(nextResult);
       saveRecentCheck(trimmedIpAddress);
     } catch {
       setResult(null);
-      setCurrentIpHistory([]);
       setAnalysisErrorIp(trimmedIpAddress);
     } finally {
       isAnalysisInFlight.current = false;
@@ -1127,7 +788,7 @@ export function IpAnalyzer() {
   }
 
   return (
-    <div className="mx-auto mt-8 flex w-full max-w-xl flex-col items-center gap-4">
+    <div className="mx-auto mt-8 flex w-full max-w-3xl flex-col items-center gap-4">
       <form
         onSubmit={handleSubmit}
         className="flex w-full flex-col items-center gap-3"
@@ -1229,57 +890,25 @@ export function IpAnalyzer() {
 
       {result && !isAnalyzing ? (
         <div className="mt-6 flex w-full flex-col gap-4 text-left">
-          <TrustScoreCard
+          <MainRiskReport
             ipInfo={result.ipInfo}
             abuseIpDb={result.abuseIpDb}
-            ipqs={result.ipqs}
           />
 
-          <ServiceCompatibilitySection
+          <ScoreExplanationSection
             ipInfo={result.ipInfo}
             abuseIpDb={result.abuseIpDb}
-            ipqs={result.ipqs}
           />
 
-          <ScoreDetailsSection
+          <RiskSignalsSection
             ipInfo={result.ipInfo}
             abuseIpDb={result.abuseIpDb}
-            ipqs={result.ipqs}
           />
 
-          <p className="text-sm font-semibold text-neutral-950">IP Details</p>
-          <div className="grid w-full gap-3 sm:grid-cols-2">
-            {getResultCards(
-              result.ipInfo,
-              result.abuseIpDb,
-              result.ipqs,
-            ).map((card) => (
-              <div
-                key={card.label}
-                className="surface-card-soft rounded-2xl border bg-white p-4"
-              >
-                <p className="text-xs font-semibold uppercase tracking-normal text-neutral-400">
-                  {card.label}
-                </p>
-                {card.label === "Usage Type" || card.label === "Hosting" ? (
-                  <StatusBadge
-                    tone={getUsageTypeTone(card.value)}
-                    className="mt-2"
-                  >
-                    {card.value}
-                  </StatusBadge>
-                ) : (
-                  <p className="mt-1 break-words text-base font-medium text-neutral-950">
-                    {card.value}
-                  </p>
-                )}
-              </div>
-            ))}
-          </div>
-
-          <ReputationSourcesSection sourceStatuses={result.sourceStatuses} />
-
-          <IpHistorySection ipHistoryRecords={currentIpHistory} />
+          <AdvancedSourcesSection
+            ipInfo={result.ipInfo}
+            abuseIpDb={result.abuseIpDb}
+          />
 
           <p className="text-xs leading-5 text-neutral-400">
             IP Health provides reputation-based guidance only. Services may also

@@ -1,7 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from "react";
 
 import { StatusBadge } from "@/components/status-badge";
 import {
@@ -10,20 +17,52 @@ import {
   type AnalysisResult,
 } from "@/lib/client-ip-analysis";
 import {
+  buildRecommendationConfidence,
   buildRecommendation,
+  buildServiceCompatibility,
+  buildServiceCompatibilityReason,
+  buildServiceCompatibilitySignals,
   calculateTrustScore,
+  hasCloudflareColoSignal,
+  hasCloudflareTraceMatch,
+  hasCloudflareTraceMismatch,
+  isCloudflareWarpOn,
   isInfrastructureUsage,
   type AbuseIpDbResponse,
+  type CloudflareTraceResponse,
   type IpInfoResponse,
+  type RecommendationConfidence,
+  type RecommendationLabel,
+  type ServiceCompatibilityStatus,
 } from "@/lib/trust-engine";
 import {
   getRecommendationTone,
+  getServiceCompatibilityTone,
   type StatusTone,
 } from "@/lib/status-colors";
 
 type RecentCheck = {
   ip: string;
   timestamp: number;
+};
+
+type IpTypeBadge =
+  | "Residential"
+  | "Mobile"
+  | "Business"
+  | "Infrastructure"
+  | "Hosting"
+  | "Unknown";
+
+type IpHistoryRecord = {
+  ip: string;
+  timestamp: number;
+  trustScore: number;
+  recommendationLabel: RecommendationLabel;
+  confidence: RecommendationConfidence;
+  abuseConfidence: number | null;
+  usageType: string;
+  ipType: IpTypeBadge;
 };
 
 type RiskLevel = "Low" | "Medium" | "High";
@@ -34,8 +73,39 @@ type RiskSignal = {
   tone: StatusTone;
 };
 
+type ServiceCompatibilityItem = {
+  name: string;
+  status: ServiceCompatibilityStatus;
+};
+
+type SafeServiceCompatibilityCategory = {
+  category: string;
+  services: ServiceCompatibilityItem[];
+};
+
+type NetworkIntegrityItem = {
+  label: string;
+  value: string;
+  detail: string;
+  tone: StatusTone;
+};
+
+type IntegrityStatus = {
+  label: string;
+  detail: string;
+  tone: StatusTone;
+};
+
 const RECENT_CHECKS_STORAGE_KEY = "ip-health:recent-checks";
 const MAX_RECENT_CHECKS = 5;
+const IP_HISTORY_STORAGE_KEY = "ip-health:ip-history";
+const MAX_IP_HISTORY_RECORDS = 20;
+const IP_HISTORY_PREVIEW_LIMIT = 5;
+const SERVICE_COMPATIBILITY_STATUSES = [
+  "Good",
+  "Use with Caution",
+  "High Risk",
+] as const;
 
 function LoadingSpinner() {
   return (
@@ -43,6 +113,55 @@ function LoadingSpinner() {
       aria-hidden="true"
       className="inline-block size-4 animate-spin rounded-full border-2 border-current border-r-transparent"
     />
+  );
+}
+
+function DisclosureSection({
+  title,
+  summary,
+  isExpanded,
+  onToggle,
+  contentId,
+  children,
+}: {
+  title: string;
+  summary?: string;
+  isExpanded: boolean;
+  onToggle: () => void;
+  contentId: string;
+  children: ReactNode;
+}) {
+  return (
+    <section>
+      <div className="disclosure-card overflow-hidden rounded-2xl border bg-white">
+        <button
+          type="button"
+          aria-controls={contentId}
+          aria-expanded={isExpanded}
+          onClick={onToggle}
+          className="flex min-h-12 w-full flex-col gap-1 px-4 py-3 text-left text-sm font-semibold text-neutral-950 transition hover:bg-[#f3f4f7] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
+        >
+          <span className="flex min-w-0 items-center gap-2">
+            <span
+              className="w-4 shrink-0 text-xs text-neutral-400"
+              aria-hidden="true"
+            >
+              {isExpanded ? "v" : ">"}
+            </span>
+            <span>{title}</span>
+          </span>
+          {summary ? (
+            <span className="pl-6 text-xs font-medium leading-5 text-neutral-400 sm:pl-0 sm:text-right">
+              {summary}
+            </span>
+          ) : null}
+        </button>
+      </div>
+
+      <div id={contentId} hidden={!isExpanded}>
+        {children}
+      </div>
+    </section>
   );
 }
 
@@ -144,6 +263,298 @@ function getNextRecentChecks(recentChecks: RecentCheck[], ipAddress: string) {
       (recentCheck) => recentCheck.ip.toLowerCase() !== normalizedIpAddress,
     ),
   ].slice(0, MAX_RECENT_CHECKS);
+}
+
+function isRecommendationLabel(value: unknown): value is RecommendationLabel {
+  return (
+    value === "Recommended" ||
+    value === "Use with Caution" ||
+    value === "Not Recommended"
+  );
+}
+
+function isRecommendationConfidence(
+  value: unknown,
+): value is RecommendationConfidence {
+  return value === "High" || value === "Medium" || value === "Low";
+}
+
+function isIpTypeBadge(value: unknown): value is IpTypeBadge {
+  return (
+    value === "Residential" ||
+    value === "Mobile" ||
+    value === "Business" ||
+    value === "Infrastructure" ||
+    value === "Hosting" ||
+    value === "Unknown"
+  );
+}
+
+function isServiceCompatibilityStatus(
+  value: unknown,
+): value is ServiceCompatibilityStatus {
+  return SERVICE_COMPATIBILITY_STATUSES.some((status) => status === value);
+}
+
+function isObjectRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === "object");
+}
+
+function isServiceCompatibilityItem(
+  value: unknown,
+): value is ServiceCompatibilityItem {
+  return isObjectRecord(value) && isServiceCompatibilityStatus(value.status);
+}
+
+function normalizeIpHistory(value: unknown): IpHistoryRecord[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .filter((item): item is IpHistoryRecord => {
+      if (!item || typeof item !== "object") {
+        return false;
+      }
+
+      const historyRecord = item as IpHistoryRecord;
+
+      return (
+        typeof historyRecord.ip === "string" &&
+        historyRecord.ip.trim().length > 0 &&
+        typeof historyRecord.timestamp === "number" &&
+        Number.isFinite(historyRecord.timestamp) &&
+        typeof historyRecord.trustScore === "number" &&
+        Number.isFinite(historyRecord.trustScore) &&
+        isRecommendationLabel(historyRecord.recommendationLabel) &&
+        isRecommendationConfidence(historyRecord.confidence) &&
+        ((typeof historyRecord.abuseConfidence === "number" &&
+          Number.isFinite(historyRecord.abuseConfidence)) ||
+          historyRecord.abuseConfidence === null) &&
+        typeof historyRecord.usageType === "string" &&
+        isIpTypeBadge(historyRecord.ipType)
+      );
+    })
+    .sort((first, second) => second.timestamp - first.timestamp)
+    .slice(0, MAX_IP_HISTORY_RECORDS);
+}
+
+function loadIpHistory(): IpHistoryRecord[] {
+  try {
+    const storedValue = window.localStorage.getItem(IP_HISTORY_STORAGE_KEY);
+
+    if (!storedValue) {
+      return [];
+    }
+
+    return normalizeIpHistory(JSON.parse(storedValue));
+  } catch {
+    return [];
+  }
+}
+
+function persistIpHistory(historyRecords: IpHistoryRecord[]) {
+  try {
+    window.localStorage.setItem(
+      IP_HISTORY_STORAGE_KEY,
+      JSON.stringify(historyRecords),
+    );
+  } catch {
+    return;
+  }
+}
+
+function getHistoryForIp(historyRecords: IpHistoryRecord[], ipAddress: string) {
+  const normalizedIpAddress = ipAddress.trim().toLowerCase();
+
+  return normalizeIpHistory(historyRecords).filter(
+    (historyRecord) =>
+      historyRecord.ip.trim().toLowerCase() === normalizedIpAddress,
+  );
+}
+
+function getNextIpHistory(
+  historyRecords: IpHistoryRecord[],
+  historyRecord: IpHistoryRecord,
+) {
+  return normalizeIpHistory([historyRecord, ...historyRecords]).slice(
+    0,
+    MAX_IP_HISTORY_RECORDS,
+  );
+}
+
+function getIpTypeBadge(
+  usageType?: string | null,
+  privacy?: IpInfoResponse["privacy"],
+): IpTypeBadge {
+  const normalized = usageType?.toLowerCase() ?? "";
+
+  if (isInfrastructureUsage(usageType)) {
+    return "Infrastructure";
+  }
+
+  if (normalized.includes("residential")) {
+    return "Residential";
+  }
+
+  if (normalized.includes("mobile")) {
+    return "Mobile";
+  }
+
+  if (normalized.includes("business")) {
+    return "Business";
+  }
+
+  if (privacy?.hosting === true) {
+    return "Infrastructure";
+  }
+
+  return "Unknown";
+}
+
+function buildIpHistoryRecord(
+  result: AnalysisResult,
+  fallbackIpAddress: string,
+): IpHistoryRecord {
+  const { ipInfo, abuseIpDb, ipqs, cloudflare } = result;
+  const recommendation = buildRecommendation(
+    ipInfo,
+    abuseIpDb,
+    ipqs,
+    cloudflare,
+  );
+
+  return {
+    ip: ipInfo.ip || fallbackIpAddress,
+    timestamp: Date.now(),
+    trustScore: calculateTrustScore(ipInfo, abuseIpDb, ipqs, cloudflare),
+    recommendationLabel: recommendation.label,
+    confidence: buildRecommendationConfidence(
+      ipInfo,
+      abuseIpDb,
+      ipqs,
+      cloudflare,
+    ),
+    abuseConfidence: abuseIpDb?.abuseConfidence ?? null,
+    usageType: formatUsageType(abuseIpDb?.usageType, ipInfo.privacy),
+    ipType: getIpTypeBadge(abuseIpDb?.usageType, ipInfo.privacy),
+  };
+}
+
+function formatHistoryTime(timestamp: number) {
+  return new Intl.DateTimeFormat(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date(timestamp));
+}
+
+function formatHistoryAbuseConfidence(abuseConfidence: number | null) {
+  return abuseConfidence === null ? "No abuse score" : `${abuseConfidence}%`;
+}
+
+function formatHistorySummaryAbuseConfidence(abuseConfidence: number | null) {
+  return abuseConfidence === null
+    ? "No abuse score"
+    : `${abuseConfidence}% abuse`;
+}
+
+function getIpHistorySummary(historyRecords: IpHistoryRecord[]) {
+  const safeHistoryRecords = normalizeIpHistory(historyRecords);
+
+  if (safeHistoryRecords.length === 0) {
+    return "Saved in this browser only - No local history for this IP";
+  }
+
+  const latestHistoryRecord = safeHistoryRecords[0];
+  const checkLabel = safeHistoryRecords.length === 1 ? "check" : "checks";
+
+  return [
+    "Saved in this browser only",
+    `${safeHistoryRecords.length} ${checkLabel}`,
+    `Latest: ${latestHistoryRecord.trustScore}/100`,
+    latestHistoryRecord.recommendationLabel,
+    formatHistorySummaryAbuseConfidence(latestHistoryRecord.abuseConfidence),
+  ].join(" - ");
+}
+
+function normalizeServiceCompatibility(
+  serviceCompatibility: unknown,
+): SafeServiceCompatibilityCategory[] {
+  if (!Array.isArray(serviceCompatibility)) {
+    return [];
+  }
+
+  return serviceCompatibility.filter(isObjectRecord).map((category) => {
+    const services = Array.isArray(category.services)
+      ? category.services.filter(isServiceCompatibilityItem).map((service) => ({
+          name:
+            typeof service.name === "string" && service.name.trim()
+              ? service.name
+              : "Unknown service",
+          status: service.status,
+        }))
+      : [];
+
+    return {
+      category:
+        typeof category.category === "string" && category.category.trim()
+          ? category.category
+          : "UNCATEGORIZED",
+      services,
+    };
+  });
+}
+
+function getServiceCompatibilitySummary(services: ServiceCompatibilityItem[]) {
+  return (Array.isArray(services) ? services : []).reduce<
+    Record<ServiceCompatibilityStatus, number>
+  >(
+    (summary, service) => ({
+      ...summary,
+      [service.status]: summary[service.status] + 1,
+    }),
+    {
+      Good: 0,
+      "Use with Caution": 0,
+      "High Risk": 0,
+    },
+  );
+}
+
+function getServiceCompatibilitySummaryLabel(
+  serviceCompatibility: SafeServiceCompatibilityCategory[],
+) {
+  const safeServiceCompatibility = Array.isArray(serviceCompatibility)
+    ? serviceCompatibility
+    : [];
+  const summary = safeServiceCompatibility.reduce<
+    Record<ServiceCompatibilityStatus, number>
+  >(
+    (currentSummary, category) => {
+      const categorySummary = getServiceCompatibilitySummary(category.services);
+
+      return {
+        Good: currentSummary.Good + categorySummary.Good,
+        "Use with Caution":
+          currentSummary["Use with Caution"] +
+          categorySummary["Use with Caution"],
+        "High Risk": currentSummary["High Risk"] + categorySummary["High Risk"],
+      };
+    },
+    {
+      Good: 0,
+      "Use with Caution": 0,
+      "High Risk": 0,
+    },
+  );
+
+  return `${summary.Good} Good - ${summary["Use with Caution"]} Caution - ${summary["High Risk"]} High Risk`;
+}
+
+function getDomId(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, "-");
 }
 
 function isDataCenterHostingTransitUsage(usageType?: string | null) {
@@ -297,13 +708,24 @@ function getPrivacySignals(ipInfo: IpInfoResponse) {
   ].filter((signal): signal is string => Boolean(signal));
 }
 
-function hasInfrastructureSignal(
+function hasNativeInfrastructureSignal(
   ipInfo: IpInfoResponse,
   abuseIpDb?: AbuseIpDbResponse | null,
 ) {
   return (
     ipInfo.privacy?.hosting === true ||
     isInfrastructureUsage(abuseIpDb?.usageType)
+  );
+}
+
+function hasInfrastructureSignal(
+  ipInfo: IpInfoResponse,
+  abuseIpDb?: AbuseIpDbResponse | null,
+  cloudflare?: CloudflareTraceResponse | null,
+) {
+  return (
+    hasNativeInfrastructureSignal(ipInfo, abuseIpDb) ||
+    hasCloudflareColoSignal(ipInfo, cloudflare)
   );
 }
 
@@ -319,14 +741,109 @@ function formatSignalList(signals: string[]) {
   return `${signals.slice(0, -1).join(", ")} and ${signals.at(-1)}`;
 }
 
+function formatCloudflareLocation(cloudflare?: CloudflareTraceResponse | null) {
+  const country = formatDetail(cloudflare?.country);
+  const colo = formatDetail(cloudflare?.colo);
+
+  if (hasDetail(country) && hasDetail(colo)) {
+    return `${country} (${colo})`;
+  }
+
+  if (hasDetail(country)) {
+    return country;
+  }
+
+  if (hasDetail(colo)) {
+    return colo;
+  }
+
+  return "Not identified";
+}
+
+function getWarpStatus(
+  cloudflare?: CloudflareTraceResponse | null,
+): IntegrityStatus {
+  if (!cloudflare?.warp) {
+    return {
+      label: "Not available",
+      tone: "neutral" satisfies StatusTone,
+      detail: "WARP status was not returned.",
+    };
+  }
+
+  if (isCloudflareWarpOn(cloudflare)) {
+    return {
+      label: "WARP on",
+      tone: "risk" satisfies StatusTone,
+      detail: "Cloudflare WARP is active for this connection.",
+    };
+  }
+
+  return {
+    label: "No WARP detected",
+    tone: "good" satisfies StatusTone,
+    detail: "Cloudflare did not report WARP on this connection.",
+  };
+}
+
+function getConsistencyStatus(
+  ipInfo: IpInfoResponse,
+  cloudflare?: CloudflareTraceResponse | null,
+): IntegrityStatus {
+  if (!cloudflare?.ip || !ipInfo.ip) {
+    return {
+      label: "Not available",
+      tone: "neutral" satisfies StatusTone,
+      detail: "Unable to compare Cloudflare and IPinfo views.",
+    };
+  }
+
+  if (hasCloudflareTraceMatch(ipInfo, cloudflare)) {
+    return {
+      label: "Consistent",
+      tone: "good" satisfies StatusTone,
+      detail: "Cloudflare and IPinfo identify the same IP.",
+    };
+  }
+
+  return {
+    label: "Needs review",
+    tone: "caution" satisfies StatusTone,
+    detail: "Cloudflare and IPinfo identify different IPs.",
+  };
+}
+
+function getNetworkIntegrityTone(
+  ipInfo: IpInfoResponse,
+  cloudflare?: CloudflareTraceResponse | null,
+): StatusTone {
+  if (!cloudflare) {
+    return "neutral";
+  }
+
+  if (
+    isCloudflareWarpOn(cloudflare) ||
+    hasCloudflareTraceMismatch(ipInfo, cloudflare)
+  ) {
+    return "caution";
+  }
+
+  return "good";
+}
+
 function getScoreExplanationItems(
   ipInfo: IpInfoResponse,
   abuseIpDb: AbuseIpDbResponse | null,
+  cloudflare: CloudflareTraceResponse | null,
   score: number,
 ) {
   const abuseConfidence = abuseIpDb?.abuseConfidence ?? null;
   const privacySignals = getPrivacySignals(ipInfo);
-  const hasInfrastructure = hasInfrastructureSignal(ipInfo, abuseIpDb);
+  const hasInfrastructure = hasInfrastructureSignal(
+    ipInfo,
+    abuseIpDb,
+    cloudflare,
+  );
   const usageType = formatUsageType(abuseIpDb?.usageType, ipInfo.privacy);
   const networkIdentity = getNetworkIdentity(ipInfo, abuseIpDb);
   const reverseDns = getReverseDns(ipInfo, abuseIpDb);
@@ -368,20 +885,31 @@ function getScoreExplanationItems(
     items.push(`${formatSignalList(privacySignals)} detected.`);
   }
 
+  if (isCloudflareWarpOn(cloudflare)) {
+    items.push("Cloudflare WARP is active, which increases network risk.");
+  } else if (cloudflare?.warp) {
+    items.push("Cloudflare WARP is not active.");
+  }
+
   if (hasInfrastructure) {
     items.push(
-      `Network usage looks like ${usageType.toLowerCase()}, which stricter services may review.`,
+      hasDetail(usageType)
+        ? `Network usage looks like ${usageType.toLowerCase()}, which stricter services may review.`
+        : "Network integrity signals suggest infrastructure routing, which stricter services may review.",
     );
   } else {
     items.push("No hosting infrastructure signal was detected.");
   }
 
+  if (hasCloudflareTraceMatch(ipInfo, cloudflare)) {
+    items.push("Cloudflare and IPinfo agree on the visible IP.");
+  } else if (hasCloudflareTraceMismatch(ipInfo, cloudflare)) {
+    items.push("Cloudflare and IPinfo report different visible IPs.");
+  }
+
   if (hasDetail(networkIdentity.asn) || hasDetail(networkIdentity.isp)) {
     items.push(
-      `Network owner is visible: ${[
-        networkIdentity.asn,
-        networkIdentity.isp,
-      ]
+      `Network owner is visible: ${[networkIdentity.asn, networkIdentity.isp]
         .filter((value) => hasDetail(value))
         .join(" / ")}.`,
     );
@@ -401,6 +929,7 @@ function getScoreExplanationItems(
 function getRiskSignals(
   ipInfo: IpInfoResponse,
   abuseIpDb: AbuseIpDbResponse | null,
+  cloudflare: CloudflareTraceResponse | null,
 ): RiskSignal[] {
   const privacy = ipInfo.privacy;
   const abuseConfidence = abuseIpDb?.abuseConfidence ?? null;
@@ -439,6 +968,22 @@ function getRiskSignals(
     });
   }
 
+  if (isCloudflareWarpOn(cloudflare)) {
+    signals.push({
+      label: "WARP enabled",
+      detail: "Cloudflare reports WARP is active for this network path.",
+      tone: "risk",
+    });
+  }
+
+  if (hasCloudflareTraceMismatch(ipInfo, cloudflare)) {
+    signals.push({
+      label: "IP mismatch",
+      detail: "Cloudflare and IPinfo identify different visible IPs.",
+      tone: "caution",
+    });
+  }
+
   if (abuseConfidence !== null && abuseConfidence > 0) {
     signals.push({
       label: "Abuse history",
@@ -447,7 +992,7 @@ function getRiskSignals(
     });
   }
 
-  if (hasInfrastructureSignal(ipInfo, abuseIpDb)) {
+  if (hasNativeInfrastructureSignal(ipInfo, abuseIpDb)) {
     signals.push({
       label: "Suspicious ASN",
       detail: hasDetail(networkIdentity.asn)
@@ -457,27 +1002,36 @@ function getRiskSignals(
     });
   }
 
-  return signals;
-}
-
-function formatRawData(data: unknown) {
-  if (data === null || data === undefined) {
-    return "No raw data returned.";
+  if (hasCloudflareColoSignal(ipInfo, cloudflare)) {
+    signals.push({
+      label: "Infrastructure route",
+      detail: hasDetail(cloudflare?.colo)
+        ? `Cloudflare routed this IP through ${cloudflare?.colo}.`
+        : "Cloudflare detected an edge routing signal.",
+      tone: "infrastructure",
+    });
   }
 
-  return JSON.stringify(data, null, 2);
+  return signals;
 }
 
 function MainRiskReport({
   ipInfo,
   abuseIpDb,
+  cloudflare,
 }: {
   ipInfo: IpInfoResponse;
   abuseIpDb: AbuseIpDbResponse | null;
+  cloudflare: CloudflareTraceResponse | null;
 }) {
-  const score = calculateTrustScore(ipInfo, abuseIpDb, null);
+  const score = calculateTrustScore(ipInfo, abuseIpDb, null, cloudflare);
   const riskLevel = getRiskLevel(score);
-  const recommendation = buildRecommendation(ipInfo, abuseIpDb, null);
+  const recommendation = buildRecommendation(
+    ipInfo,
+    abuseIpDb,
+    null,
+    cloudflare,
+  );
   const networkIdentity = getNetworkIdentity(ipInfo, abuseIpDb);
   const facts = [
     { label: "Location", value: formatLocation(ipInfo) },
@@ -488,6 +1042,7 @@ function MainRiskReport({
       ? { label: "ISP", value: networkIdentity.isp }
       : null,
   ].filter((fact): fact is { label: string; value: string } => Boolean(fact));
+  const safeFacts = Array.isArray(facts) ? facts : [];
 
   return (
     <section className="surface-card-primary rounded-[28px] border bg-white p-5 sm:p-6">
@@ -500,7 +1055,7 @@ function MainRiskReport({
             {formatDetail(ipInfo.ip)}
           </h2>
           <dl className="mt-5 grid gap-3 text-left sm:grid-cols-3">
-            {facts.map((fact) => (
+            {safeFacts.map((fact) => (
               <div key={fact.label} className="min-w-0">
                 <dt className="text-xs font-semibold uppercase tracking-normal text-neutral-400">
                   {fact.label}
@@ -550,12 +1105,22 @@ function MainRiskReport({
 function ScoreExplanationSection({
   ipInfo,
   abuseIpDb,
+  cloudflare,
 }: {
   ipInfo: IpInfoResponse;
   abuseIpDb: AbuseIpDbResponse | null;
+  cloudflare: CloudflareTraceResponse | null;
 }) {
-  const score = calculateTrustScore(ipInfo, abuseIpDb, null);
-  const explanationItems = getScoreExplanationItems(ipInfo, abuseIpDb, score);
+  const score = calculateTrustScore(ipInfo, abuseIpDb, null, cloudflare);
+  const explanationItems = getScoreExplanationItems(
+    ipInfo,
+    abuseIpDb,
+    cloudflare,
+    score,
+  );
+  const safeExplanationItems = Array.isArray(explanationItems)
+    ? explanationItems
+    : [];
 
   return (
     <section className="surface-card rounded-2xl border bg-white p-5">
@@ -568,7 +1133,7 @@ function ScoreExplanationSection({
         </p>
       </div>
       <ul className="mt-4 space-y-3">
-        {explanationItems.map((item) => (
+        {safeExplanationItems.map((item) => (
           <li key={item} className="flex gap-3 text-sm leading-6">
             <span
               aria-hidden="true"
@@ -582,40 +1147,292 @@ function ScoreExplanationSection({
   );
 }
 
-function RiskSignalsSection({
+function IpHistorySection({
+  ipHistoryRecords,
+}: {
+  ipHistoryRecords: IpHistoryRecord[];
+}) {
+  const [isIpHistoryVisible, setIsIpHistoryVisible] = useState(false);
+  const safeIpHistory = Array.isArray(ipHistoryRecords)
+    ? normalizeIpHistory(ipHistoryRecords)
+    : [];
+  const visibleIpHistoryRecords = safeIpHistory.slice(
+    0,
+    IP_HISTORY_PREVIEW_LIMIT,
+  );
+
+  return (
+    <DisclosureSection
+      title="IP History"
+      summary={getIpHistorySummary(safeIpHistory)}
+      isExpanded={isIpHistoryVisible}
+      onToggle={() =>
+        setIsIpHistoryVisible((currentVisibility) => !currentVisibility)
+      }
+      contentId="ip-history-content"
+    >
+      <div className="surface-card mt-3 overflow-hidden rounded-2xl border bg-white">
+        <p
+          hidden={safeIpHistory.length <= IP_HISTORY_PREVIEW_LIMIT}
+          className="border-b border-neutral-100 px-4 py-3 text-sm text-neutral-500"
+        >
+          Showing latest {IP_HISTORY_PREVIEW_LIMIT} of {safeIpHistory.length}{" "}
+          checks.
+        </p>
+        <ul
+          hidden={visibleIpHistoryRecords.length === 0}
+          className="divide-y divide-neutral-100"
+        >
+          {visibleIpHistoryRecords.map((historyRecord) => (
+            <li
+              key={`${historyRecord.timestamp}:${historyRecord.ip}`}
+              className="grid gap-1 px-4 py-3 text-sm sm:grid-cols-[1.2fr_0.7fr_1fr_0.8fr] sm:gap-3"
+            >
+              <span className="font-medium text-neutral-950">
+                {formatHistoryTime(historyRecord.timestamp)}
+              </span>
+              <span className="text-neutral-600">
+                {historyRecord.trustScore}/100
+              </span>
+              <span className="text-neutral-600">
+                {historyRecord.recommendationLabel}
+              </span>
+              <span className="text-neutral-600">
+                {formatHistoryAbuseConfidence(historyRecord.abuseConfidence)}
+              </span>
+            </li>
+          ))}
+        </ul>
+        <p
+          hidden={visibleIpHistoryRecords.length > 0}
+          className="px-4 py-3 text-sm text-neutral-500"
+        >
+          No local history for this IP.
+        </p>
+      </div>
+    </DisclosureSection>
+  );
+}
+
+function ServiceCompatibilitySection({
   ipInfo,
   abuseIpDb,
+  cloudflare,
 }: {
   ipInfo: IpInfoResponse;
   abuseIpDb: AbuseIpDbResponse | null;
+  cloudflare: CloudflareTraceResponse | null;
 }) {
-  const riskSignals = getRiskSignals(ipInfo, abuseIpDb);
+  const [isServiceCompatibilityVisible, setIsServiceCompatibilityVisible] =
+    useState(false);
+  const [expandedServiceCategories, setExpandedServiceCategories] = useState<
+    string[]
+  >([]);
+  const [expandedServiceKey, setExpandedServiceKey] = useState<string | null>(
+    null,
+  );
+  const serviceCompatibility = normalizeServiceCompatibility(
+    buildServiceCompatibility(ipInfo, abuseIpDb, null, cloudflare),
+  );
+  const safeServiceCompatibility = Array.isArray(serviceCompatibility)
+    ? serviceCompatibility
+    : [];
+  const compatibilitySignals = buildServiceCompatibilitySignals(
+    ipInfo,
+    abuseIpDb,
+    null,
+    cloudflare,
+  );
 
   return (
-    <section className="surface-card rounded-2xl border bg-white p-5">
-      <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-        <div>
-          <p className="text-sm font-semibold text-neutral-950">
-            Risk Signals
-          </p>
-          <p className="mt-1 text-sm leading-6 text-neutral-500">
+    <DisclosureSection
+      title="Service Compatibility"
+      summary={getServiceCompatibilitySummaryLabel(safeServiceCompatibility)}
+      isExpanded={isServiceCompatibilityVisible}
+      onToggle={() =>
+        setIsServiceCompatibilityVisible(
+          (currentVisibility) => !currentVisibility,
+        )
+      }
+      contentId="service-compatibility-content"
+    >
+      <div className="surface-card mt-3 overflow-hidden rounded-2xl border bg-white">
+        <div className="divide-y divide-neutral-100">
+          {safeServiceCompatibility.map((category) => {
+            const safeServices = Array.isArray(category.services)
+              ? category.services
+              : [];
+            const summary = getServiceCompatibilitySummary(safeServices);
+            const isCategoryExpanded = expandedServiceCategories.includes(
+              category.category,
+            );
+            const categoryContentId = `service-compatibility-${getDomId(
+              category.category,
+            )}`;
+
+            return (
+              <div key={category.category}>
+                <button
+                  type="button"
+                  aria-controls={categoryContentId}
+                  aria-expanded={isCategoryExpanded}
+                  onClick={() => {
+                    setExpandedServiceCategories((currentCategories) =>
+                      isCategoryExpanded
+                        ? currentCategories.filter(
+                            (currentCategory) =>
+                              currentCategory !== category.category,
+                          )
+                        : [...currentCategories, category.category],
+                    );
+
+                    if (isCategoryExpanded) {
+                      setExpandedServiceKey((currentServiceKey) =>
+                        currentServiceKey?.startsWith(`${category.category}:`)
+                          ? null
+                          : currentServiceKey,
+                      );
+                    }
+                  }}
+                  className="flex w-full flex-col gap-1 px-4 py-3 text-left transition hover:bg-neutral-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
+                >
+                  <span className="flex min-w-0 items-center gap-2">
+                    <span
+                      className="w-4 shrink-0 text-xs text-neutral-400"
+                      aria-hidden="true"
+                    >
+                      {isCategoryExpanded ? "v" : ">"}
+                    </span>
+                    <span className="min-w-0 text-xs font-semibold uppercase tracking-normal text-neutral-500">
+                      {category.category}
+                    </span>
+                  </span>
+                  <span className="pl-6 text-sm font-medium leading-5 text-neutral-600 sm:pl-0 sm:text-right">
+                    {summary.Good} Good - {summary["Use with Caution"]} Caution
+                    - {summary["High Risk"]} High Risk
+                  </span>
+                </button>
+                <ul
+                  id={categoryContentId}
+                  hidden={!isCategoryExpanded}
+                  className="space-y-1 border-t border-neutral-100 bg-neutral-50/50 px-3 py-3 sm:px-4"
+                >
+                  {safeServices.map((service) => {
+                    const serviceKey = `${category.category}:${service.name}`;
+                    const isExpanded = expandedServiceKey === serviceKey;
+                    const serviceContentId = `service-compatibility-${getDomId(
+                      serviceKey,
+                    )}`;
+
+                    return (
+                      <li key={service.name} className="text-sm">
+                        <button
+                          type="button"
+                          aria-controls={serviceContentId}
+                          aria-expanded={isExpanded}
+                          onClick={() =>
+                            setExpandedServiceKey(
+                              isExpanded ? null : serviceKey,
+                            )
+                          }
+                          className="w-full rounded-xl bg-white px-3 py-2 text-left transition hover:bg-neutral-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950"
+                        >
+                          <span className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+                            <span className="font-medium text-neutral-950">
+                              {service.name}
+                            </span>
+                            <StatusBadge
+                              tone={getServiceCompatibilityTone(service.status)}
+                              variant="quiet"
+                            >
+                              {service.status}
+                            </StatusBadge>
+                          </span>
+                          <span
+                            id={serviceContentId}
+                            hidden={!isExpanded}
+                            className="mt-2 block text-xs leading-5 text-neutral-500"
+                          >
+                            {buildServiceCompatibilityReason(
+                              service.name,
+                              category.category,
+                              service.status,
+                              compatibilitySignals,
+                            )}
+                          </span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            );
+          })}
+        </div>
+        <p
+          hidden={safeServiceCompatibility.length > 0}
+          className="px-4 py-3 text-sm text-neutral-500"
+        >
+          No service compatibility data available.
+        </p>
+        <p className="border-t border-neutral-100 px-4 py-3 text-sm leading-6 text-neutral-500">
+          These recommendations are based on IP reputation and infrastructure
+          signals. Services may also consider account history, device
+          reputation, browser fingerprint, and behavior.
+        </p>
+      </div>
+    </DisclosureSection>
+  );
+}
+
+function RiskSignalsSection({
+  ipInfo,
+  abuseIpDb,
+  cloudflare,
+}: {
+  ipInfo: IpInfoResponse;
+  abuseIpDb: AbuseIpDbResponse | null;
+  cloudflare: CloudflareTraceResponse | null;
+}) {
+  const [isRiskSignalsVisible, setIsRiskSignalsVisible] = useState(true);
+  const riskSignals = getRiskSignals(ipInfo, abuseIpDb, cloudflare);
+  const safeRiskSignals = Array.isArray(riskSignals) ? riskSignals : [];
+
+  return (
+    <DisclosureSection
+      title="Risk Signals"
+      summary={
+        safeRiskSignals.length === 0
+          ? "Clear"
+          : `${safeRiskSignals.length} found`
+      }
+      isExpanded={isRiskSignalsVisible}
+      onToggle={() =>
+        setIsRiskSignalsVisible((currentVisibility) => !currentVisibility)
+      }
+      contentId="risk-signals-content"
+    >
+      <div className="surface-card mt-3 rounded-2xl border bg-white p-5">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+          <p className="text-sm leading-6 text-neutral-500">
             Detected issues that may affect account access or verification.
           </p>
+          {safeRiskSignals.length === 0 ? (
+            <StatusBadge tone="good" className="mt-1 sm:mt-0">
+              Clear
+            </StatusBadge>
+          ) : (
+            <StatusBadge tone="caution" className="mt-1 sm:mt-0">
+              {safeRiskSignals.length} found
+            </StatusBadge>
+          )}
         </div>
-        {riskSignals.length === 0 ? (
-          <StatusBadge tone="good" className="mt-1 sm:mt-0">
-            Clear
-          </StatusBadge>
-        ) : (
-          <StatusBadge tone="caution" className="mt-1 sm:mt-0">
-            {riskSignals.length} found
-          </StatusBadge>
-        )}
-      </div>
 
-      {riskSignals.length > 0 ? (
-        <ul className="mt-4 divide-y divide-neutral-100">
-          {riskSignals.map((signal) => (
+        <ul
+          hidden={safeRiskSignals.length === 0}
+          className="mt-4 divide-y divide-neutral-100"
+        >
+          {safeRiskSignals.map((signal) => (
             <li
               key={signal.label}
               className="flex flex-col gap-2 py-3 first:pt-0 last:pb-0 sm:flex-row sm:items-start sm:justify-between sm:gap-4"
@@ -634,63 +1451,104 @@ function RiskSignalsSection({
             </li>
           ))}
         </ul>
-      ) : (
-        <p className="mt-4 rounded-xl border border-emerald-100 bg-emerald-50/60 px-4 py-3 text-sm leading-6 text-emerald-800">
+        <p
+          hidden={safeRiskSignals.length > 0}
+          className="mt-4 rounded-xl border border-emerald-100 bg-emerald-50/60 px-4 py-3 text-sm leading-6 text-emerald-800"
+        >
           No active proxy, abuse, or suspicious ASN signal was found in the
           available data.
         </p>
-      )}
-    </section>
+      </div>
+    </DisclosureSection>
   );
 }
 
-function AdvancedSourcesSection({
+function NetworkIntegritySection({
   ipInfo,
-  abuseIpDb,
+  cloudflare,
 }: {
   ipInfo: IpInfoResponse;
-  abuseIpDb: AbuseIpDbResponse | null;
+  cloudflare: CloudflareTraceResponse | null;
 }) {
-  const [isAdvancedVisible, setIsAdvancedVisible] = useState(false);
-  const rawSources = [
-    { name: "IPinfo", data: ipInfo },
-    { name: "AbuseIPDB", data: abuseIpDb?.raw ?? abuseIpDb },
+  const warpStatus = getWarpStatus(cloudflare);
+  const consistencyStatus = getConsistencyStatus(ipInfo, cloudflare);
+  const integrityTone = getNetworkIntegrityTone(ipInfo, cloudflare);
+  const integrityLabel =
+    integrityTone === "good"
+      ? "Clean"
+      : integrityTone === "caution"
+        ? "Review"
+        : "Unavailable";
+  const integrityItems: NetworkIntegrityItem[] = [
+    {
+      label: "Real IP",
+      value: formatDetail(cloudflare?.ip),
+      detail: "Seen by Cloudflare trace.",
+      tone: "neutral",
+    },
+    {
+      label: "Location",
+      value: formatCloudflareLocation(cloudflare),
+      detail: "Cloudflare network view.",
+      tone: "neutral",
+    },
+    {
+      label: "VPN/WARP",
+      value: warpStatus.label,
+      detail: warpStatus.detail,
+      tone: warpStatus.tone,
+    },
+    {
+      label: "Consistency",
+      value: consistencyStatus.label,
+      detail: consistencyStatus.detail,
+      tone: consistencyStatus.tone,
+    },
   ];
+  const safeIntegrityItems = Array.isArray(integrityItems)
+    ? integrityItems
+    : [];
 
   return (
-    <section>
-      <div className="disclosure-card overflow-hidden rounded-2xl border bg-white">
-        <button
-          type="button"
-          aria-expanded={isAdvancedVisible}
-          onClick={() =>
-            setIsAdvancedVisible(
-              (currentVisibility) => !currentVisibility,
-            )
-          }
-          className="flex min-h-12 w-full items-center justify-between gap-4 px-4 py-3 text-left text-sm font-semibold text-neutral-950 transition hover:bg-[#f3f4f7] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950"
-        >
-          <span>Advanced</span>
-          <span className="text-xs text-neutral-400" aria-hidden="true">
-            {isAdvancedVisible ? "Hide" : "Show"}
-          </span>
-        </button>
+    <section className="surface-card rounded-2xl border bg-white p-5">
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+        <div>
+          <p className="text-sm font-semibold text-neutral-950">
+            Network Integrity
+          </p>
+          <p className="mt-1 text-sm leading-6 text-neutral-500">
+            Cloudflare view of this network path.
+          </p>
+        </div>
+        <StatusBadge tone={integrityTone} className="mt-1 sm:mt-0">
+          {integrityLabel}
+        </StatusBadge>
       </div>
 
-      {isAdvancedVisible ? (
-        <div className="surface-card mt-3 space-y-3 rounded-2xl border bg-white p-4">
-          {rawSources.map((source) => (
-            <div key={source.name}>
-              <p className="text-xs font-semibold uppercase tracking-normal text-neutral-400">
-                {source.name}
-              </p>
-              <pre className="mt-2 max-h-72 overflow-auto rounded-xl bg-neutral-950 p-4 text-xs leading-5 text-neutral-100">
-                {formatRawData(source.data)}
-              </pre>
-            </div>
-          ))}
-        </div>
-      ) : null}
+      <dl className="mt-4 grid gap-3 sm:grid-cols-2">
+        {safeIntegrityItems.map((item) => (
+          <div
+            key={item.label}
+            className="rounded-xl border border-neutral-100 bg-neutral-50/60 p-4"
+          >
+            <dt className="text-xs font-semibold uppercase tracking-normal text-neutral-400">
+              {item.label}
+            </dt>
+            <dd className="mt-2">
+              <StatusBadge tone={item.tone}>{item.value}</StatusBadge>
+            </dd>
+            <dd className="mt-2 text-sm leading-6 text-neutral-500">
+              {item.detail}
+            </dd>
+          </div>
+        ))}
+      </dl>
+
+      {cloudflare ? null : (
+        <p className="mt-4 rounded-xl border border-neutral-100 bg-neutral-50 px-4 py-3 text-sm leading-6 text-neutral-500">
+          Network integrity is unavailable right now.
+        </p>
+      )}
     </section>
   );
 }
@@ -701,6 +1559,9 @@ export function IpAnalyzer() {
   const [analysisErrorIp, setAnalysisErrorIp] = useState("");
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [recentChecks, setRecentChecks] = useState<RecentCheck[]>([]);
+  const [currentIpHistory, setCurrentIpHistory] = useState<IpHistoryRecord[]>(
+    [],
+  );
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isDetecting, setIsDetecting] = useState(true);
   const isAnalysisInFlight = useRef(false);
@@ -717,38 +1578,51 @@ export function IpAnalyzer() {
     });
   }, []);
 
-  const analyzeIpAddress = useCallback(async (nextIpAddress: string) => {
-    if (isAnalysisInFlight.current) {
-      return;
-    }
+  const analyzeIpAddress = useCallback(
+    async (nextIpAddress: string) => {
+      if (isAnalysisInFlight.current) {
+        return;
+      }
 
-    const trimmedIpAddress = nextIpAddress.trim();
+      const trimmedIpAddress = nextIpAddress.trim();
 
-    if (!trimmedIpAddress) {
-      setError("Unable to detect your IP.");
+      if (!trimmedIpAddress) {
+        setError("Unable to detect your IP. You can enter it manually.");
+        setAnalysisErrorIp("");
+        return;
+      }
+
+      isAnalysisInFlight.current = true;
+      setError("");
       setAnalysisErrorIp("");
-      return;
-    }
-
-    isAnalysisInFlight.current = true;
-    setError("");
-    setAnalysisErrorIp("");
-    setResult(null);
-    setIsAnalyzing(true);
-
-    try {
-      const nextResult = await fetchIpAnalysis(trimmedIpAddress);
-
-      setResult(nextResult);
-      saveRecentCheck(trimmedIpAddress);
-    } catch {
       setResult(null);
-      setAnalysisErrorIp(trimmedIpAddress);
-    } finally {
-      isAnalysisInFlight.current = false;
-      setIsAnalyzing(false);
-    }
-  }, [saveRecentCheck]);
+      setCurrentIpHistory([]);
+      setIsAnalyzing(true);
+
+      try {
+        const nextResult = await fetchIpAnalysis(trimmedIpAddress);
+        const storedIpHistory = loadIpHistory();
+        const historyRecord = buildIpHistoryRecord(
+          nextResult,
+          trimmedIpAddress,
+        );
+        const nextIpHistory = getNextIpHistory(storedIpHistory, historyRecord);
+
+        persistIpHistory(nextIpHistory);
+        setCurrentIpHistory(getHistoryForIp(nextIpHistory, historyRecord.ip));
+        setResult(nextResult);
+        saveRecentCheck(trimmedIpAddress);
+      } catch {
+        setResult(null);
+        setCurrentIpHistory([]);
+        setAnalysisErrorIp(trimmedIpAddress);
+      } finally {
+        isAnalysisInFlight.current = false;
+        setIsAnalyzing(false);
+      }
+    },
+    [saveRecentCheck],
+  );
 
   const detectPublicIp = useCallback(async () => {
     setError("");
@@ -786,6 +1660,8 @@ export function IpAnalyzer() {
   function handleRetry() {
     void analyzeIpAddress(analysisErrorIp || ipAddress);
   }
+
+  const safeRecentChecks = Array.isArray(recentChecks) ? recentChecks : [];
 
   return (
     <div className="mx-auto mt-8 flex w-full max-w-3xl flex-col items-center gap-4">
@@ -867,9 +1743,9 @@ export function IpAnalyzer() {
         <p className="text-xs font-semibold uppercase tracking-normal text-neutral-400">
           Recent Checks
         </p>
-        {recentChecks.length > 0 ? (
+        {safeRecentChecks.length > 0 ? (
           <div className="mt-2 flex flex-wrap gap-2">
-            {recentChecks.map((recentCheck) => (
+            {safeRecentChecks.map((recentCheck) => (
               <button
                 key={recentCheck.ip}
                 type="button"
@@ -882,9 +1758,7 @@ export function IpAnalyzer() {
             ))}
           </div>
         ) : (
-          <p className="mt-1 text-sm text-neutral-400">
-            No recent checks yet.
-          </p>
+          <p className="mt-1 text-sm text-neutral-400">No recent checks yet.</p>
         )}
       </div>
 
@@ -893,21 +1767,32 @@ export function IpAnalyzer() {
           <MainRiskReport
             ipInfo={result.ipInfo}
             abuseIpDb={result.abuseIpDb}
+            cloudflare={result.cloudflare}
+          />
+
+          <IpHistorySection ipHistoryRecords={currentIpHistory} />
+
+          <NetworkIntegritySection
+            ipInfo={result.ipInfo}
+            cloudflare={result.cloudflare}
+          />
+
+          <ServiceCompatibilitySection
+            ipInfo={result.ipInfo}
+            abuseIpDb={result.abuseIpDb}
+            cloudflare={result.cloudflare}
           />
 
           <ScoreExplanationSection
             ipInfo={result.ipInfo}
             abuseIpDb={result.abuseIpDb}
+            cloudflare={result.cloudflare}
           />
 
           <RiskSignalsSection
             ipInfo={result.ipInfo}
             abuseIpDb={result.abuseIpDb}
-          />
-
-          <AdvancedSourcesSection
-            ipInfo={result.ipInfo}
-            abuseIpDb={result.abuseIpDb}
+            cloudflare={result.cloudflare}
           />
 
           <p className="text-xs leading-5 text-neutral-400">

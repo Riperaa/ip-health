@@ -1,15 +1,15 @@
 import type { ProviderResult as AbuseIpDbResponse } from "./providers/abuseipdb";
+import type { ProviderResult as CloudflareTraceResponse } from "./providers/cloudflare";
 import type { ProviderResult as IpInfoResponse } from "./providers/ipinfo";
 import type { ProviderResult as IpqsResponse } from "./providers/ipqs";
 
 export type { ProviderResult as AbuseIpDbResponse } from "./providers/abuseipdb";
+export type { ProviderResult as CloudflareTraceResponse } from "./providers/cloudflare";
 export type { ProviderResult as IpInfoResponse } from "./providers/ipinfo";
 export type { ProviderResult as IpqsResponse } from "./providers/ipqs";
 
 export type ServiceCompatibilityStatus =
-  | "Good"
-  | "Use with Caution"
-  | "High Risk";
+  "Good" | "Use with Caution" | "High Risk";
 
 export type ServiceCompatibilityCategory = {
   category: string;
@@ -20,9 +20,7 @@ export type ServiceCompatibilityCategory = {
 };
 
 export type RecommendationLabel =
-  | "Recommended"
-  | "Use with Caution"
-  | "Not Recommended";
+  "Recommended" | "Use with Caution" | "Not Recommended";
 
 export type RecommendationConfidence = "High" | "Medium" | "Low";
 
@@ -122,6 +120,60 @@ function getIpqsPenalties(ipqs?: IpqsResponse | null) {
   ];
 }
 
+function normalizeIpAddress(value?: string | null) {
+  return value?.trim().toLowerCase() ?? "";
+}
+
+export function isCloudflareWarpOn(
+  cloudflare?: CloudflareTraceResponse | null,
+) {
+  return cloudflare?.warp?.trim().toLowerCase() === "on";
+}
+
+export function hasCloudflareTraceMatch(
+  ipInfo: IpInfoResponse,
+  cloudflare?: CloudflareTraceResponse | null,
+) {
+  const traceIp = normalizeIpAddress(cloudflare?.ip);
+  const ipInfoIp = normalizeIpAddress(ipInfo.ip);
+
+  return Boolean(traceIp && ipInfoIp && traceIp === ipInfoIp);
+}
+
+export function hasCloudflareTraceMismatch(
+  ipInfo: IpInfoResponse,
+  cloudflare?: CloudflareTraceResponse | null,
+) {
+  const traceIp = normalizeIpAddress(cloudflare?.ip);
+  const ipInfoIp = normalizeIpAddress(ipInfo.ip);
+
+  return Boolean(traceIp && ipInfoIp && traceIp !== ipInfoIp);
+}
+
+export function hasCloudflareColoSignal(
+  ipInfo: IpInfoResponse,
+  cloudflare?: CloudflareTraceResponse | null,
+) {
+  return Boolean(
+    cloudflare?.colo?.trim() && hasCloudflareTraceMatch(ipInfo, cloudflare),
+  );
+}
+
+function getCloudflarePenalties(
+  ipInfo: IpInfoResponse,
+  cloudflare?: CloudflareTraceResponse | null,
+) {
+  if (!cloudflare) {
+    return [];
+  }
+
+  return [
+    isCloudflareWarpOn(cloudflare) ? 25 : 0,
+    hasCloudflareTraceMismatch(ipInfo, cloudflare) ? 15 : 0,
+    hasCloudflareColoSignal(ipInfo, cloudflare) ? 10 : 0,
+  ];
+}
+
 function getIpInfoSignals(ipInfo: IpInfoResponse) {
   const parsedOrg = parseOrg(ipInfo.org);
 
@@ -199,6 +251,7 @@ function getTrustScoreSummary(
     signals.proxy ||
     signals.tor ||
     signals.relay ||
+    signals.traceMismatch ||
     (signals.abuseConfidence !== null && signals.abuseConfidence >= 50);
 
   if (
@@ -231,21 +284,30 @@ function getCompatibilitySignals(
   ipInfo: IpInfoResponse,
   abuseIpDb?: AbuseIpDbResponse | null,
   ipqs?: IpqsResponse | null,
+  cloudflare?: CloudflareTraceResponse | null,
 ) {
   const privacy = ipInfo.privacy;
+  const hasCloudflareInfrastructure = hasCloudflareColoSignal(
+    ipInfo,
+    cloudflare,
+  );
 
   return {
-    score: calculateTrustScore(ipInfo, abuseIpDb, ipqs),
+    score: calculateTrustScore(ipInfo, abuseIpDb, ipqs, cloudflare),
     abuseConfidence: abuseIpDb?.abuseConfidence ?? null,
     hosting:
-      privacy?.hosting === true || isInfrastructureUsage(abuseIpDb?.usageType),
+      privacy?.hosting === true ||
+      isInfrastructureUsage(abuseIpDb?.usageType) ||
+      hasCloudflareInfrastructure,
     vpn:
       privacy?.vpn === true ||
       ipqs?.vpn === true ||
-      ipqs?.activeVpn === true,
+      ipqs?.activeVpn === true ||
+      isCloudflareWarpOn(cloudflare),
     proxy: privacy?.proxy === true || ipqs?.proxy === true,
     tor: privacy?.tor === true || ipqs?.tor === true,
     relay: privacy?.relay === true,
+    traceMismatch: hasCloudflareTraceMismatch(ipInfo, cloudflare),
   };
 }
 
@@ -253,8 +315,9 @@ export function buildServiceCompatibilitySignals(
   ipInfo: IpInfoResponse,
   abuseIpDb?: AbuseIpDbResponse | null,
   ipqs?: IpqsResponse | null,
+  cloudflare?: CloudflareTraceResponse | null,
 ): ServiceCompatibilityReasonSignals {
-  const signals = getCompatibilitySignals(ipInfo, abuseIpDb, ipqs);
+  const signals = getCompatibilitySignals(ipInfo, abuseIpDb, ipqs, cloudflare);
 
   return {
     ...signals,
@@ -270,15 +333,14 @@ function hasUsageType(usageType?: string | null) {
 function isResidentialOrMobileUsage(usageType?: string | null) {
   const normalized = usageType?.toLowerCase() ?? "";
 
-  return (
-    normalized.includes("residential") || normalized.includes("mobile")
-  );
+  return normalized.includes("residential") || normalized.includes("mobile");
 }
 
 function hasConflictingSignals(
   ipInfo: IpInfoResponse,
   abuseIpDb?: AbuseIpDbResponse | null,
   ipqs?: IpqsResponse | null,
+  cloudflare?: CloudflareTraceResponse | null,
 ) {
   const privacy = ipInfo.privacy;
   const usageType = abuseIpDb?.usageType;
@@ -295,7 +357,8 @@ function hasConflictingSignals(
     (privacy?.proxy === false && ipqs?.proxy === true) ||
     (privacy?.proxy === true && ipqs?.proxy === false) ||
     (privacy?.tor === false && ipqs?.tor === true) ||
-    (privacy?.tor === true && ipqs?.tor === false)
+    (privacy?.tor === true && ipqs?.tor === false) ||
+    hasCloudflareTraceMismatch(ipInfo, cloudflare)
   );
 }
 
@@ -336,8 +399,7 @@ function getServiceCompatibilityStatus(
     abuseConfidence !== null && abuseConfidence < 25;
   const hasElevatedAbuse = abuseConfidence !== null && abuseConfidence >= 50;
   const hasSevereAbuse = abuseConfidence !== null && abuseConfidence >= 85;
-  const hasNoVpnProxyTor =
-    !signals.vpn && !signals.proxy && !signals.tor;
+  const hasNoVpnProxyTor = !signals.vpn && !signals.proxy && !signals.tor;
   const hasCleanCore = hasLowAbuseConfidence && hasNoVpnProxyTor;
   const hasCleanSignals = hasCleanCore && !signals.hosting && !signals.relay;
 
@@ -498,104 +560,91 @@ export function buildServiceCompatibilityReason(
     Record<ServiceCompatibilityStatus, string>
   > = {
     general: {
-      Good:
-        "General browsing is usually less sensitive to IP reputation. No major abuse signal is detected.",
+      Good: "General browsing is usually less sensitive to IP reputation. No major abuse signal is detected.",
       "Use with Caution":
         "General browsing should work, but stricter platforms may still review reputation or infrastructure signals.",
       "High Risk":
         "General web access may still load, but this IP has stronger reputation risk than normal.",
     },
     streaming: {
-      Good:
-        "Streaming access is usually fine when reputation is clean and location signals are stable.",
+      Good: "Streaming access is usually fine when reputation is clean and location signals are stable.",
       "Use with Caution":
         "Streaming platforms may use IP type and location signals for region access, so hosting networks can affect availability.",
       "High Risk":
         "Streaming platforms may block access when abuse, VPN, proxy, or Tor signals are strong.",
     },
     social: {
-      Good:
-        "Social logins are usually fine when reputation is clean and the location looks consistent.",
+      Good: "Social logins are usually fine when reputation is clean and the location looks consistent.",
       "Use with Caution":
         "Social platforms are sensitive to unusual login and signup patterns. Hosting networks may trigger verification.",
       "High Risk":
         "Social platforms may block signup or require verification when reputation risk is high.",
     },
     ai: {
-      Good:
-        "AI services usually accept clean IPs with stable reputation. Keep login patterns consistent.",
+      Good: "AI services usually accept clean IPs with stable reputation. Keep login patterns consistent.",
       "Use with Caution":
         "AI services may apply extra checks to hosting networks, especially during login, signup, or frequent IP changes.",
       "High Risk":
         "AI services may restrict signups or usage when abuse, VPN, proxy, or Tor signals are present.",
     },
     developer: {
-      Good:
-        "Developer platforms usually tolerate infrastructure IPs. No major abuse signal is detected.",
+      Good: "Developer platforms usually tolerate infrastructure IPs. No major abuse signal is detected.",
       "Use with Caution":
         "Developer platforms usually tolerate infrastructure IPs, but abuse history can still trigger verification or rate limits.",
       "High Risk":
         "Developer platforms may add verification or rate limits when abuse history is strong.",
     },
     cloud: {
-      Good:
-        "Cloud provider dashboards are more likely to work when reputation is clean and signals are stable.",
+      Good: "Cloud provider dashboards are more likely to work when reputation is clean and signals are stable.",
       "Use with Caution":
         "Cloud providers use stricter fraud and abuse checks. Clean reputation helps, but infrastructure signals may still matter.",
       "High Risk":
         "Cloud providers may restrict access or signup when abuse or privacy signals are strong.",
     },
     google: {
-      Good:
-        "Google account services are usually fine when reputation is clean and no hosting or privacy signal is detected.",
+      Good: "Google account services are usually fine when reputation is clean and no hosting or privacy signal is detected.",
       "Use with Caution":
         "Google account services may ask for verification when hosting, location, or reputation signals look unusual.",
       "High Risk":
         "Google account services may block sign-in or signup when risk signals are strong.",
     },
     googleVoice: {
-      Good:
-        "Google Voice remains stricter than normal Google services because phone verification abuse is common.",
+      Good: "Google Voice remains stricter than normal Google services because phone verification abuse is common.",
       "Use with Caution":
         "Google Voice is stricter than normal Google services because registration and phone verification abuse are common.",
       "High Risk":
         "Google Voice has high abuse sensitivity. Hosting, VPN, proxy, or abuse signals can make registration unreliable.",
     },
     apple: {
-      Good:
-        "Apple account services usually work when reputation is clean and login context is consistent.",
+      Good: "Apple account services usually work when reputation is clean and login context is consistent.",
       "Use with Caution":
         "Apple services may add account checks when hosting or reputation signals look unusual.",
       "High Risk":
         "Apple services may restrict sensitive account actions when abuse or privacy signals are strong.",
     },
     communication: {
-      Good:
-        "Messaging platforms usually work when abuse and automation signals are clean.",
+      Good: "Messaging platforms usually work when abuse and automation signals are clean.",
       "Use with Caution":
         "Messaging platforms may flag IPs linked to spam or automation, especially for new accounts.",
       "High Risk":
         "Messaging platforms may restrict new accounts when spam or automation risk is high.",
     },
     gaming: {
-      Good:
-        "Gaming platforms are usually usable when reputation is clean and location looks consistent.",
+      Good: "Gaming platforms are usually usable when reputation is clean and location looks consistent.",
       "Use with Caution":
         "Gaming platforms are usually usable, but unusual location or infrastructure signals may trigger login checks.",
       "High Risk":
         "Gaming platforms may require verification or limit marketplace activity when risk signals are strong.",
     },
     finance: {
-      Good:
-        "Financial services still review device and account context even when IP reputation looks clean.",
+      Good: "Financial services still review device and account context even when IP reputation looks clean.",
       "Use with Caution":
         "Financial services use strict fraud controls. IP reputation is only one factor, but hosting networks may increase review risk.",
       "High Risk":
         "Financial services may block or heavily review activity when reputation risk is high.",
     },
     crypto: {
-      Good:
-        "Crypto exchanges still review device and account context even when IP reputation looks clean.",
+      Good: "Crypto exchanges still review device and account context even when IP reputation looks clean.",
       "Use with Caution":
         "Crypto exchanges apply strict risk controls. Hosting or previously abused IPs may increase security checks.",
       "High Risk":
@@ -679,6 +728,7 @@ export function calculateTrustScore(
   ipInfo: IpInfoResponse,
   abuseIpDb?: AbuseIpDbResponse | null,
   ipqs?: IpqsResponse | null,
+  cloudflare?: CloudflareTraceResponse | null,
 ) {
   const { hasAsn, hasIspOrOrg } = getIpInfoSignals(ipInfo);
   const privacy = ipInfo.privacy;
@@ -692,6 +742,7 @@ export function calculateTrustScore(
     hasIspOrOrg ? 0 : 5,
     ...getAbuseIpDbPenalties(abuseIpDb),
     ...getIpqsPenalties(ipqs),
+    ...getCloudflarePenalties(ipInfo, cloudflare),
   ];
 
   return Math.max(
@@ -707,14 +758,19 @@ export function buildReasons(
   ipInfo: IpInfoResponse,
   abuseIpDb?: AbuseIpDbResponse | null,
   ipqs?: IpqsResponse | null,
+  cloudflare?: CloudflareTraceResponse | null,
 ) {
   const { hasAsn, hasIspOrOrg } = getIpInfoSignals(ipInfo);
   const privacy = ipInfo.privacy;
   const hasHostingOrInfrastructure =
-    privacy?.hosting === true || isInfrastructureUsage(abuseIpDb?.usageType);
+    privacy?.hosting === true ||
+    isInfrastructureUsage(abuseIpDb?.usageType) ||
+    hasCloudflareColoSignal(ipInfo, cloudflare);
 
   return [
-    privacy?.vpn === true ? "VPN detected" : "No obvious VPN detected",
+    privacy?.vpn === true || isCloudflareWarpOn(cloudflare)
+      ? "VPN or WARP detected"
+      : "No obvious VPN or WARP detected",
     privacy?.proxy === true ? "Proxy detected" : "No obvious proxy detected",
     privacy?.tor === true ? "Tor detected" : "No obvious Tor detected",
     privacy?.relay === true ? "Relay detected" : "No obvious relay detected",
@@ -723,18 +779,22 @@ export function buildReasons(
       : "No hosting network detected",
     hasAsn ? "ASN available" : "ASN missing",
     hasIspOrOrg ? "ISP/org available" : "ISP/org missing",
+    hasCloudflareTraceMismatch(ipInfo, cloudflare)
+      ? "Network integrity check does not match IPinfo"
+      : null,
     ...getAbuseIpDbReasons(abuseIpDb),
     ...getIpqsReasons(ipqs),
-  ];
+  ].filter((reason): reason is string => Boolean(reason));
 }
 
 export function buildRiskSummary(
   ipInfo: IpInfoResponse,
   abuseIpDb?: AbuseIpDbResponse | null,
   ipqs?: IpqsResponse | null,
+  cloudflare?: CloudflareTraceResponse | null,
 ) {
-  const score = calculateTrustScore(ipInfo, abuseIpDb, ipqs);
-  const signals = getCompatibilitySignals(ipInfo, abuseIpDb, ipqs);
+  const score = calculateTrustScore(ipInfo, abuseIpDb, ipqs, cloudflare);
+  const signals = getCompatibilitySignals(ipInfo, abuseIpDb, ipqs, cloudflare);
 
   return [
     getTrustScoreSummary(score, signals),
@@ -748,13 +808,19 @@ export function buildRecommendationConfidence(
   ipInfo: IpInfoResponse,
   abuseIpDb?: AbuseIpDbResponse | null,
   ipqs?: IpqsResponse | null,
+  cloudflare?: CloudflareTraceResponse | null,
 ): RecommendationConfidence {
   const { hasAsn, hasIspOrOrg } = getIpInfoSignals(ipInfo);
   const hasAbuseIpDb = Boolean(abuseIpDb);
   const hasAbuseConfidence = (abuseIpDb?.abuseConfidence ?? null) !== null;
   const hasUsage = hasUsageType(abuseIpDb?.usageType);
   const hasPrivacy = Boolean(ipInfo.privacy);
-  const hasConflicts = hasConflictingSignals(ipInfo, abuseIpDb, ipqs);
+  const hasConflicts = hasConflictingSignals(
+    ipInfo,
+    abuseIpDb,
+    ipqs,
+    cloudflare,
+  );
   const coverageScore = [
     hasAbuseIpDb ? 1 : -1,
     hasAbuseConfidence ? 1 : -1,
@@ -788,8 +854,9 @@ export function buildServiceCompatibility(
   ipInfo: IpInfoResponse,
   abuseIpDb?: AbuseIpDbResponse | null,
   ipqs?: IpqsResponse | null,
+  cloudflare?: CloudflareTraceResponse | null,
 ): ServiceCompatibilityCategory[] {
-  const signals = getCompatibilitySignals(ipInfo, abuseIpDb, ipqs);
+  const signals = getCompatibilitySignals(ipInfo, abuseIpDb, ipqs, cloudflare);
   const groups: ServiceCompatibilityGroup[] = [
     {
       category: "GENERAL WEB",
@@ -833,11 +900,7 @@ export function buildServiceCompatibility(
     },
     {
       category: "CLOUD",
-      services: [
-        { name: "AWS" },
-        { name: "Azure" },
-        { name: "Google Cloud" },
-      ],
+      services: [{ name: "AWS" }, { name: "Azure" }, { name: "Google Cloud" }],
     },
     {
       category: "GOOGLE",
@@ -850,17 +913,11 @@ export function buildServiceCompatibility(
     },
     {
       category: "APPLE",
-      services: [
-        { name: "Apple ID" },
-        { name: "iCloud" },
-      ],
+      services: [{ name: "Apple ID" }, { name: "iCloud" }],
     },
     {
       category: "COMMUNICATION",
-      services: [
-        { name: "Discord" },
-        { name: "Telegram" },
-      ],
+      services: [{ name: "Discord" }, { name: "Telegram" }],
     },
     {
       category: "GAMING",
@@ -912,11 +969,17 @@ export function buildRecommendation(
   ipInfo: IpInfoResponse,
   abuseIpDb?: AbuseIpDbResponse | null,
   ipqs?: IpqsResponse | null,
+  cloudflare?: CloudflareTraceResponse | null,
 ): Recommendation {
-  const score = calculateTrustScore(ipInfo, abuseIpDb, ipqs);
+  const score = calculateTrustScore(ipInfo, abuseIpDb, ipqs, cloudflare);
   const abuseConfidence = abuseIpDb?.abuseConfidence ?? null;
-  const signals = getCompatibilitySignals(ipInfo, abuseIpDb, ipqs);
-  const serviceCompatibility = buildServiceCompatibility(ipInfo, abuseIpDb, ipqs);
+  const signals = getCompatibilitySignals(ipInfo, abuseIpDb, ipqs, cloudflare);
+  const serviceCompatibility = buildServiceCompatibility(
+    ipInfo,
+    abuseIpDb,
+    ipqs,
+    cloudflare,
+  );
   const hasHighRiskService = serviceCompatibility.some((category) =>
     category.services.some((service) => service.status === "High Risk"),
   );
@@ -928,7 +991,8 @@ export function buildRecommendation(
     signals.proxy ||
     signals.tor ||
     signals.relay ||
-    signals.hosting;
+    signals.hosting ||
+    signals.traceMismatch;
 
   if (abuseConfidence !== null && abuseConfidence >= 85) {
     return {
@@ -957,11 +1021,7 @@ export function buildRecommendation(
   }
 
   if (label === "Use with Caution" && hasPrivacyOrInfrastructureSignal) {
-    if (
-      signals.hosting &&
-      abuseConfidence !== null &&
-      abuseConfidence < 25
-    ) {
+    if (signals.hosting && abuseConfidence !== null && abuseConfidence < 25) {
       return {
         label,
         summary:
@@ -976,7 +1036,10 @@ export function buildRecommendation(
     };
   }
 
-  if (label === "Use with Caution" && (hasHighRiskService || hasCautionService)) {
+  if (
+    label === "Use with Caution" &&
+    (hasHighRiskService || hasCautionService)
+  ) {
     return {
       label,
       summary:

@@ -371,7 +371,7 @@ function ServiceCompatibilitySection({ result }: { result: AnalysisResult }) {
                                   tone={service.regionalAvailability.tone}
                                   variant="quiet"
                                 >
-                                  {service.regionalAvailability.label}
+                                  {`${service.regionalAvailability.label} (${service.regionalAvailability.score}%)`}
                                 </StatusBadge>
                               </span>
                             </span>
@@ -382,6 +382,13 @@ function ServiceCompatibilitySection({ result }: { result: AnalysisResult }) {
                             className="mt-2 block text-xs leading-5 text-neutral-500"
                           >
                             {service.reason}
+                          </span>
+                          <span
+                            hidden={!isExpanded}
+                            className="mt-2 block text-[11px] leading-5 text-neutral-500"
+                          >
+                            Regional signals:{" "}
+                            {service.regionalAvailability.reasoning.join(" ")}
                           </span>
                         </button>
                       </li>

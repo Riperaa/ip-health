@@ -1,5 +1,6 @@
 import type { StatusTone } from "@/lib/status-colors";
 import type {
+  RegionRuleHint,
   RegionRiskLevel,
   RegionServiceStatus,
 } from "@/lib/analysis/region/service-map";
@@ -71,10 +72,14 @@ export type RiskSignal = {
 
 export type RegionalAvailability = {
   status: RegionServiceStatus;
+  probability: number;
+  score: number;
+  ruleHint: RegionRuleHint;
   label: string;
   tone: StatusTone;
   region: string;
   reason: string;
+  reasoning: string[];
 };
 
 export type ServiceCompatibilityItem = {

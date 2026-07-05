@@ -55,7 +55,150 @@ function DisclosureSection({
   );
 }
 
+function formatProbability(probability: number) {
+  return `${Math.round(probability * 100)}%`;
+}
+
+function formatFinalRiskLevel(
+  riskLevel: NonNullable<AnalysisResult["finalDecision"]>["riskLevel"],
+) {
+  if (riskLevel === "low") {
+    return "Low Risk";
+  }
+
+  if (riskLevel === "medium") {
+    return "Medium Risk";
+  }
+
+  return "High Risk";
+}
+
+function getFinalRiskTone(
+  riskLevel: NonNullable<AnalysisResult["finalDecision"]>["riskLevel"],
+): StatusTone {
+  if (riskLevel === "low") {
+    return "good";
+  }
+
+  if (riskLevel === "medium") {
+    return "caution";
+  }
+
+  return "risk";
+}
+
+function getServiceStatusTone(
+  status: NonNullable<
+    AnalysisResult["finalDecision"]
+  >["serviceCompatibility"]["status"],
+): StatusTone {
+  if (status === "Good") {
+    return "good";
+  }
+
+  if (status === "Use with Caution") {
+    return "caution";
+  }
+
+  return "risk";
+}
+
+function formatRegionAvailabilityStatus(
+  status: NonNullable<
+    AnalysisResult["finalDecision"]
+  >["regionAvailability"]["status"],
+) {
+  if (status === "likely_available") {
+    return "Likely Available";
+  }
+
+  if (status === "uncertain") {
+    return "Uncertain";
+  }
+
+  return "Likely Blocked";
+}
+
+function getRegionAvailabilityTone(
+  status: NonNullable<
+    AnalysisResult["finalDecision"]
+  >["regionAvailability"]["status"],
+): StatusTone {
+  if (status === "likely_available") {
+    return "good";
+  }
+
+  if (status === "likely_blocked") {
+    return "risk";
+  }
+
+  return "caution";
+}
+
+function formatSignalName(signalName: string) {
+  return signalName
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function formatSignalDirection(
+  direction: NonNullable<
+    AnalysisResult["finalDecision"]
+  >["signals"][number]["direction"],
+) {
+  if (direction === "supports_availability") {
+    return "supports availability";
+  }
+
+  if (direction === "raises_risk") {
+    return "raises risk";
+  }
+
+  return "neutral";
+}
+
+function formatDecisionSignal(
+  signal: NonNullable<AnalysisResult["finalDecision"]>["signals"][number],
+) {
+  return `${formatSignalName(signal.signalName)} ${formatSignalDirection(signal.direction)} (${formatProbability(signal.impact)} impact)`;
+}
+
+function getCategoryDecisionSummary(
+  services: AnalysisResult["serviceCompatibility"][number]["services"],
+) {
+  return services
+    .reduce<Record<string, number>>(
+      (summary, service) => ({
+        ...summary,
+        [service.finalDecision.serviceCompatibility.status]:
+          summary[service.finalDecision.serviceCompatibility.status] + 1,
+      }),
+      {
+        Good: 0,
+        "Use with Caution": 0,
+        "High Risk": 0,
+      },
+    );
+}
+
+function formatCategoryDecisionSummary(
+  services: AnalysisResult["serviceCompatibility"][number]["services"],
+) {
+  const summary = getCategoryDecisionSummary(services);
+
+  return `${summary.Good} Good - ${summary["Use with Caution"]} Caution - ${summary["High Risk"]} High Risk`;
+}
+
 function MainRiskReport({ result }: { result: AnalysisResult }) {
+  const finalDecision = result.finalDecision;
+  const trustScoreDisplay = finalDecision
+    ? String(finalDecision.trustScore)
+    : "--";
+  const summary = finalDecision
+    ? `Final service compatibility probability is ${formatProbability(finalDecision.serviceCompatibility.probability)}. Regional availability is ${formatRegionAvailabilityStatus(finalDecision.regionAvailability.status).toLowerCase()} at ${formatProbability(finalDecision.regionAvailability.probability)}.`
+    : "Run an analysis to populate this report.";
+
   return (
     <section className="surface-card-primary rounded-[28px] border bg-white p-5 sm:p-6">
       <div className="grid gap-6 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
@@ -85,30 +228,40 @@ function MainRiskReport({ result }: { result: AnalysisResult }) {
             Trust Score
           </p>
           <p className="mt-2 flex items-end gap-1 text-7xl font-semibold leading-none text-neutral-950 sm:justify-end">
-            {result.trustScore.displayValue}
+            {trustScoreDisplay}
             <span className="pb-2 text-xl font-semibold text-neutral-400">
               /100
             </span>
           </p>
           <div className="mt-3 flex flex-wrap gap-2 sm:justify-end">
-            <StatusBadge
-              tone={result.trustScore.riskTone}
-              className="px-3 py-1.5 text-sm"
-            >
-              {result.trustScore.riskLabel}
-            </StatusBadge>
-            <StatusBadge
-              tone={result.trustScore.recommendationTone}
-              variant="quiet"
-            >
-              {result.trustScore.recommendationLabel}
-            </StatusBadge>
+            {finalDecision ? (
+              <>
+                <StatusBadge
+                  tone={getFinalRiskTone(finalDecision.riskLevel)}
+                  className="px-3 py-1.5 text-sm"
+                >
+                  {formatFinalRiskLevel(finalDecision.riskLevel)}
+                </StatusBadge>
+                <StatusBadge
+                  tone={getServiceStatusTone(
+                    finalDecision.serviceCompatibility.status,
+                  )}
+                  variant="quiet"
+                >
+                  {finalDecision.serviceCompatibility.status}
+                </StatusBadge>
+              </>
+            ) : (
+              <StatusBadge tone="neutral" className="px-3 py-1.5 text-sm">
+                Pending
+              </StatusBadge>
+            )}
           </div>
         </div>
       </div>
 
       <p className="mt-5 border-t border-neutral-100 pt-4 text-sm leading-6 text-neutral-600">
-        {result.trustScore.summary}
+        {summary}
       </p>
     </section>
   );
@@ -214,40 +367,6 @@ function NetworkIntegritySection({ result }: { result: AnalysisResult }) {
   );
 }
 
-function formatRegionRiskLevel(level: AnalysisResult["regionRiskLevel"]) {
-  if (level === "low") {
-    return "Low Regional Risk";
-  }
-
-  if (level === "medium") {
-    return "Medium Regional Risk";
-  }
-
-  if (level === "high") {
-    return "High Regional Risk";
-  }
-
-  return "Unknown Region";
-}
-
-function getRegionRiskLevelTone(
-  level: AnalysisResult["regionRiskLevel"],
-): StatusTone {
-  if (level === "low") {
-    return "good";
-  }
-
-  if (level === "high") {
-    return "risk";
-  }
-
-  if (level === "medium") {
-    return "caution";
-  }
-
-  return "neutral";
-}
-
 function ServiceCompatibilitySection({ result }: { result: AnalysisResult }) {
   const [isServiceCompatibilityVisible, setIsServiceCompatibilityVisible] =
     useState(false);
@@ -258,6 +377,7 @@ function ServiceCompatibilitySection({ result }: { result: AnalysisResult }) {
     null,
   );
   const hasServiceCompatibility = result.serviceCompatibility.length > 0;
+  const reportDecision = result.finalDecision;
 
   return (
     <DisclosureSection
@@ -271,16 +391,18 @@ function ServiceCompatibilitySection({ result }: { result: AnalysisResult }) {
       contentId="service-compatibility-content"
     >
       <div className="surface-card mt-3 overflow-hidden rounded-2xl border bg-white">
-        {hasServiceCompatibility ? (
+        {hasServiceCompatibility && reportDecision ? (
           <div className="flex flex-col gap-2 border-b border-neutral-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
             <span className="text-xs font-semibold uppercase tracking-normal text-neutral-500">
               Regional Availability
             </span>
             <StatusBadge
-              tone={getRegionRiskLevelTone(result.regionRiskLevel)}
+              tone={getRegionAvailabilityTone(
+                reportDecision.regionAvailability.status,
+              )}
               variant="quiet"
             >
-              {formatRegionRiskLevel(result.regionRiskLevel)}
+              {`${formatRegionAvailabilityStatus(reportDecision.regionAvailability.status)} (${formatProbability(reportDecision.regionAvailability.probability)})`}
             </StatusBadge>
           </div>
         ) : null}
@@ -329,7 +451,7 @@ function ServiceCompatibilitySection({ result }: { result: AnalysisResult }) {
                     </span>
                   </span>
                   <span className="pl-6 text-sm font-medium leading-5 text-neutral-600 sm:pl-0 sm:text-right">
-                    {category.summary}
+                    {formatCategoryDecisionSummary(category.services)}
                   </span>
                 </button>
                 <ul
@@ -341,6 +463,7 @@ function ServiceCompatibilitySection({ result }: { result: AnalysisResult }) {
                     const serviceKey = `${category.category}:${service.name}`;
                     const isExpanded = expandedServiceKey === serviceKey;
                     const serviceContentId = `service-compatibility-${serviceKey}`;
+                    const finalDecision = service.finalDecision;
 
                     return (
                       <li key={service.name} className="text-sm">
@@ -360,18 +483,25 @@ function ServiceCompatibilitySection({ result }: { result: AnalysisResult }) {
                               {service.name}
                             </span>
                             <span className="flex flex-wrap items-center gap-2">
-                              <StatusBadge tone={service.tone} variant="quiet">
-                                {service.status}
+                              <StatusBadge
+                                tone={getServiceStatusTone(
+                                  finalDecision.serviceCompatibility.status,
+                                )}
+                                variant="quiet"
+                              >
+                                {`${finalDecision.serviceCompatibility.status} (${formatProbability(finalDecision.serviceCompatibility.probability)})`}
                               </StatusBadge>
                               <span className="inline-flex items-center gap-2">
                                 <span className="text-[11px] font-semibold uppercase tracking-normal text-neutral-400">
                                   Regional Availability
                                 </span>
                                 <StatusBadge
-                                  tone={service.regionalAvailability.tone}
+                                  tone={getRegionAvailabilityTone(
+                                    finalDecision.regionAvailability.status,
+                                  )}
                                   variant="quiet"
                                 >
-                                  {`${service.regionalAvailability.label} (${service.regionalAvailability.score}%)`}
+                                  {`${formatRegionAvailabilityStatus(finalDecision.regionAvailability.status)} (${formatProbability(finalDecision.regionAvailability.probability)})`}
                                 </StatusBadge>
                               </span>
                             </span>
@@ -381,14 +511,17 @@ function ServiceCompatibilitySection({ result }: { result: AnalysisResult }) {
                             hidden={!isExpanded}
                             className="mt-2 block text-xs leading-5 text-neutral-500"
                           >
-                            {service.reason}
+                            {`Final service compatibility probability is ${formatProbability(finalDecision.serviceCompatibility.probability)}.`}
                           </span>
                           <span
                             hidden={!isExpanded}
                             className="mt-2 block text-[11px] leading-5 text-neutral-500"
                           >
-                            Regional signals:{" "}
-                            {service.regionalAvailability.reasoning.join(" ")}
+                            Top signals:{" "}
+                            {finalDecision.signals
+                              .slice(0, 3)
+                              .map(formatDecisionSignal)
+                              .join(" ")}
                           </span>
                         </button>
                       </li>
@@ -416,6 +549,9 @@ function ServiceCompatibilitySection({ result }: { result: AnalysisResult }) {
 }
 
 function ScoreExplanationSection({ result }: { result: AnalysisResult }) {
+  const finalDecision = result.finalDecision;
+  const signals = finalDecision?.signals.slice(0, 3) ?? [];
+
   return (
     <section className="surface-card rounded-2xl border bg-white p-5">
       <div className="flex flex-col gap-1">
@@ -423,19 +559,34 @@ function ScoreExplanationSection({ result }: { result: AnalysisResult }) {
           Score Explanation
         </p>
         <p className="text-sm leading-6 text-neutral-500">
-          {result.trustScore.explanationIntro}
+          {finalDecision
+            ? `Why this final decision received a ${finalDecision.trustScore}/100 trust score.`
+            : "Score details will appear here after analysis."}
         </p>
       </div>
       <ul className="mt-4 space-y-3">
-        {result.trustScore.explanationItems.map((item) => (
-          <li key={item} className="flex gap-3 text-sm leading-6">
+        {signals.map((signal) => (
+          <li key={signal.signalName} className="flex gap-3 text-sm leading-6">
             <span
               aria-hidden="true"
               className="mt-2 size-1.5 shrink-0 rounded-full bg-neutral-900"
             />
-            <span className="text-neutral-600">{item}</span>
+            <span className="text-neutral-600">
+              {formatDecisionSignal(signal)}
+            </span>
           </li>
         ))}
+        {signals.length === 0 ? (
+          <li className="flex gap-3 text-sm leading-6">
+            <span
+              aria-hidden="true"
+              className="mt-2 size-1.5 shrink-0 rounded-full bg-neutral-900"
+            />
+            <span className="text-neutral-600">
+              Run an analysis to see decision signals.
+            </span>
+          </li>
+        ) : null}
       </ul>
     </section>
   );
@@ -443,6 +594,7 @@ function ScoreExplanationSection({ result }: { result: AnalysisResult }) {
 
 function RiskSignalsSection({ result }: { result: AnalysisResult }) {
   const [isRiskSignalsVisible, setIsRiskSignalsVisible] = useState(true);
+  const signals = result.finalDecision?.signals ?? [];
 
   return (
     <DisclosureSection
@@ -456,48 +608,56 @@ function RiskSignalsSection({ result }: { result: AnalysisResult }) {
       <div className="surface-card mt-3 rounded-2xl border bg-white p-5">
         <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
           <p className="text-sm leading-6 text-neutral-500">
-            Detected issues that may affect account access or verification.
+            Weighted signals from the canonical final decision.
           </p>
-          {result.riskSignals.length === 0 ? (
+          {signals.length === 0 ? (
             <StatusBadge tone="good" className="mt-1 sm:mt-0">
               Clear
             </StatusBadge>
           ) : (
             <StatusBadge tone="caution" className="mt-1 sm:mt-0">
-              {result.riskSignals.length} found
+              {signals.length} signals
             </StatusBadge>
           )}
         </div>
 
         <ul
-          hidden={result.riskSignals.length === 0}
+          hidden={signals.length === 0}
           className="mt-4 divide-y divide-neutral-100"
         >
-          {result.riskSignals.map((signal) => (
+          {signals.map((signal) => (
             <li
-              key={signal.label}
+              key={signal.signalName}
               className="flex flex-col gap-2 py-3 first:pt-0 last:pb-0 sm:flex-row sm:items-start sm:justify-between sm:gap-4"
             >
               <div>
                 <p className="text-sm font-medium text-neutral-950">
-                  {signal.label}
+                  {formatSignalName(signal.signalName)}
                 </p>
                 <p className="mt-1 text-sm leading-6 text-neutral-500">
-                  {signal.detail}
+                  {`Weight ${formatProbability(signal.weight)}, contribution ${formatProbability(Math.abs(signal.contribution))}.`}
                 </p>
               </div>
-              <StatusBadge tone={signal.tone} variant="quiet">
-                Detected
+              <StatusBadge
+                tone={
+                  signal.direction === "raises_risk"
+                    ? "caution"
+                    : signal.direction === "supports_availability"
+                      ? "good"
+                      : "neutral"
+                }
+                variant="quiet"
+              >
+                {formatSignalDirection(signal.direction)}
               </StatusBadge>
             </li>
           ))}
         </ul>
         <p
-          hidden={result.riskSignals.length > 0}
+          hidden={signals.length > 0}
           className="mt-4 rounded-xl border border-emerald-100 bg-emerald-50/60 px-4 py-3 text-sm leading-6 text-emerald-800"
         >
-          No active proxy, abuse, or suspicious ASN signal was found in the
-          available data.
+          No final decision signals are available yet.
         </p>
       </div>
     </DisclosureSection>

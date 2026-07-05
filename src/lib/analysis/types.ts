@@ -1,8 +1,8 @@
 import type { StatusTone } from "@/lib/status-colors";
 import type {
-  RegionRuleHint,
   RegionRiskLevel,
   RegionServiceStatus,
+  WeightedDecisionSignal,
 } from "@/lib/analysis/region/service-map";
 import type {
   Recommendation,
@@ -39,6 +39,7 @@ export type RecentCheck = {
 };
 
 export type RiskLevel = "Low" | "Medium" | "High";
+export type FinalDecisionRiskLevel = "low" | "medium" | "high";
 
 export type IpTypeBadge =
   | "Residential"
@@ -70,24 +71,30 @@ export type RiskSignal = {
   tone: StatusTone;
 };
 
-export type RegionalAvailability = {
-  status: RegionServiceStatus;
-  probability: number;
-  score: number;
-  ruleHint: RegionRuleHint;
-  label: string;
-  tone: StatusTone;
-  region: string;
-  reason: string;
-  reasoning: string[];
+export type FinalDecisionSignal = WeightedDecisionSignal;
+
+export type FinalDecision = {
+  ip: string;
+  trustScore: number;
+  riskLevel: FinalDecisionRiskLevel;
+  regionAvailability: {
+    status: RegionServiceStatus;
+    probability: number;
+  };
+  serviceCompatibility: {
+    status: ServiceCompatibilityStatus;
+    probability: number;
+  };
+  signals: FinalDecisionSignal[];
 };
 
 export type ServiceCompatibilityItem = {
   name: string;
   status: ServiceCompatibilityStatus;
+  probability: number;
   tone: StatusTone;
   reason: string;
-  regionalAvailability: RegionalAvailability;
+  finalDecision: FinalDecision;
 };
 
 export type ServiceCompatibilityCategory = {
@@ -129,6 +136,7 @@ export type AnalysisResult = {
     hasAnalysis: boolean;
   };
   riskSignals: RiskSignal[];
+  finalDecision: FinalDecision | null;
   serviceCompatibility: ServiceCompatibilityCategory[];
   regionRiskLevel: RegionRiskLevel;
   ipHistory: IpHistoryRecord[];

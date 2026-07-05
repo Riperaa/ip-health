@@ -12,6 +12,19 @@ export type RegionRuleHint =
   | "high_risk"
   | "unknown_region";
 
+export type WeightedDecisionSignalDirection =
+  | "supports_availability"
+  | "raises_risk"
+  | "neutral";
+
+export type WeightedDecisionSignal = {
+  signalName: string;
+  direction: WeightedDecisionSignalDirection;
+  weight: number;
+  impact: number;
+  contribution: number;
+};
+
 export type HistoricalAccessConsistency =
   | "stable"
   | "mixed"
@@ -44,7 +57,7 @@ export type RegionServiceInference = {
   score: number;
   riskScore: number;
   ruleHint: RegionRuleHint;
-  reasoning: string[];
+  signals: WeightedDecisionSignal[];
 };
 
 type RegionIpInfo = {
@@ -52,9 +65,9 @@ type RegionIpInfo = {
 };
 
 type WeightedSignal = {
+  signalName: string;
   risk: number;
   weight: number;
-  reason: string;
 };
 
 const CN_HIGH_RISK_SERVICES = new Set(["google voice"]);
@@ -171,10 +184,9 @@ function getCountryRestrictionSignal(
 
   if (!normalizedRegion) {
     return {
+      signalName: "country_restriction",
       risk: 0.45,
       weight: 0.35,
-      reason:
-        "Country is missing, so regional availability uses conservative inference.",
     };
   }
 
@@ -186,18 +198,16 @@ function getCountryRestrictionSignal(
         : hintRisk;
 
     return {
+      signalName: "country_restriction",
       risk,
       weight: 0.35,
-      reason: hasBypassSignal
-        ? `${input.service} has elevated regional restriction likelihood in CN, partly offset by VPN, proxy, or WARP signals.`
-        : `${input.service} has elevated regional restriction likelihood in CN.`,
     };
   }
 
   return {
+    signalName: "country_restriction",
     risk: 0.08,
     weight: 0.35,
-    reason: `No strong country-level restriction signal is mapped for ${normalizedRegion}.`,
   };
 }
 
@@ -218,41 +228,40 @@ function getAsnSignal(input: RegionServiceInferenceInput): WeightedSignal {
     ])
   ) {
     return {
+      signalName: "asn_type",
       risk: 0.65,
       weight: 0.15,
-      reason:
-        "Hosting or data center network type increases service availability checks.",
     };
   }
 
   if (networkText.includes("residential")) {
     return {
+      signalName: "asn_type",
       risk: 0.12,
       weight: 0.15,
-      reason: "Residential network type lowers regional availability risk.",
     };
   }
 
   if (networkText.includes("mobile")) {
     return {
+      signalName: "asn_type",
       risk: 0.18,
       weight: 0.15,
-      reason: "Mobile network type usually lowers regional availability risk.",
     };
   }
 
   if (networkText.includes("business") || networkText.includes("isp")) {
     return {
+      signalName: "asn_type",
       risk: 0.25,
       weight: 0.15,
-      reason: "Business or ISP network type adds only light regional risk.",
     };
   }
 
   return {
+    signalName: "asn_type",
     risk: 0.35,
     weight: 0.15,
-    reason: "ASN type is unavailable, adding uncertainty to availability.",
   };
 }
 
@@ -276,11 +285,9 @@ function getIspReputationSignal(
 
   if (knownRiskValues.length === 0) {
     return {
+      signalName: "isp_reputation",
       risk: hasIspName ? 0.25 : 0.35,
       weight: 0.15,
-      reason: hasIspName
-        ? "ISP identity is available, but reputation coverage is limited."
-        : "ISP reputation data is limited, adding uncertainty.",
     };
   }
 
@@ -288,17 +295,16 @@ function getIspReputationSignal(
 
   if (risk >= 0.6) {
     return {
+      signalName: "isp_reputation",
       risk,
       weight: 0.15,
-      reason:
-        "Elevated abuse or fraud reputation increases service availability risk.",
     };
   }
 
   return {
+    signalName: "isp_reputation",
     risk: Math.max(risk, 0.12),
     weight: 0.15,
-    reason: "Abuse and fraud reputation signals are relatively clean.",
   };
 }
 
@@ -310,60 +316,56 @@ function getProxySignal(input: RegionServiceInferenceInput): WeightedSignal {
 
   if (input.torStatus) {
     return {
+      signalName: "proxy_cloudflare",
       risk: 0.95,
       weight: 0.15,
-      reason: "Tor creates high service availability and verification risk.",
     };
   }
 
   if (input.cloudflareTraceMismatch) {
     return {
+      signalName: "proxy_cloudflare",
       risk: 0.65,
       weight: 0.15,
-      reason:
-        "Cloudflare trace mismatch suggests inconsistent regional routing.",
     };
   }
 
   if (isRestrictedRegion && hasBypassSignal) {
     return {
+      signalName: "proxy_cloudflare",
       risk: 0.42,
       weight: 0.15,
-      reason:
-        "VPN, proxy, or WARP may improve reachability but can still trigger platform checks.",
     };
   }
 
   if (isRestrictedRegion && !hasBypassSignal) {
     return {
+      signalName: "proxy_cloudflare",
       risk: 0.72,
       weight: 0.15,
-      reason:
-        "No VPN, proxy, or WARP signal is available for a region with known service restrictions.",
     };
   }
 
   if (hasBypassSignal || input.relayStatus) {
     return {
+      signalName: "proxy_cloudflare",
       risk: 0.55,
       weight: 0.15,
-      reason:
-        "VPN, proxy, relay, or WARP signals can affect service availability checks.",
     };
   }
 
   if (input.cloudflareTraceMatch) {
     return {
+      signalName: "proxy_cloudflare",
       risk: 0.12,
       weight: 0.15,
-      reason: "Cloudflare trace is consistent with the IP location.",
     };
   }
 
   return {
+    signalName: "proxy_cloudflare",
     risk: 0.2,
     weight: 0.15,
-    reason: "No proxy or Cloudflare routing instability signal was detected.",
   };
 }
 
@@ -372,32 +374,32 @@ function getHistoricalConsistencySignal(
 ): WeightedSignal {
   if (input.historicalAccessConsistency === "stable") {
     return {
+      signalName: "history_consistency",
       risk: 0.12,
       weight: 0.1,
-      reason: "Local history shows stable previous analysis signals.",
     };
   }
 
   if (input.historicalAccessConsistency === "mixed") {
     return {
+      signalName: "history_consistency",
       risk: 0.45,
       weight: 0.1,
-      reason: "Local history shows mixed previous analysis signals.",
     };
   }
 
   if (input.historicalAccessConsistency === "unstable") {
     return {
+      signalName: "history_consistency",
       risk: 0.7,
       weight: 0.1,
-      reason: "Local history shows unstable previous analysis signals.",
     };
   }
 
   return {
+    signalName: "history_consistency",
     risk: 0.35,
     weight: 0.1,
-    reason: "No historical access consistency signal is available.",
   };
 }
 
@@ -406,41 +408,68 @@ function getRuleHintSignal(ruleHint: RegionRuleHint): WeightedSignal {
 
   if (ruleHint === "unknown_region") {
     return {
+      signalName: "rule_hint",
       risk,
       weight: 0.1,
-      reason:
-        "Static rule hint is unknown because no country was detected.",
     };
   }
 
   if (ruleHint === "available") {
     return {
+      signalName: "rule_hint",
       risk,
       weight: 0.1,
-      reason: "Static service map provides a low-risk hint.",
     };
   }
 
   return {
+    signalName: "rule_hint",
     risk,
     weight: 0.1,
-    reason: `Static service map provides a ${ruleHint.replace("_", " ")} hint.`,
   };
 }
 
-function getTopReasoning(signals: WeightedSignal[]) {
-  const topReasons = signals
-    .map((signal) => ({
-      ...signal,
-      impact: signal.weight * Math.abs(signal.risk - NEUTRAL_RISK),
-    }))
-    .sort((signalA, signalB) => signalB.impact - signalA.impact)
-    .slice(0, 3)
-    .map((signal) => signal.reason);
+function roundSignalValue(value: number) {
+  return Number(value.toFixed(4));
+}
 
-  return topReasons.length > 0
-    ? topReasons
-    : ["No strong regional availability signal was detected."];
+function getSignalDirection(
+  contribution: number,
+): WeightedDecisionSignalDirection {
+  if (contribution > 0.005) {
+    return "supports_availability";
+  }
+
+  if (contribution < -0.005) {
+    return "raises_risk";
+  }
+
+  return "neutral";
+}
+
+function toDecisionSignal(signal: WeightedSignal): WeightedDecisionSignal {
+  const contribution = roundSignalValue(signal.weight * (NEUTRAL_RISK - signal.risk));
+  const impact = roundSignalValue(Math.abs(contribution));
+
+  return {
+    signalName: signal.signalName,
+    direction: getSignalDirection(contribution),
+    weight: roundSignalValue(signal.weight),
+    impact,
+    contribution,
+  };
+}
+
+function getStructuredSignals(signals: WeightedSignal[]) {
+  return signals
+    .map(toDecisionSignal)
+    .sort((signalA, signalB) => {
+      if (signalB.impact !== signalA.impact) {
+        return signalB.impact - signalA.impact;
+      }
+
+      return signalA.signalName.localeCompare(signalB.signalName);
+    });
 }
 
 function getStatusFromProbability(probability: number): RegionServiceStatus {
@@ -481,7 +510,7 @@ export function inferRegionServiceCompatibility(
     score: formatPercent(probability),
     riskScore: Number(riskScore.toFixed(2)),
     ruleHint,
-    reasoning: getTopReasoning(signals),
+    signals: getStructuredSignals(signals),
   };
 }
 

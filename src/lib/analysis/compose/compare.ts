@@ -1,5 +1,4 @@
 import {
-  buildRecommendation,
   buildRecommendationConfidence,
   isInfrastructureUsage,
 } from "@/lib/trust-engine";
@@ -18,6 +17,7 @@ import type {
   IpInfoResponse,
   IpqsResponse,
   ProviderAnalysisResult,
+  Recommendation,
 } from "../types";
 import { fetchProviderAnalysis } from "./provider-analysis";
 
@@ -107,6 +107,27 @@ function getIspOrg(
   );
 }
 
+function buildScoreRecommendation(score: number): Recommendation {
+  if (score >= 70) {
+    return {
+      label: "Recommended",
+      summary: "This IP has a stronger trust score profile.",
+    };
+  }
+
+  if (score >= 40) {
+    return {
+      label: "Use with Caution",
+      summary: "This IP has moderate risk signals.",
+    };
+  }
+
+  return {
+    label: "Not Recommended",
+    summary: "This IP has elevated risk signals.",
+  };
+}
+
 function getDisplayResult(
   result: CompareProviderResult,
 ): ComparisonDisplayResult {
@@ -117,7 +138,7 @@ function getDisplayResult(
     input: result.input,
     ip: formatDetail(ipInfo.ip ?? result.input),
     score,
-    recommendation: buildRecommendation(ipInfo, abuseIpDb, ipqs),
+    recommendation: buildScoreRecommendation(score),
     confidence: buildRecommendationConfidence(
       ipInfo,
       abuseIpDb,

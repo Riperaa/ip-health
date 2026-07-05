@@ -1,8 +1,5 @@
 import {
-  buildRecommendation,
   buildRecommendationConfidence,
-  buildServiceCompatibility,
-  buildServiceCompatibilityReason,
   buildServiceCompatibilitySignals,
   hasCloudflareColoSignal,
   hasCloudflareTraceMatch,
@@ -24,14 +21,13 @@ import {
   pickDetail,
 } from "../normalize/common";
 import { normalizeProviderAnalysisResult } from "../normalize/providers";
-import { normalizeServiceCompatibility } from "../normalize/service-compatibility";
 import {
   detectRegionFromIpInfo,
   getRegionRiskLevel,
   inferRegionServiceCompatibility,
   type HistoricalAccessConsistency,
-  type RegionServiceInference,
-  type RegionServiceStatus,
+  type RegionServiceInferenceInput,
+  type WeightedDecisionSignal,
 } from "../region/service-map";
 import {
   getHistoryForIp,
@@ -45,13 +41,15 @@ import type {
   AbuseIpDbResponse,
   AnalysisResult,
   CloudflareTraceResponse,
+  FinalDecision,
+  FinalDecisionRiskLevel,
+  FinalDecisionSignal,
   IpHistoryRecord,
   IpInfoResponse,
   IpqsResponse,
   IpTypeBadge,
   NetworkIntegrity,
   ProviderAnalysisResult,
-  RegionalAvailability,
   ResultFact,
   RiskLevel,
   RiskSignal,
@@ -488,94 +486,165 @@ function getServiceCompatibilitySummaryLabel(
   return `${summary.Good} Good - ${summary["Use with Caution"]} Caution - ${summary["High Risk"]} High Risk`;
 }
 
-const SERVICE_COMPATIBILITY_STATUS_WEIGHT: Record<
-  ServiceCompatibilityStatus,
-  number
-> = {
-  Good: 0,
-  "Use with Caution": 1,
-  "High Risk": 2,
-};
+const SERVICE_COMPATIBILITY_GROUPS = [
+  {
+    category: "GENERAL WEB",
+    services: [
+      "YouTube",
+      "Reddit",
+      "Wikipedia",
+      "Facebook",
+      "Instagram",
+      "X",
+      "TikTok",
+    ],
+  },
+  {
+    category: "AI SERVICES",
+    services: ["ChatGPT", "Claude", "Gemini", "Perplexity", "Grok"],
+  },
+  {
+    category: "STREAMING",
+    services: ["Netflix", "Disney+", "Prime Video", "Max"],
+  },
+  {
+    category: "DEVELOPER",
+    services: ["GitHub", "GitLab", "Cloudflare", "Vercel"],
+  },
+  {
+    category: "CLOUD",
+    services: ["AWS", "Azure", "Google Cloud"],
+  },
+  {
+    category: "GOOGLE",
+    services: ["Google Voice", "Google Account", "Gmail", "Google Play"],
+  },
+  {
+    category: "APPLE",
+    services: ["Apple ID", "iCloud"],
+  },
+  {
+    category: "COMMUNICATION",
+    services: ["Discord", "Telegram"],
+  },
+  {
+    category: "GAMING",
+    services: ["Steam", "Epic Games", "PlayStation Network", "Xbox Live"],
+  },
+  {
+    category: "FINANCE",
+    services: ["PayPal", "Wise", "Stripe", "Revolut"],
+  },
+  {
+    category: "CRYPTO",
+    services: ["Binance", "Coinbase", "Kraken", "Bybit", "OKX"],
+  },
+] as const;
 
-function getServiceCompatibilityStatusFromRegionInference(
-  regionStatus: RegionServiceStatus,
-): ServiceCompatibilityStatus {
-  if (regionStatus === "likely_blocked") {
-    return "High Risk";
+function roundProbability(value: number) {
+  return Number(Math.min(Math.max(value, 0), 1).toFixed(2));
+}
+
+function roundSignalValue(value: number) {
+  return Number(value.toFixed(4));
+}
+
+function getFinalRiskLevel(score: number): FinalDecisionRiskLevel {
+  if (score >= 70) {
+    return "low";
   }
 
-  if (regionStatus === "uncertain") {
+  if (score >= 40) {
+    return "medium";
+  }
+
+  return "high";
+}
+
+function getLegacyRiskLevel(riskLevel: FinalDecisionRiskLevel): RiskLevel {
+  if (riskLevel === "low") {
+    return "Low";
+  }
+
+  if (riskLevel === "medium") {
+    return "Medium";
+  }
+
+  return "High";
+}
+
+function getServiceStatusFromProbability(
+  probability: number,
+): ServiceCompatibilityStatus {
+  if (probability >= 0.7) {
+    return "Good";
+  }
+
+  if (probability >= 0.42) {
     return "Use with Caution";
   }
 
-  return "Good";
+  return "High Risk";
 }
 
-function mergeServiceCompatibilityStatus(
-  serviceStatus: ServiceCompatibilityStatus,
-  regionStatus: RegionServiceStatus,
-) {
-  const regionalServiceStatus =
-    getServiceCompatibilityStatusFromRegionInference(regionStatus);
+function toScaledFinalDecisionSignal(
+  signal: WeightedDecisionSignal,
+  scale: number,
+): FinalDecisionSignal {
+  const contribution = roundSignalValue(signal.contribution * scale);
+  const impact = roundSignalValue(signal.impact * scale);
 
-  return SERVICE_COMPATIBILITY_STATUS_WEIGHT[regionalServiceStatus] >
-    SERVICE_COMPATIBILITY_STATUS_WEIGHT[serviceStatus]
-    ? regionalServiceStatus
-    : serviceStatus;
-}
-
-function getRegionalAvailabilityLabel(regionStatus: RegionServiceStatus) {
-  if (regionStatus === "likely_blocked") {
-    return "Likely Blocked";
-  }
-
-  if (regionStatus === "uncertain") {
-    return "Uncertain";
-  }
-
-  return "Likely Available";
-}
-
-function getRegionalAvailabilityTone(
-  regionStatus: RegionServiceStatus,
-): StatusTone {
-  if (regionStatus === "likely_available") {
-    return "good";
-  }
-
-  if (regionStatus === "likely_blocked") {
-    return "risk";
-  }
-
-  return "caution";
-}
-
-function buildRegionalAvailability(
-  region: string | null,
-  inference: RegionServiceInference,
-): RegionalAvailability {
   return {
-    status: inference.status,
-    probability: inference.probability,
-    score: inference.score,
-    ruleHint: inference.ruleHint,
-    label: getRegionalAvailabilityLabel(inference.status),
-    tone: getRegionalAvailabilityTone(inference.status),
-    region: region ?? "Unknown region",
-    reason: `Regional availability probability is ${inference.score}%.`,
-    reasoning: inference.reasoning,
+    ...signal,
+    weight: roundSignalValue(signal.weight * scale),
+    impact,
+    contribution,
   };
 }
 
-function combineServiceCompatibilityReason(
-  serviceReason: string,
-  regionalAvailability: RegionalAvailability,
-) {
-  if (regionalAvailability.status === "likely_available") {
-    return serviceReason;
+function buildProbabilitySignal(
+  signalName: string,
+  probability: number,
+  weight: number,
+): FinalDecisionSignal {
+  const contribution = roundSignalValue((probability - 0.5) * weight);
+  const impact = roundSignalValue(Math.abs(contribution));
+
+  return {
+    signalName,
+    direction:
+      contribution > 0.005
+        ? "supports_availability"
+        : contribution < -0.005
+          ? "raises_risk"
+          : "neutral",
+    weight: roundSignalValue(weight),
+    impact,
+    contribution,
+  };
+}
+
+function sortFinalDecisionSignals(signals: FinalDecisionSignal[]) {
+  return [...signals].sort((signalA, signalB) => {
+    if (signalB.impact !== signalA.impact) {
+      return signalB.impact - signalA.impact;
+    }
+
+    return signalA.signalName.localeCompare(signalB.signalName);
+  });
+}
+
+function buildServiceReason(finalDecision: FinalDecision) {
+  const topSignal = finalDecision.signals[0];
+  const probability = Math.round(
+    finalDecision.serviceCompatibility.probability * 100,
+  );
+
+  if (!topSignal) {
+    return `Final service compatibility probability is ${probability}%.`;
   }
 
-  return `${serviceReason} ${regionalAvailability.reason} ${regionalAvailability.reasoning[0] ?? ""}`.trim();
+  return `Final service compatibility probability is ${probability}%. Top signal: ${topSignal.signalName}.`;
 }
 
 function getHistoricalAccessConsistency(
@@ -603,7 +672,7 @@ function getHistoricalAccessConsistency(
 }
 
 function buildRegionRiskLevel(
-  serviceCompatibility: { services: { regionalAvailability: RegionalAvailability }[] }[],
+  serviceCompatibility: { services: { finalDecision: FinalDecision }[] }[],
   region: string | null,
 ) {
   if (!region) {
@@ -612,7 +681,9 @@ function buildRegionRiskLevel(
 
   const lowestServiceRegionScore = serviceCompatibility
     .flatMap((category) =>
-      category.services.map((service) => service.regionalAvailability.probability),
+      category.services.map(
+        (service) => service.finalDecision.regionAvailability.probability,
+      ),
     )
     .reduce<number | null>(
       (lowestScore, score) =>
@@ -623,6 +694,136 @@ function buildRegionRiskLevel(
   return getRegionRiskLevel(lowestServiceRegionScore);
 }
 
+function getReportFinalDecision(
+  serviceCompatibility: { services: { finalDecision: FinalDecision }[] }[],
+) {
+  return serviceCompatibility
+    .flatMap((category) =>
+      category.services.map((service) => service.finalDecision),
+    )
+    .reduce<FinalDecision | null>((lowestDecision, decision) => {
+      if (!lowestDecision) {
+        return decision;
+      }
+
+      return decision.serviceCompatibility.probability <
+        lowestDecision.serviceCompatibility.probability
+        ? decision
+        : lowestDecision;
+    }, null);
+}
+
+function buildRegionInferenceInput({
+  service,
+  region,
+  ipInfo,
+  abuseIpDb,
+  ipqs,
+  cloudflare,
+  historicalAccessConsistency,
+}: {
+  service: string;
+  region: string | null;
+  ipInfo: IpInfoResponse;
+  abuseIpDb: AbuseIpDbResponse | null;
+  ipqs: IpqsResponse | null;
+  cloudflare: CloudflareTraceResponse | null;
+  historicalAccessConsistency: HistoricalAccessConsistency;
+}): RegionServiceInferenceInput {
+  const compatibilitySignals = buildServiceCompatibilitySignals(
+    ipInfo,
+    abuseIpDb,
+    ipqs,
+    cloudflare,
+  );
+
+  return {
+    service,
+    region,
+    usageType: abuseIpDb?.usageType ?? null,
+    asnType: pickDetail(ipInfo.asn?.type, ipInfo.company?.type),
+    ispName: pickDetail(
+      ipInfo.company?.name,
+      abuseIpDb?.isp,
+      ipInfo.asn?.name,
+      ipInfo.org,
+    ),
+    abuseConfidence: compatibilitySignals.abuseConfidence,
+    fraudScore: ipqs?.fraudScore ?? null,
+    recentAbuse: ipqs?.recentAbuse ?? null,
+    hostingStatus: compatibilitySignals.hosting,
+    vpnStatus: compatibilitySignals.vpn,
+    proxyStatus: compatibilitySignals.proxy,
+    torStatus: compatibilitySignals.tor,
+    relayStatus: compatibilitySignals.relay,
+    cloudflareWarpStatus: isCloudflareWarpOn(cloudflare),
+    cloudflareTraceMatch: hasCloudflareTraceMatch(ipInfo, cloudflare),
+    cloudflareTraceMismatch: hasCloudflareTraceMismatch(ipInfo, cloudflare),
+    historicalAccessConsistency,
+  };
+}
+
+function buildFinalDecision({
+  service,
+  region,
+  ipInfo,
+  abuseIpDb,
+  ipqs,
+  cloudflare,
+  historicalAccessConsistency,
+}: {
+  service: string;
+  region: string | null;
+  ipInfo: IpInfoResponse;
+  abuseIpDb: AbuseIpDbResponse | null;
+  ipqs: IpqsResponse | null;
+  cloudflare: CloudflareTraceResponse | null;
+  historicalAccessConsistency: HistoricalAccessConsistency;
+}): FinalDecision {
+  const trustScore = calculateTrustScore(ipInfo, abuseIpDb, ipqs, cloudflare);
+  const trustProbability = roundProbability(trustScore / 100);
+  const regionInference = inferRegionServiceCompatibility(
+    buildRegionInferenceInput({
+      service,
+      region,
+      ipInfo,
+      abuseIpDb,
+      ipqs,
+      cloudflare,
+      historicalAccessConsistency,
+    }),
+  );
+  const serviceProbability = roundProbability(
+    trustProbability * 0.55 + regionInference.probability * 0.45,
+  );
+  const signals = sortFinalDecisionSignals([
+    buildProbabilitySignal("trust_score", trustProbability, 0.55),
+    buildProbabilitySignal(
+      "region_availability",
+      regionInference.probability,
+      0.45,
+    ),
+    ...regionInference.signals.map((signal) =>
+      toScaledFinalDecisionSignal(signal, 0.45),
+    ),
+  ]);
+
+  return {
+    ip: ipInfo.ip ?? "",
+    trustScore,
+    riskLevel: getFinalRiskLevel(trustScore),
+    regionAvailability: {
+      status: regionInference.status,
+      probability: regionInference.probability,
+    },
+    serviceCompatibility: {
+      status: getServiceStatusFromProbability(serviceProbability),
+      probability: serviceProbability,
+    },
+    signals,
+  };
+}
+
 function buildServiceCompatibilityView(
   ipInfo: IpInfoResponse,
   abuseIpDb: AbuseIpDbResponse | null,
@@ -630,71 +831,30 @@ function buildServiceCompatibilityView(
   cloudflare: CloudflareTraceResponse | null,
   ipHistory: IpHistoryRecord[],
 ) {
-  const compatibilitySignals = buildServiceCompatibilitySignals(
-    ipInfo,
-    abuseIpDb,
-    ipqs,
-    cloudflare,
-  );
   const region = detectRegionFromIpInfo(ipInfo);
   const historicalAccessConsistency = getHistoricalAccessConsistency(ipHistory);
 
-  return normalizeServiceCompatibility(
-    buildServiceCompatibility(ipInfo, abuseIpDb, ipqs, cloudflare),
-  ).map((category) => ({
+  return SERVICE_COMPATIBILITY_GROUPS.map((category) => ({
     category: category.category,
-    services: category.services.map((service) => {
-      const regionalInference = inferRegionServiceCompatibility({
-        service: service.name,
+    services: category.services.map((serviceName) => {
+      const finalDecision = buildFinalDecision({
+        service: serviceName,
         region,
-        usageType: abuseIpDb?.usageType ?? null,
-        asnType: pickDetail(ipInfo.asn?.type, ipInfo.company?.type),
-        ispName: pickDetail(
-          ipInfo.company?.name,
-          abuseIpDb?.isp,
-          ipInfo.asn?.name,
-          ipInfo.org,
-        ),
-        abuseConfidence: compatibilitySignals.abuseConfidence,
-        fraudScore: ipqs?.fraudScore ?? null,
-        recentAbuse: ipqs?.recentAbuse ?? null,
-        hostingStatus: compatibilitySignals.hosting,
-        vpnStatus: compatibilitySignals.vpn,
-        proxyStatus: compatibilitySignals.proxy,
-        torStatus: compatibilitySignals.tor,
-        relayStatus: compatibilitySignals.relay,
-        cloudflareWarpStatus: isCloudflareWarpOn(cloudflare),
-        cloudflareTraceMatch: hasCloudflareTraceMatch(ipInfo, cloudflare),
-        cloudflareTraceMismatch: hasCloudflareTraceMismatch(
-          ipInfo,
-          cloudflare,
-        ),
+        ipInfo,
+        abuseIpDb,
+        ipqs,
+        cloudflare,
         historicalAccessConsistency,
       });
-      const status = mergeServiceCompatibilityStatus(
-        service.status,
-        regionalInference.status,
-      );
-      const regionalAvailability = buildRegionalAvailability(
-        region,
-        regionalInference,
-      );
-      const serviceReason = buildServiceCompatibilityReason(
-        service.name,
-        category.category,
-        service.status,
-        compatibilitySignals,
-      );
+      const status = finalDecision.serviceCompatibility.status;
 
       return {
-        name: service.name,
+        name: serviceName,
         status,
+        probability: finalDecision.serviceCompatibility.probability,
         tone: getServiceCompatibilityTone(status),
-        reason: combineServiceCompatibilityReason(
-          serviceReason,
-          regionalAvailability,
-        ),
-        regionalAvailability,
+        reason: buildServiceReason(finalDecision),
+        finalDecision,
       };
     }),
   })).map((category) => ({
@@ -841,18 +1001,18 @@ function buildIpHistoryRecord(
   fallbackIpAddress: string,
 ): IpHistoryRecord {
   const { ipInfo, abuseIpDb, ipqs, cloudflare } = result;
-  const recommendation = buildRecommendation(
-    ipInfo,
-    abuseIpDb,
-    ipqs,
-    cloudflare,
-  );
+  const trustScore = calculateTrustScore(ipInfo, abuseIpDb, ipqs, cloudflare);
 
   return {
     ip: ipInfo.ip || fallbackIpAddress,
     timestamp: Date.now(),
-    trustScore: calculateTrustScore(ipInfo, abuseIpDb, ipqs, cloudflare),
-    recommendationLabel: recommendation.label,
+    trustScore,
+    recommendationLabel:
+      trustScore >= 70
+        ? "Recommended"
+        : trustScore >= 40
+          ? "Use with Caution"
+          : "Not Recommended",
     confidence: buildRecommendationConfidence(
       ipInfo,
       abuseIpDb,
@@ -885,9 +1045,24 @@ function buildIpSummary(
   };
 }
 
+function getRecommendationLabelFromServiceStatus(
+  status: ServiceCompatibilityStatus,
+) {
+  if (status === "Good") {
+    return "Recommended";
+  }
+
+  if (status === "Use with Caution") {
+    return "Use with Caution";
+  }
+
+  return "Not Recommended";
+}
+
 function buildTrustScore(
   providerResult: ProviderAnalysisResult,
   hasAnalysis: boolean,
+  finalDecision: FinalDecision | null,
 ): AnalysisResult["trustScore"] {
   const { ipInfo, abuseIpDb, ipqs, cloudflare } = providerResult;
 
@@ -906,13 +1081,19 @@ function buildTrustScore(
     };
   }
 
-  const value = calculateTrustScore(ipInfo, abuseIpDb, ipqs, cloudflare);
-  const riskLevel = getRiskLevel(value);
-  const recommendation = buildRecommendation(
-    ipInfo,
-    abuseIpDb,
-    ipqs,
-    cloudflare,
+  const value =
+    finalDecision?.trustScore ??
+    calculateTrustScore(ipInfo, abuseIpDb, ipqs, cloudflare);
+  const riskLevel = finalDecision
+    ? getLegacyRiskLevel(finalDecision.riskLevel)
+    : getRiskLevel(value);
+  const serviceStatus =
+    finalDecision?.serviceCompatibility.status ??
+    getServiceStatusFromProbability(value / 100);
+  const recommendationLabel =
+    getRecommendationLabelFromServiceStatus(serviceStatus);
+  const serviceProbability = Math.round(
+    (finalDecision?.serviceCompatibility.probability ?? value / 100) * 100,
   );
 
   return {
@@ -920,9 +1101,9 @@ function buildTrustScore(
     displayValue: String(value),
     riskLabel: `${riskLevel} Risk`,
     riskTone: getRiskLevelTone(riskLevel),
-    recommendationLabel: recommendation.label,
-    recommendationTone: getRecommendationTone(recommendation.label),
-    summary: `${getRiskLevelSummary(riskLevel)} ${recommendation.summary}`,
+    recommendationLabel,
+    recommendationTone: getRecommendationTone(recommendationLabel),
+    summary: `${getRiskLevelSummary(riskLevel)} Final service compatibility probability is ${serviceProbability}%.`,
     explanationIntro: `Why this IP received a ${value}/100 trust score.`,
     explanationItems: getScoreExplanationItems(
       ipInfo,
@@ -960,13 +1141,15 @@ export function buildAnalysisResult({
       )
     : [];
   const region = detectRegionFromIpInfo(ipInfo);
+  const finalDecision = getReportFinalDecision(serviceCompatibility);
 
   return {
     ip: buildIpSummary(ipInfo, abuseIpDb),
-    trustScore: buildTrustScore(normalizedResult, hasAnalysis),
+    trustScore: buildTrustScore(normalizedResult, hasAnalysis, finalDecision),
     riskSignals: hasAnalysis
       ? getRiskSignals(ipInfo, abuseIpDb, cloudflare)
       : [],
+    finalDecision,
     serviceCompatibility,
     regionRiskLevel: hasAnalysis
       ? buildRegionRiskLevel(serviceCompatibility, region)

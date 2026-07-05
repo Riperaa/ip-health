@@ -759,7 +759,7 @@ export function IpAnalyzer() {
       const detectedIp = await fetchPublicIp();
       setIpAddress(detectedIp);
     } catch {
-      setError("Unable to detect your IP.");
+      setError("Unable to detect your IP. You can enter it manually.");
     } finally {
       setIsDetecting(false);
     }
@@ -860,7 +860,7 @@ export function IpAnalyzer() {
           </button>
         </div>
       ) : error ? (
-        <p className="text-sm font-medium text-red-600">{error}</p>
+        <p className="text-sm font-medium text-neutral-500">{error}</p>
       ) : null}
 
       <div className="w-full text-left">

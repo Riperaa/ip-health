@@ -71,17 +71,27 @@ export async function fetchIpAnalysis(
 }
 
 export async function fetchPublicIp() {
-  const response = await fetch("https://api.ipify.org?format=json");
+  const response = await fetch("/api/detect-ip");
 
-  if (!response.ok) {
-    throw new Error("Unable to detect IP address.");
+  if (response.ok) {
+    const data = (await response.json()) as { ip?: string };
+
+    if (data.ip) {
+      return data.ip;
+    }
   }
 
-  const data = (await response.json()) as { ip?: string };
+  const fallbackResponse = await fetch("https://api.ipify.org?format=json");
 
-  if (!data.ip) {
+  if (!fallbackResponse.ok) {
     throw new Error("Missing IP address.");
   }
 
-  return data.ip;
+  const fallbackData = (await fallbackResponse.json()) as { ip?: string };
+
+  if (!fallbackData.ip) {
+    throw new Error("Missing IP address.");
+  }
+
+  return fallbackData.ip;
 }

@@ -14,6 +14,10 @@ import {
 } from "@/lib/status-colors";
 
 import {
+  createFinalDecisionV1,
+  normalizeFinalDecision,
+} from "../final-decision";
+import {
   formatDetail,
   hasDetail,
   isObjectRecord,
@@ -635,9 +639,9 @@ function sortFinalDecisionSignals(signals: FinalDecisionSignal[]) {
 }
 
 function buildServiceReason(finalDecision: FinalDecision) {
-  const topSignal = finalDecision.signals[0];
+  const topSignal = finalDecision.decision.signals[0];
   const probability = Math.round(
-    finalDecision.serviceCompatibility.probability * 100,
+    finalDecision.decision.serviceCompatibility.probability * 100,
   );
 
   if (!topSignal) {
@@ -682,7 +686,8 @@ function buildRegionRiskLevel(
   const lowestServiceRegionScore = serviceCompatibility
     .flatMap((category) =>
       category.services.map(
-        (service) => service.finalDecision.regionAvailability.probability,
+        (service) =>
+          service.finalDecision.decision.regionAvailability.probability,
       ),
     )
     .reduce<number | null>(
@@ -706,8 +711,8 @@ function getReportFinalDecision(
         return decision;
       }
 
-      return decision.serviceCompatibility.probability <
-        lowestDecision.serviceCompatibility.probability
+      return decision.decision.serviceCompatibility.probability <
+        lowestDecision.decision.serviceCompatibility.probability
         ? decision
         : lowestDecision;
     }, null);
@@ -808,20 +813,34 @@ function buildFinalDecision({
     ),
   ]);
 
-  return {
-    ip: ipInfo.ip ?? "",
-    trustScore,
-    riskLevel: getFinalRiskLevel(trustScore),
-    regionAvailability: {
-      status: regionInference.status,
-      probability: regionInference.probability,
+  return createFinalDecisionV1({
+    rawSignals: {
+      ip: ipInfo.ip ?? "",
+      region,
+      service,
+      signals: regionInference.signals,
     },
-    serviceCompatibility: {
-      status: getServiceStatusFromProbability(serviceProbability),
-      probability: serviceProbability,
+    computedMetrics: {
+      trustScore,
+      trustProbability,
+      regionAvailabilityProbability: regionInference.probability,
+      serviceCompatibilityProbability: serviceProbability,
     },
-    signals,
-  };
+    decision: {
+      ip: ipInfo.ip ?? "",
+      trustScore,
+      riskLevel: getFinalRiskLevel(trustScore),
+      regionAvailability: {
+        status: regionInference.status,
+        probability: regionInference.probability,
+      },
+      serviceCompatibility: {
+        status: getServiceStatusFromProbability(serviceProbability),
+        probability: serviceProbability,
+      },
+      signals,
+    },
+  });
 }
 
 function buildServiceCompatibilityView(
@@ -846,12 +865,12 @@ function buildServiceCompatibilityView(
         cloudflare,
         historicalAccessConsistency,
       });
-      const status = finalDecision.serviceCompatibility.status;
+      const status = finalDecision.decision.serviceCompatibility.status;
 
       return {
         name: serviceName,
         status,
-        probability: finalDecision.serviceCompatibility.probability,
+        probability: finalDecision.decision.serviceCompatibility.probability,
         tone: getServiceCompatibilityTone(status),
         reason: buildServiceReason(finalDecision),
         finalDecision,
@@ -1081,19 +1100,23 @@ function buildTrustScore(
     };
   }
 
+  const normalizedFinalDecision = finalDecision
+    ? normalizeFinalDecision(finalDecision)
+    : null;
   const value =
-    finalDecision?.trustScore ??
+    normalizedFinalDecision?.decision.trustScore ??
     calculateTrustScore(ipInfo, abuseIpDb, ipqs, cloudflare);
-  const riskLevel = finalDecision
-    ? getLegacyRiskLevel(finalDecision.riskLevel)
+  const riskLevel = normalizedFinalDecision
+    ? getLegacyRiskLevel(normalizedFinalDecision.decision.riskLevel)
     : getRiskLevel(value);
   const serviceStatus =
-    finalDecision?.serviceCompatibility.status ??
+    normalizedFinalDecision?.decision.serviceCompatibility.status ??
     getServiceStatusFromProbability(value / 100);
   const recommendationLabel =
     getRecommendationLabelFromServiceStatus(serviceStatus);
   const serviceProbability = Math.round(
-    (finalDecision?.serviceCompatibility.probability ?? value / 100) * 100,
+    (normalizedFinalDecision?.decision.serviceCompatibility.probability ??
+      value / 100) * 100,
   );
 
   return {

@@ -72,8 +72,52 @@ export type RiskSignal = {
 };
 
 export type FinalDecisionSignal = WeightedDecisionSignal;
+export type FinalDecisionVersion = "1.0";
 
-export type FinalDecision = {
+export type FinalDecisionDisplay = {
+  trustScoreLabel: string;
+  riskLabel: string;
+  riskTone: StatusTone;
+  regionAvailabilityLabel: string;
+  regionAvailabilityTone: StatusTone;
+  serviceCompatibilityLabel: string;
+  serviceCompatibilityTone: StatusTone;
+  summary: string;
+  topSignals: string[];
+};
+
+export type FinalDecisionV1 = {
+  version: "1.0";
+  rawSignals: {
+    ip: string;
+    region: string | null;
+    service: string;
+    signals: FinalDecisionSignal[];
+  };
+  computedMetrics: {
+    trustScore: number;
+    trustProbability: number;
+    regionAvailabilityProbability: number;
+    serviceCompatibilityProbability: number;
+  };
+  decision: {
+    ip: string;
+    trustScore: number;
+    riskLevel: FinalDecisionRiskLevel;
+    regionAvailability: {
+      status: RegionServiceStatus;
+      probability: number;
+    };
+    serviceCompatibility: {
+      status: ServiceCompatibilityStatus;
+      probability: number;
+    };
+    signals: FinalDecisionSignal[];
+  };
+  display: FinalDecisionDisplay;
+};
+
+export type LegacyFinalDecision = {
   ip: string;
   trustScore: number;
   riskLevel: FinalDecisionRiskLevel;
@@ -87,6 +131,9 @@ export type FinalDecision = {
   };
   signals: FinalDecisionSignal[];
 };
+
+export type FinalDecision = FinalDecisionV1;
+export type FinalDecisionCompatible = FinalDecision | LegacyFinalDecision;
 
 export type ServiceCompatibilityItem = {
   name: string;

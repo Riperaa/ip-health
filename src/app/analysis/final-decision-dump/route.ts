@@ -4,13 +4,32 @@ import {
   buildAnalysisResult,
   fetchProviderAnalysis,
 } from "@/lib/analysis-engine";
+import {
+  FINAL_DECISION_VERSION,
+  normalizeFinalDecision,
+} from "@/lib/analysis/final-decision";
 
 export async function GET(request: NextRequest) {
   const ip = request.nextUrl.searchParams.get("ip")?.trim();
+  const requestedVersion =
+    request.nextUrl.searchParams.get("version")?.trim() ?? "latest";
 
   if (!ip) {
     return NextResponse.json(
       { error: "Missing ip query parameter." },
+      { status: 400 },
+    );
+  }
+
+  if (
+    requestedVersion !== "latest" &&
+    requestedVersion !== FINAL_DECISION_VERSION
+  ) {
+    return NextResponse.json(
+      {
+        error: "Unsupported FinalDecision version.",
+        latestVersion: FINAL_DECISION_VERSION,
+      },
       { status: 400 },
     );
   }
@@ -20,14 +39,19 @@ export async function GET(request: NextRequest) {
     providerResult,
     fallbackIpAddress: ip,
   });
+  const finalDecision = analysisResult.finalDecision
+    ? normalizeFinalDecision(analysisResult.finalDecision)
+    : null;
 
   return NextResponse.json({
-    finalDecision: analysisResult.finalDecision,
+    requestedVersion,
+    latestVersion: FINAL_DECISION_VERSION,
+    finalDecision,
     serviceDecisions: analysisResult.serviceCompatibility.map((category) => ({
       category: category.category,
       services: category.services.map((service) => ({
         name: service.name,
-        finalDecision: service.finalDecision,
+        finalDecision: normalizeFinalDecision(service.finalDecision),
       })),
     })),
   });

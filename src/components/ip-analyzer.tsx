@@ -106,6 +106,18 @@ const SERVICE_COMPATIBILITY_STATUSES = [
   "Use with Caution",
   "High Risk",
 ] as const;
+const EMPTY_IP_INFO: IpInfoResponse = {
+  ip: "",
+  asn: {},
+  company: {},
+  privacy: {},
+};
+const EMPTY_ANALYSIS_RESULT: AnalysisResult = {
+  ipInfo: EMPTY_IP_INFO,
+  abuseIpDb: null,
+  cloudflare: null,
+  ipqs: null,
+};
 
 function LoadingSpinner() {
   return (
@@ -223,6 +235,27 @@ function normalizeRecentChecks(value: unknown): RecentCheck[] {
     })
     .sort((first, second) => second.timestamp - first.timestamp)
     .slice(0, MAX_RECENT_CHECKS);
+}
+
+function normalizeAnalysisResult(
+  result: AnalysisResult | null,
+  fallbackIpAddress: string,
+): AnalysisResult {
+  const ipInfo = result?.ipInfo ?? EMPTY_ANALYSIS_RESULT.ipInfo;
+
+  return {
+    ipInfo: {
+      ...EMPTY_IP_INFO,
+      ...ipInfo,
+      ip: ipInfo.ip || fallbackIpAddress.trim(),
+      asn: ipInfo.asn ?? {},
+      company: ipInfo.company ?? {},
+      privacy: ipInfo.privacy ?? {},
+    },
+    abuseIpDb: result?.abuseIpDb ?? null,
+    cloudflare: result?.cloudflare ?? null,
+    ipqs: result?.ipqs ?? null,
+  };
 }
 
 function loadRecentChecks(): RecentCheck[] {
@@ -1019,12 +1052,16 @@ function MainRiskReport({
   ipInfo,
   abuseIpDb,
   cloudflare,
+  hasAnalysis,
 }: {
   ipInfo: IpInfoResponse;
   abuseIpDb: AbuseIpDbResponse | null;
   cloudflare: CloudflareTraceResponse | null;
+  hasAnalysis: boolean;
 }) {
-  const score = calculateTrustScore(ipInfo, abuseIpDb, null, cloudflare);
+  const score = hasAnalysis
+    ? calculateTrustScore(ipInfo, abuseIpDb, null, cloudflare)
+    : 0;
   const riskLevel = getRiskLevel(score);
   const recommendation = buildRecommendation(
     ipInfo,
@@ -1043,6 +1080,7 @@ function MainRiskReport({
       : null,
   ].filter((fact): fact is { label: string; value: string } => Boolean(fact));
   const safeFacts = Array.isArray(facts) ? facts : [];
+  const scoreLabel = hasAnalysis ? score : "--";
 
   return (
     <section className="surface-card-primary rounded-[28px] border bg-white p-5 sm:p-6">
@@ -1073,30 +1111,36 @@ function MainRiskReport({
             Trust Score
           </p>
           <p className="mt-2 flex items-end gap-1 text-7xl font-semibold leading-none text-neutral-950 sm:justify-end">
-            {score}
+            {scoreLabel}
             <span className="pb-2 text-xl font-semibold text-neutral-400">
               /100
             </span>
           </p>
           <div className="mt-3 flex flex-wrap gap-2 sm:justify-end">
             <StatusBadge
-              tone={getRiskLevelTone(riskLevel)}
+              tone={hasAnalysis ? getRiskLevelTone(riskLevel) : "neutral"}
               className="px-3 py-1.5 text-sm"
             >
-              {riskLevel} Risk
+              {hasAnalysis ? `${riskLevel} Risk` : "Pending"}
             </StatusBadge>
             <StatusBadge
-              tone={getRecommendationTone(recommendation.label)}
+              tone={
+                hasAnalysis
+                  ? getRecommendationTone(recommendation.label)
+                  : "neutral"
+              }
               variant="quiet"
             >
-              {recommendation.label}
+              {hasAnalysis ? recommendation.label : "Not analyzed"}
             </StatusBadge>
           </div>
         </div>
       </div>
 
       <p className="mt-5 border-t border-neutral-100 pt-4 text-sm leading-6 text-neutral-600">
-        {getRiskLevelSummary(riskLevel)} {recommendation.summary}
+        {hasAnalysis
+          ? `${getRiskLevelSummary(riskLevel)} ${recommendation.summary}`
+          : "Run an analysis to populate this report."}
       </p>
     </section>
   );
@@ -1106,18 +1150,19 @@ function ScoreExplanationSection({
   ipInfo,
   abuseIpDb,
   cloudflare,
+  hasAnalysis,
 }: {
   ipInfo: IpInfoResponse;
   abuseIpDb: AbuseIpDbResponse | null;
   cloudflare: CloudflareTraceResponse | null;
+  hasAnalysis: boolean;
 }) {
-  const score = calculateTrustScore(ipInfo, abuseIpDb, null, cloudflare);
-  const explanationItems = getScoreExplanationItems(
-    ipInfo,
-    abuseIpDb,
-    cloudflare,
-    score,
-  );
+  const score = hasAnalysis
+    ? calculateTrustScore(ipInfo, abuseIpDb, null, cloudflare)
+    : 0;
+  const explanationItems = hasAnalysis
+    ? getScoreExplanationItems(ipInfo, abuseIpDb, cloudflare, score)
+    : ["Run an analysis to see score details."];
   const safeExplanationItems = Array.isArray(explanationItems)
     ? explanationItems
     : [];
@@ -1129,7 +1174,9 @@ function ScoreExplanationSection({
           Score Explanation
         </p>
         <p className="text-sm leading-6 text-neutral-500">
-          Why this IP received a {score}/100 trust score.
+          {hasAnalysis
+            ? `Why this IP received a ${score}/100 trust score.`
+            : "Score details will appear here after analysis."}
         </p>
       </div>
       <ul className="mt-4 space-y-3">
@@ -1218,10 +1265,12 @@ function ServiceCompatibilitySection({
   ipInfo,
   abuseIpDb,
   cloudflare,
+  hasAnalysis,
 }: {
   ipInfo: IpInfoResponse;
   abuseIpDb: AbuseIpDbResponse | null;
   cloudflare: CloudflareTraceResponse | null;
+  hasAnalysis: boolean;
 }) {
   const [isServiceCompatibilityVisible, setIsServiceCompatibilityVisible] =
     useState(false);
@@ -1232,7 +1281,9 @@ function ServiceCompatibilitySection({
     null,
   );
   const serviceCompatibility = normalizeServiceCompatibility(
-    buildServiceCompatibility(ipInfo, abuseIpDb, null, cloudflare),
+    hasAnalysis
+      ? buildServiceCompatibility(ipInfo, abuseIpDb, null, cloudflare)
+      : [],
   );
   const safeServiceCompatibility = Array.isArray(serviceCompatibility)
     ? serviceCompatibility
@@ -1389,22 +1440,28 @@ function RiskSignalsSection({
   ipInfo,
   abuseIpDb,
   cloudflare,
+  hasAnalysis,
 }: {
   ipInfo: IpInfoResponse;
   abuseIpDb: AbuseIpDbResponse | null;
   cloudflare: CloudflareTraceResponse | null;
+  hasAnalysis: boolean;
 }) {
   const [isRiskSignalsVisible, setIsRiskSignalsVisible] = useState(true);
-  const riskSignals = getRiskSignals(ipInfo, abuseIpDb, cloudflare);
+  const riskSignals = hasAnalysis
+    ? getRiskSignals(ipInfo, abuseIpDb, cloudflare)
+    : [];
   const safeRiskSignals = Array.isArray(riskSignals) ? riskSignals : [];
 
   return (
     <DisclosureSection
       title="Risk Signals"
       summary={
-        safeRiskSignals.length === 0
-          ? "Clear"
-          : `${safeRiskSignals.length} found`
+        !hasAnalysis
+          ? "Awaiting analysis"
+          : safeRiskSignals.length === 0
+            ? "Clear"
+            : `${safeRiskSignals.length} found`
       }
       isExpanded={isRiskSignalsVisible}
       onToggle={() =>
@@ -1417,7 +1474,11 @@ function RiskSignalsSection({
           <p className="text-sm leading-6 text-neutral-500">
             Detected issues that may affect account access or verification.
           </p>
-          {safeRiskSignals.length === 0 ? (
+          {!hasAnalysis ? (
+            <StatusBadge tone="neutral" className="mt-1 sm:mt-0">
+              Pending
+            </StatusBadge>
+          ) : safeRiskSignals.length === 0 ? (
             <StatusBadge tone="good" className="mt-1 sm:mt-0">
               Clear
             </StatusBadge>
@@ -1455,8 +1516,9 @@ function RiskSignalsSection({
           hidden={safeRiskSignals.length > 0}
           className="mt-4 rounded-xl border border-emerald-100 bg-emerald-50/60 px-4 py-3 text-sm leading-6 text-emerald-800"
         >
-          No active proxy, abuse, or suspicious ASN signal was found in the
-          available data.
+          {hasAnalysis
+            ? "No active proxy, abuse, or suspicious ASN signal was found in the available data."
+            : "Risk signals will appear here after analysis."}
         </p>
       </div>
     </DisclosureSection>
@@ -1544,11 +1606,12 @@ function NetworkIntegritySection({
         ))}
       </dl>
 
-      {cloudflare ? null : (
-        <p className="mt-4 rounded-xl border border-neutral-100 bg-neutral-50 px-4 py-3 text-sm leading-6 text-neutral-500">
-          Network integrity is unavailable right now.
-        </p>
-      )}
+      <p
+        hidden={Boolean(cloudflare)}
+        className="mt-4 rounded-xl border border-neutral-100 bg-neutral-50 px-4 py-3 text-sm leading-6 text-neutral-500"
+      >
+        Network integrity is unavailable right now.
+      </p>
     </section>
   );
 }
@@ -1662,6 +1725,8 @@ export function IpAnalyzer() {
   }
 
   const safeRecentChecks = Array.isArray(recentChecks) ? recentChecks : [];
+  const hasAnalysis = Boolean(result) && !isAnalyzing;
+  const safeResult = normalizeAnalysisResult(result, ipAddress);
 
   return (
     <div className="mx-auto mt-8 flex w-full max-w-3xl flex-col items-center gap-4">
@@ -1762,46 +1827,48 @@ export function IpAnalyzer() {
         )}
       </div>
 
-      {result && !isAnalyzing ? (
-        <div className="mt-6 flex w-full flex-col gap-4 text-left">
-          <MainRiskReport
-            ipInfo={result.ipInfo}
-            abuseIpDb={result.abuseIpDb}
-            cloudflare={result.cloudflare}
-          />
+      <div className="mt-6 flex w-full flex-col gap-4 text-left">
+        <MainRiskReport
+          ipInfo={safeResult.ipInfo}
+          abuseIpDb={safeResult.abuseIpDb}
+          cloudflare={safeResult.cloudflare}
+          hasAnalysis={hasAnalysis}
+        />
 
-          <IpHistorySection ipHistoryRecords={currentIpHistory} />
+        <IpHistorySection ipHistoryRecords={currentIpHistory} />
 
-          <NetworkIntegritySection
-            ipInfo={result.ipInfo}
-            cloudflare={result.cloudflare}
-          />
+        <NetworkIntegritySection
+          ipInfo={safeResult.ipInfo}
+          cloudflare={safeResult.cloudflare}
+        />
 
-          <ServiceCompatibilitySection
-            ipInfo={result.ipInfo}
-            abuseIpDb={result.abuseIpDb}
-            cloudflare={result.cloudflare}
-          />
+        <ServiceCompatibilitySection
+          ipInfo={safeResult.ipInfo}
+          abuseIpDb={safeResult.abuseIpDb}
+          cloudflare={safeResult.cloudflare}
+          hasAnalysis={hasAnalysis}
+        />
 
-          <ScoreExplanationSection
-            ipInfo={result.ipInfo}
-            abuseIpDb={result.abuseIpDb}
-            cloudflare={result.cloudflare}
-          />
+        <ScoreExplanationSection
+          ipInfo={safeResult.ipInfo}
+          abuseIpDb={safeResult.abuseIpDb}
+          cloudflare={safeResult.cloudflare}
+          hasAnalysis={hasAnalysis}
+        />
 
-          <RiskSignalsSection
-            ipInfo={result.ipInfo}
-            abuseIpDb={result.abuseIpDb}
-            cloudflare={result.cloudflare}
-          />
+        <RiskSignalsSection
+          ipInfo={safeResult.ipInfo}
+          abuseIpDb={safeResult.abuseIpDb}
+          cloudflare={safeResult.cloudflare}
+          hasAnalysis={hasAnalysis}
+        />
 
-          <p className="text-xs leading-5 text-neutral-400">
-            IP Health provides reputation-based guidance only. Services may also
-            consider account history, device signals, payment method, browser
-            fingerprint, and behavior.
-          </p>
-        </div>
-      ) : null}
+        <p className="text-xs leading-5 text-neutral-400">
+          IP Health provides reputation-based guidance only. Services may also
+          consider account history, device signals, payment method, browser
+          fingerprint, and behavior.
+        </p>
+      </div>
     </div>
   );
 }

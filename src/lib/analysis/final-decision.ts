@@ -67,17 +67,17 @@ function getFinalDecisionServiceTone(
 }
 
 function getFinalDecisionRegionLabel(
-  status: FinalDecisionDecision["regionAvailability"]["status"],
+  regionAvailability: FinalDecisionDecision["regionAvailability"],
 ) {
-  if (status === "likely_available") {
-    return "Likely Available";
+  if (regionAvailability.status === "likely_available") {
+    return "Available";
   }
 
-  if (status === "uncertain") {
+  if (regionAvailability.status === "uncertain") {
     return "Uncertain";
   }
 
-  return "Likely Blocked";
+  return "Region Restricted";
 }
 
 function getFinalDecisionRegionTone(
@@ -173,10 +173,11 @@ function getServiceCompatibilityBadge(
 function getRegionAvailabilityBadge(
   decision: FinalDecisionDecision,
 ): PresentationBadge {
-  const status = decision.regionAvailability.status;
+  const regionAvailability = decision.regionAvailability;
+  const status = regionAvailability.status;
 
   return {
-    label: `${getFinalDecisionRegionLabel(status)} (${formatFinalDecisionProbability(decision.regionAvailability.probability)})`,
+    label: `${getFinalDecisionRegionLabel(regionAvailability)} (${formatFinalDecisionProbability(regionAvailability.probability)})`,
     tone: getFinalDecisionRegionTone(status),
     severity:
       status === "likely_available"
@@ -273,13 +274,15 @@ function validatePresentationContract(display: PresentationContract) {
 export function buildPresentation(
   decision: FinalDecisionDecision,
 ): FinalDecisionDisplay {
+  const regionLabel = getFinalDecisionRegionLabel(decision.regionAvailability);
+  const regionExplanation = decision.regionAvailability.explanation;
   const display = {
     trustScoreValue: String(decision.trustScore),
     trustScoreSuffix: "/100",
     riskBadge: getRiskBadge(decision.riskLevel),
     serviceCompatibilityBadge: getServiceCompatibilityBadge(decision),
     regionAvailabilityBadge: getRegionAvailabilityBadge(decision),
-    summary: `Final service compatibility probability is ${formatFinalDecisionProbability(decision.serviceCompatibility.probability)}. Regional availability is ${getFinalDecisionRegionLabel(decision.regionAvailability.status).toLowerCase()} at ${formatFinalDecisionProbability(decision.regionAvailability.probability)}.`,
+    summary: `IP reputation compatibility probability is ${formatFinalDecisionProbability(decision.serviceCompatibility.probability)}. Regional availability is ${regionLabel.toLowerCase()} at ${formatFinalDecisionProbability(decision.regionAvailability.probability)}. ${regionExplanation}`,
     scoreExplanation: {
       title: "Score Explanation",
       intro: `Why this final decision received a ${decision.trustScore}/100 trust score.`,
@@ -416,12 +419,45 @@ function isLegacyFinalDecision(value: unknown): value is LegacyFinalDecision {
   );
 }
 
+function withRegionAvailabilityDefaults(
+  decision: FinalDecisionV1["decision"] | LegacyFinalDecision,
+): FinalDecisionV1["decision"] {
+  const regionAvailability = decision.regionAvailability;
+  const hasRestriction =
+    "restriction" in regionAvailability &&
+    typeof regionAvailability.restriction === "string";
+  const hasExplanation =
+    "explanation" in regionAvailability &&
+    typeof regionAvailability.explanation === "string";
+
+  return {
+    ...decision,
+    regionAvailability: {
+      ...regionAvailability,
+      restriction: hasRestriction ? regionAvailability.restriction : "none",
+      explanation: hasExplanation
+        ? regionAvailability.explanation
+        : "Regional availability is inferred from weighted regional signals.",
+    },
+  };
+}
+
 export function normalizeFinalDecision(
   finalDecision: FinalDecisionCompatible,
 ): FinalDecision {
   if (isFinalDecisionV1(finalDecision)) {
-    assertPresentationMatchesDecision(finalDecision);
-    return finalDecision;
+    const decision = withRegionAvailabilityDefaults(finalDecision.decision);
+    const normalizedFinalDecision =
+      stableStringify(decision) === stableStringify(finalDecision.decision)
+        ? finalDecision
+        : createFinalDecisionV1({
+            rawSignals: finalDecision.rawSignals,
+            computedMetrics: finalDecision.computedMetrics,
+            decision,
+          });
+
+    assertPresentationMatchesDecision(normalizedFinalDecision);
+    return normalizedFinalDecision;
   }
 
   if (isLegacyFinalDecision(finalDecision)) {
@@ -440,7 +476,7 @@ export function normalizeFinalDecision(
         serviceCompatibilityProbability:
           finalDecision.serviceCompatibility.probability,
       },
-      decision: finalDecision,
+      decision: withRegionAvailabilityDefaults(finalDecision),
     });
   }
 

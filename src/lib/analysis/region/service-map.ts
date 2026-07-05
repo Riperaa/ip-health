@@ -12,6 +12,8 @@ export type RegionRuleHint =
   | "high_risk"
   | "unknown_region";
 
+export type RegionAvailabilityRestriction = "none" | "hard_region";
+
 export type WeightedDecisionSignalDirection =
   | "supports_availability"
   | "raises_risk"
@@ -57,6 +59,8 @@ export type RegionServiceInference = {
   score: number;
   riskScore: number;
   ruleHint: RegionRuleHint;
+  restriction: RegionAvailabilityRestriction;
+  explanation: string;
   signals: WeightedDecisionSignal[];
 };
 
@@ -70,7 +74,32 @@ type WeightedSignal = {
   weight: number;
 };
 
+export const HARD_REGION_RESTRICTION_EXPLANATION =
+  "This service may be unavailable from the detected region without a proxy or VPN, regardless of IP reputation.";
+
 const CN_HIGH_RISK_SERVICES = new Set(["google voice"]);
+
+const CN_HARD_BLOCKED_SERVICES = new Set([
+  "youtube",
+  "google",
+  "google account",
+  "gmail",
+  "google play",
+  "google voice",
+  "facebook",
+  "instagram",
+  "x",
+]);
+
+const CN_HARD_CAPPED_SERVICES = new Set([
+  "chatgpt",
+  "claude",
+  "gemini",
+  "netflix",
+  "disney+",
+  "prime video",
+  "max",
+]);
 
 const CN_RESTRICTED_SERVICES = new Set([
   "youtube",
@@ -108,6 +137,16 @@ function formatPercent(value: number) {
 
 function includesAny(value: string, terms: string[]) {
   return terms.some((term) => value.includes(term));
+}
+
+function hasRegionalBypassSignal(input: RegionServiceInferenceInput) {
+  return (
+    input.vpnStatus ||
+    input.proxyStatus ||
+    input.cloudflareWarpStatus ||
+    input.torStatus ||
+    input.relayStatus
+  );
 }
 
 export function detectRegionFromIpInfo(ipInfo: RegionIpInfo) {
@@ -484,10 +523,82 @@ function getStatusFromProbability(probability: number): RegionServiceStatus {
   return "likely_blocked";
 }
 
+function getHardRegionalRestrictionProbability(
+  service: string,
+): number | null {
+  const normalizedService = normalizeValue(service);
+
+  if (normalizedService === "google voice") {
+    return 0.05;
+  }
+
+  if (CN_HARD_BLOCKED_SERVICES.has(normalizedService)) {
+    return 0.08;
+  }
+
+  if (CN_HARD_CAPPED_SERVICES.has(normalizedService)) {
+    return 0.25;
+  }
+
+  return null;
+}
+
+function getHardRegionalRestrictionOverride(
+  input: RegionServiceInferenceInput,
+  ruleHint: RegionRuleHint,
+): RegionServiceInference | null {
+  const normalizedRegion = normalizeValue(input.region).toUpperCase();
+
+  if (normalizedRegion !== "CN" || hasRegionalBypassSignal(input)) {
+    return null;
+  }
+
+  const probability = getHardRegionalRestrictionProbability(input.service);
+
+  if (probability === null) {
+    return null;
+  }
+
+  const riskScore = Number((1 - probability).toFixed(2));
+  const signals = [
+    {
+      signalName: "hard_region_restriction",
+      risk: riskScore,
+      weight: 0.55,
+    },
+    {
+      signalName: "direct_cn_route",
+      risk: 0.9,
+      weight: 0.25,
+    },
+    getRuleHintSignal(ruleHint),
+  ];
+
+  return {
+    status: "likely_blocked",
+    probability,
+    score: formatPercent(probability),
+    riskScore,
+    ruleHint,
+    restriction: "hard_region",
+    explanation: HARD_REGION_RESTRICTION_EXPLANATION,
+    signals: getStructuredSignals(signals),
+  };
+}
+
 export function inferRegionServiceCompatibility(
   input: RegionServiceInferenceInput,
 ): RegionServiceInference {
   const ruleHint = getRegionRuleHint(input.service, input.region);
+  const hardRestrictionOverride = getHardRegionalRestrictionOverride(
+    input,
+    ruleHint,
+  );
+
+  if (hardRestrictionOverride) {
+    return hardRestrictionOverride;
+  }
+
   const signals = [
     getCountryRestrictionSignal(input, ruleHint),
     getAsnSignal(input),
@@ -510,9 +621,71 @@ export function inferRegionServiceCompatibility(
     score: formatPercent(probability),
     riskScore: Number(riskScore.toFixed(2)),
     ruleHint,
+    restriction: "none",
+    explanation: "Regional availability is inferred from weighted regional signals.",
     signals: getStructuredSignals(signals),
   };
 }
+
+export function runHardRegionalRestrictionDeterministicChecks() {
+  const baseInput = {
+    region: "CN",
+    usageType: "Residential",
+    asnType: "residential",
+    ispName: "China ISP",
+    abuseConfidence: 0,
+    fraudScore: 0,
+    recentAbuse: false,
+    hostingStatus: false,
+    vpnStatus: false,
+    proxyStatus: false,
+    torStatus: false,
+    relayStatus: false,
+    cloudflareWarpStatus: false,
+    cloudflareTraceMatch: true,
+    cloudflareTraceMismatch: false,
+    historicalAccessConsistency: "stable" as const,
+  };
+  const checks = [
+    {
+      service: "YouTube",
+      assert: (result: RegionServiceInference) =>
+        result.status !== "likely_available" && result.probability <= 0.25,
+      message: "CN direct YouTube must not be likely available.",
+    },
+    {
+      service: "Google Voice",
+      assert: (result: RegionServiceInference) =>
+        result.status === "likely_blocked" && result.probability <= 0.25,
+      message: "CN direct Google Voice must be likely blocked.",
+    },
+    {
+      service: "ChatGPT",
+      assert: (result: RegionServiceInference) =>
+        result.status !== "likely_available" && result.probability <= 0.25,
+      message: "CN direct ChatGPT must not be likely available.",
+    },
+    {
+      service: "Netflix",
+      assert: (result: RegionServiceInference) =>
+        result.status !== "likely_available" && result.probability <= 0.25,
+      message: "CN direct Netflix must not be likely available.",
+    },
+  ];
+
+  checks.forEach((check) => {
+    const result = inferRegionServiceCompatibility({
+      ...baseInput,
+      service: check.service,
+    });
+
+    if (!check.assert(result)) {
+      throw new Error(check.message);
+    }
+  });
+}
+
+runHardRegionalRestrictionDeterministicChecks();
 
 export function getRegionRiskLevel(
   serviceRegionScore: number | null | undefined,

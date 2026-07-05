@@ -1,5 +1,6 @@
 import type { StatusTone } from "@/lib/status-colors";
 import type {
+  RegionAvailabilityRestriction,
   RegionRiskLevel,
   RegionServiceStatus,
   WeightedDecisionSignal,
@@ -139,6 +140,8 @@ export type FinalDecisionV1 = {
     regionAvailability: {
       status: RegionServiceStatus;
       probability: number;
+      restriction: RegionAvailabilityRestriction;
+      explanation: string;
     };
     serviceCompatibility: {
       status: ServiceCompatibilityStatus;

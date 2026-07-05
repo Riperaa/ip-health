@@ -259,16 +259,29 @@ function ServiceCompatibilitySection({ result }: { result: AnalysisResult }) {
     >
       <div className="surface-card mt-3 overflow-hidden rounded-2xl border bg-white">
         {hasServiceCompatibility && reportDisplay ? (
-          <div className="flex flex-col gap-2 border-b border-neutral-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-            <span className="text-xs font-semibold uppercase tracking-normal text-neutral-500">
-              Regional Availability
+          <div className="flex flex-col gap-3 border-b border-neutral-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <span className="inline-flex flex-wrap items-center gap-2">
+              <span className="text-xs font-semibold uppercase tracking-normal text-neutral-500">
+                IP Reputation
+              </span>
+              <StatusBadge
+                tone={reportDisplay.serviceCompatibilityBadge.tone}
+                variant="quiet"
+              >
+                {reportDisplay.serviceCompatibilityBadge.label}
+              </StatusBadge>
             </span>
-            <StatusBadge
-              tone={reportDisplay.regionAvailabilityBadge.tone}
-              variant="quiet"
-            >
-              {reportDisplay.regionAvailabilityBadge.label}
-            </StatusBadge>
+            <span className="inline-flex flex-wrap items-center gap-2">
+              <span className="text-xs font-semibold uppercase tracking-normal text-neutral-500">
+                Regional Availability
+              </span>
+              <StatusBadge
+                tone={reportDisplay.regionAvailabilityBadge.tone}
+                variant="quiet"
+              >
+                {reportDisplay.regionAvailabilityBadge.label}
+              </StatusBadge>
+            </span>
           </div>
         ) : null}
         <div className="divide-y divide-neutral-100">
@@ -348,14 +361,17 @@ function ServiceCompatibilitySection({ result }: { result: AnalysisResult }) {
                               {service.name}
                             </span>
                             <span className="flex flex-wrap items-center gap-2">
-                              <StatusBadge
-                                tone={
-                                  display.serviceCompatibilityBadge.tone
-                                }
-                                variant="quiet"
-                              >
-                                {display.serviceCompatibilityBadge.label}
-                              </StatusBadge>
+                              <span className="inline-flex items-center gap-2">
+                                <span className="text-[11px] font-semibold uppercase tracking-normal text-neutral-400">
+                                  IP Reputation
+                                </span>
+                                <StatusBadge
+                                  tone={display.serviceCompatibilityBadge.tone}
+                                  variant="quiet"
+                                >
+                                  {display.serviceCompatibilityBadge.label}
+                                </StatusBadge>
+                              </span>
                               <span className="inline-flex items-center gap-2">
                                 <span className="text-[11px] font-semibold uppercase tracking-normal text-neutral-400">
                                   Regional Availability

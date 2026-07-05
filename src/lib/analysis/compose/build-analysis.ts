@@ -698,6 +698,16 @@ function getReportFinalDecision(
         return decision;
       }
 
+      if (
+        decision.decision.regionAvailability.probability !==
+        lowestDecision.decision.regionAvailability.probability
+      ) {
+        return decision.decision.regionAvailability.probability <
+          lowestDecision.decision.regionAvailability.probability
+          ? decision
+          : lowestDecision;
+      }
+
       return decision.decision.serviceCompatibility.probability <
         lowestDecision.decision.serviceCompatibility.probability
         ? decision
@@ -785,9 +795,7 @@ function buildFinalDecision({
       historicalAccessConsistency,
     }),
   );
-  const serviceProbability = roundProbability(
-    trustProbability * 0.55 + regionInference.probability * 0.45,
-  );
+  const serviceProbability = trustProbability;
   const signals = sortFinalDecisionSignals([
     buildProbabilitySignal("trust_score", trustProbability, 0.55),
     buildProbabilitySignal(
@@ -820,6 +828,8 @@ function buildFinalDecision({
       regionAvailability: {
         status: regionInference.status,
         probability: regionInference.probability,
+        restriction: regionInference.restriction,
+        explanation: regionInference.explanation,
       },
       serviceCompatibility: {
         status: getServiceStatusFromProbability(serviceProbability),
@@ -1113,7 +1123,7 @@ function buildTrustScore(
     riskTone: getRiskLevelTone(riskLevel),
     recommendationLabel,
     recommendationTone: getRecommendationTone(recommendationLabel),
-    summary: `${getRiskLevelSummary(riskLevel)} Final service compatibility probability is ${serviceProbability}%.`,
+    summary: `${getRiskLevelSummary(riskLevel)} IP reputation compatibility probability is ${serviceProbability}%.`,
     explanationIntro: `Why this IP received a ${value}/100 trust score.`,
     explanationItems: getScoreExplanationItems(
       ipInfo,

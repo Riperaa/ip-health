@@ -638,19 +638,6 @@ function sortFinalDecisionSignals(signals: FinalDecisionSignal[]) {
   });
 }
 
-function buildServiceReason(finalDecision: FinalDecision) {
-  const topSignal = finalDecision.decision.signals[0];
-  const probability = Math.round(
-    finalDecision.decision.serviceCompatibility.probability * 100,
-  );
-
-  if (!topSignal) {
-    return `Final service compatibility probability is ${probability}%.`;
-  }
-
-  return `Final service compatibility probability is ${probability}%. Top signal: ${topSignal.signalName}.`;
-}
-
 function getHistoricalAccessConsistency(
   ipHistory: IpHistoryRecord[],
 ): HistoricalAccessConsistency {
@@ -872,7 +859,7 @@ function buildServiceCompatibilityView(
         status,
         probability: finalDecision.decision.serviceCompatibility.probability,
         tone: getServiceCompatibilityTone(status),
-        reason: buildServiceReason(finalDecision),
+        reason: finalDecision.display.summary,
         finalDecision,
       };
     }),

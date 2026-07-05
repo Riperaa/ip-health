@@ -74,17 +74,49 @@ export type RiskSignal = {
 export type FinalDecisionSignal = WeightedDecisionSignal;
 export type FinalDecisionVersion = "1.0";
 
-export type FinalDecisionDisplay = {
-  trustScoreLabel: string;
-  riskLabel: string;
-  riskTone: StatusTone;
-  regionAvailabilityLabel: string;
-  regionAvailabilityTone: StatusTone;
-  serviceCompatibilityLabel: string;
-  serviceCompatibilityTone: StatusTone;
-  summary: string;
-  topSignals: string[];
+export type PresentationBadge = {
+  label: string;
+  tone: StatusTone;
+  severity: string;
 };
+
+export type PresentationTextItem = {
+  key: string;
+  label: string;
+  detail: string;
+  badge: PresentationBadge;
+};
+
+export type PresentationContract = {
+  trustScoreValue: string;
+  trustScoreSuffix: string;
+  riskBadge: PresentationBadge;
+  serviceCompatibilityBadge: PresentationBadge;
+  regionAvailabilityBadge: PresentationBadge;
+  summary: string;
+  scoreExplanation: {
+    title: string;
+    intro: string;
+    items: PresentationTextItem[];
+    emptyMessage: string;
+  };
+  serviceCompatibility: {
+    sectionTitle: string;
+    emptyMessage: string;
+    footnote: string;
+    topSignalsLabel: string;
+    topSignalsSummary: string;
+  };
+  signals: {
+    sectionTitle: string;
+    summary: string;
+    summaryBadge: PresentationBadge;
+    emptyMessage: string;
+    items: PresentationTextItem[];
+  };
+};
+
+export type FinalDecisionDisplay = PresentationContract;
 
 export type FinalDecisionV1 = {
   version: "1.0";

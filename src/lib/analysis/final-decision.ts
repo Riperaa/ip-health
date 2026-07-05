@@ -7,6 +7,9 @@ import type {
   FinalDecisionSignal,
   FinalDecisionV1,
   LegacyFinalDecision,
+  PresentationBadge,
+  PresentationContract,
+  PresentationTextItem,
 } from "./types";
 
 export const FINAL_DECISION_VERSION = "1.0" as const;
@@ -17,11 +20,11 @@ function isObjectRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === "object");
 }
 
-export function formatFinalDecisionProbability(probability: number) {
+function formatFinalDecisionProbability(probability: number) {
   return `${Math.round(probability * 100)}%`;
 }
 
-export function getFinalDecisionRiskLabel(
+function getFinalDecisionRiskLabel(
   riskLevel: FinalDecisionDecision["riskLevel"],
 ) {
   if (riskLevel === "low") {
@@ -35,7 +38,7 @@ export function getFinalDecisionRiskLabel(
   return "High Risk";
 }
 
-export function getFinalDecisionRiskTone(
+function getFinalDecisionRiskTone(
   riskLevel: FinalDecisionDecision["riskLevel"],
 ): StatusTone {
   if (riskLevel === "low") {
@@ -49,7 +52,7 @@ export function getFinalDecisionRiskTone(
   return "risk";
 }
 
-export function getFinalDecisionServiceTone(
+function getFinalDecisionServiceTone(
   status: FinalDecisionDecision["serviceCompatibility"]["status"],
 ): StatusTone {
   if (status === "Good") {
@@ -63,7 +66,7 @@ export function getFinalDecisionServiceTone(
   return "risk";
 }
 
-export function getFinalDecisionRegionLabel(
+function getFinalDecisionRegionLabel(
   status: FinalDecisionDecision["regionAvailability"]["status"],
 ) {
   if (status === "likely_available") {
@@ -77,7 +80,7 @@ export function getFinalDecisionRegionLabel(
   return "Likely Blocked";
 }
 
-export function getFinalDecisionRegionTone(
+function getFinalDecisionRegionTone(
   status: FinalDecisionDecision["regionAvailability"]["status"],
 ): StatusTone {
   if (status === "likely_available") {
@@ -91,14 +94,14 @@ export function getFinalDecisionRegionTone(
   return "caution";
 }
 
-export function formatFinalDecisionSignalName(signalName: string) {
+function formatFinalDecisionSignalName(signalName: string) {
   return signalName
     .split("_")
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(" ");
 }
 
-export function formatFinalDecisionSignalDirection(
+function formatFinalDecisionSignalDirection(
   direction: FinalDecisionSignal["direction"],
 ) {
   if (direction === "supports_availability") {
@@ -112,27 +115,267 @@ export function formatFinalDecisionSignalDirection(
   return "neutral";
 }
 
-export function formatFinalDecisionSignal(signal: FinalDecisionSignal) {
+function formatFinalDecisionSignal(signal: FinalDecisionSignal) {
   return `${formatFinalDecisionSignalName(signal.signalName)} ${formatFinalDecisionSignalDirection(signal.direction)} (${formatFinalDecisionProbability(signal.impact)} impact)`;
 }
 
-export function buildFinalDecisionDisplay(
+function getSignalBadge(signal: FinalDecisionSignal): PresentationBadge {
+  if (signal.direction === "supports_availability") {
+    return {
+      label: "Supports availability",
+      tone: "good",
+      severity: "positive",
+    };
+  }
+
+  if (signal.direction === "raises_risk") {
+    return {
+      label: "Raises risk",
+      tone: "caution",
+      severity: "warning",
+    };
+  }
+
+  return {
+    label: "Neutral",
+    tone: "neutral",
+    severity: "neutral",
+  };
+}
+
+function getRiskBadge(
+  riskLevel: FinalDecisionDecision["riskLevel"],
+): PresentationBadge {
+  return {
+    label: getFinalDecisionRiskLabel(riskLevel),
+    tone: getFinalDecisionRiskTone(riskLevel),
+    severity: riskLevel,
+  };
+}
+
+function getServiceCompatibilityBadge(
+  decision: FinalDecisionDecision,
+): PresentationBadge {
+  const status = decision.serviceCompatibility.status;
+
+  return {
+    label: `${status} (${formatFinalDecisionProbability(decision.serviceCompatibility.probability)})`,
+    tone: getFinalDecisionServiceTone(status),
+    severity:
+      status === "Good"
+        ? "positive"
+        : status === "Use with Caution"
+          ? "warning"
+          : "critical",
+  };
+}
+
+function getRegionAvailabilityBadge(
+  decision: FinalDecisionDecision,
+): PresentationBadge {
+  const status = decision.regionAvailability.status;
+
+  return {
+    label: `${getFinalDecisionRegionLabel(status)} (${formatFinalDecisionProbability(decision.regionAvailability.probability)})`,
+    tone: getFinalDecisionRegionTone(status),
+    severity:
+      status === "likely_available"
+        ? "positive"
+        : status === "uncertain"
+          ? "warning"
+          : "critical",
+  };
+}
+
+function getSignalItems(signals: FinalDecisionSignal[]): PresentationTextItem[] {
+  return signals.map((signal) => ({
+    key: signal.signalName,
+    label: formatFinalDecisionSignalName(signal.signalName),
+    detail: `Weight ${formatFinalDecisionProbability(signal.weight)}, contribution ${formatFinalDecisionProbability(Math.abs(signal.contribution))}.`,
+    badge: getSignalBadge(signal),
+  }));
+}
+
+function getTopSignalItems(
+  signals: FinalDecisionSignal[],
+): PresentationTextItem[] {
+  return signals.slice(0, 3).map((signal) => ({
+    key: signal.signalName,
+    label: formatFinalDecisionSignal(signal),
+    detail: "",
+    badge: getSignalBadge(signal),
+  }));
+}
+
+function getSignalSummaryBadge(signals: FinalDecisionSignal[]): PresentationBadge {
+  if (signals.length === 0) {
+    return {
+      label: "Clear",
+      tone: "good",
+      severity: "positive",
+    };
+  }
+
+  return {
+    label: `${signals.length} signals`,
+    tone: "caution",
+    severity: "warning",
+  };
+}
+
+function assertPresentationValue(value: unknown, path: string) {
+  if (typeof value === "function") {
+    throw new Error(`PresentationContract contains logic at ${path}.`);
+  }
+
+  if (
+    value === null ||
+    typeof value === "number" ||
+    typeof value === "boolean" ||
+    typeof value === "bigint" ||
+    typeof value === "symbol" ||
+    typeof value === "undefined"
+  ) {
+    throw new Error(
+      `PresentationContract contains non-formatted value at ${path}.`,
+    );
+  }
+
+  if (typeof value === "string") {
+    return;
+  }
+
+  if (Array.isArray(value)) {
+    value.forEach((item, index) =>
+      assertPresentationValue(item, `${path}[${index}]`),
+    );
+    return;
+  }
+
+  if (isObjectRecord(value)) {
+    Object.entries(value).forEach(([key, nestedValue]) =>
+      assertPresentationValue(nestedValue, `${path}.${key}`),
+    );
+    return;
+  }
+
+  throw new Error(`PresentationContract contains unsupported value at ${path}.`);
+}
+
+function validatePresentationContract(display: PresentationContract) {
+  if (process.env.NODE_ENV === "production") {
+    return;
+  }
+
+  assertPresentationValue(display, "display");
+}
+
+export function buildPresentation(
   decision: FinalDecisionDecision,
 ): FinalDecisionDisplay {
-  return {
-    trustScoreLabel: String(decision.trustScore),
-    riskLabel: getFinalDecisionRiskLabel(decision.riskLevel),
-    riskTone: getFinalDecisionRiskTone(decision.riskLevel),
-    regionAvailabilityLabel: `${getFinalDecisionRegionLabel(decision.regionAvailability.status)} (${formatFinalDecisionProbability(decision.regionAvailability.probability)})`,
-    regionAvailabilityTone: getFinalDecisionRegionTone(
-      decision.regionAvailability.status,
-    ),
-    serviceCompatibilityLabel: `${decision.serviceCompatibility.status} (${formatFinalDecisionProbability(decision.serviceCompatibility.probability)})`,
-    serviceCompatibilityTone: getFinalDecisionServiceTone(
-      decision.serviceCompatibility.status,
-    ),
+  const display = {
+    trustScoreValue: String(decision.trustScore),
+    trustScoreSuffix: "/100",
+    riskBadge: getRiskBadge(decision.riskLevel),
+    serviceCompatibilityBadge: getServiceCompatibilityBadge(decision),
+    regionAvailabilityBadge: getRegionAvailabilityBadge(decision),
     summary: `Final service compatibility probability is ${formatFinalDecisionProbability(decision.serviceCompatibility.probability)}. Regional availability is ${getFinalDecisionRegionLabel(decision.regionAvailability.status).toLowerCase()} at ${formatFinalDecisionProbability(decision.regionAvailability.probability)}.`,
-    topSignals: decision.signals.slice(0, 3).map(formatFinalDecisionSignal),
+    scoreExplanation: {
+      title: "Score Explanation",
+      intro: `Why this final decision received a ${decision.trustScore}/100 trust score.`,
+      items: getTopSignalItems(decision.signals),
+      emptyMessage: "Run an analysis to see decision signals.",
+    },
+    serviceCompatibility: {
+      sectionTitle: "Service Compatibility",
+      emptyMessage: "No service compatibility data available.",
+      footnote:
+        "This reflects both IP reputation and regional accessibility. Services may also consider account history, device reputation, browser fingerprint, and behavior.",
+      topSignalsLabel: "Top signals:",
+      topSignalsSummary: getTopSignalItems(decision.signals)
+        .map((item) => item.label)
+        .join(" "),
+    },
+    signals: {
+      sectionTitle: "Risk Signals",
+      summary: "Weighted signals from the canonical final decision.",
+      summaryBadge: getSignalSummaryBadge(decision.signals),
+      emptyMessage: "No final decision signals are available yet.",
+      items: getSignalItems(decision.signals),
+    },
+  } satisfies FinalDecisionDisplay;
+
+  validatePresentationContract(display);
+
+  return display;
+}
+
+function stableStringify(value: unknown): string {
+  if (Array.isArray(value)) {
+    return `[${value.map(stableStringify).join(",")}]`;
+  }
+
+  if (isObjectRecord(value)) {
+    return `{${Object.keys(value)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${stableStringify(value[key])}`)
+      .join(",")}}`;
+  }
+
+  return JSON.stringify(value);
+}
+
+function getPresentationMismatch(
+  finalDecision: FinalDecisionV1,
+): { expected: FinalDecisionDisplay; actual: FinalDecisionDisplay } | null {
+  const expected = buildPresentation(finalDecision.decision);
+  const actual = finalDecision.display;
+
+  return stableStringify(expected) === stableStringify(actual)
+    ? null
+    : { expected, actual };
+}
+
+export function assertPresentationMatchesDecision(
+  finalDecision: FinalDecisionV1,
+) {
+  if (process.env.NODE_ENV === "production") {
+    return;
+  }
+
+  const mismatch = getPresentationMismatch(finalDecision);
+
+  if (mismatch) {
+    throw new Error(
+      "PresentationContract diverged from FinalDecision decision layer.",
+    );
+  }
+}
+
+export function buildPresentationSnapshot(finalDecision: FinalDecision) {
+  const normalizedFinalDecision = normalizeFinalDecision(finalDecision);
+  const expectedDisplay = buildPresentation(normalizedFinalDecision.decision);
+  const actualDisplay = normalizedFinalDecision.display;
+  const consistent =
+    stableStringify(expectedDisplay) === stableStringify(actualDisplay);
+
+  return {
+    version: normalizedFinalDecision.version,
+    consistent,
+    decision: normalizedFinalDecision.decision,
+    expectedDisplay,
+    actualDisplay,
+    uiOutput: {
+      trustScore: actualDisplay.trustScoreValue,
+      trustScoreSuffix: actualDisplay.trustScoreSuffix,
+      riskBadge: actualDisplay.riskBadge,
+      serviceCompatibilityBadge: actualDisplay.serviceCompatibilityBadge,
+      regionAvailabilityBadge: actualDisplay.regionAvailabilityBadge,
+      summary: actualDisplay.summary,
+      scoreExplanation: actualDisplay.scoreExplanation,
+      serviceCompatibility: actualDisplay.serviceCompatibility,
+      signals: actualDisplay.signals,
+    },
   };
 }
 
@@ -141,13 +384,17 @@ export function createFinalDecisionV1({
   computedMetrics,
   decision,
 }: Pick<FinalDecisionV1, "rawSignals" | "computedMetrics" | "decision">) {
-  return {
+  const finalDecision = {
     version: FINAL_DECISION_VERSION,
     rawSignals,
     computedMetrics,
     decision,
-    display: buildFinalDecisionDisplay(decision),
+    display: buildPresentation(decision),
   } satisfies FinalDecisionV1;
+
+  assertPresentationMatchesDecision(finalDecision);
+
+  return finalDecision;
 }
 
 function isFinalDecisionV1(value: unknown): value is FinalDecisionV1 {
@@ -173,6 +420,7 @@ export function normalizeFinalDecision(
   finalDecision: FinalDecisionCompatible,
 ): FinalDecision {
   if (isFinalDecisionV1(finalDecision)) {
+    assertPresentationMatchesDecision(finalDecision);
     return finalDecision;
   }
 

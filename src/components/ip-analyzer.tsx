@@ -54,74 +54,11 @@ function DisclosureSection({
   );
 }
 
-function formatProbability(probability: number) {
-  return `${Math.round(probability * 100)}%`;
-}
-
-function formatSignalName(signalName: string) {
-  return signalName
-    .split("_")
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
-}
-
-function formatSignalDirection(
-  direction: NonNullable<
-    AnalysisResult["finalDecision"]
-  >["decision"]["signals"][number]["direction"],
-) {
-  if (direction === "supports_availability") {
-    return "supports availability";
-  }
-
-  if (direction === "raises_risk") {
-    return "raises risk";
-  }
-
-  return "neutral";
-}
-
-function formatDecisionSignal(
-  signal: NonNullable<AnalysisResult["finalDecision"]>["decision"]["signals"][number],
-) {
-  return `${formatSignalName(signal.signalName)} ${formatSignalDirection(signal.direction)} (${formatProbability(signal.impact)} impact)`;
-}
-
-function getCategoryDecisionSummary(
-  services: AnalysisResult["serviceCompatibility"][number]["services"],
-) {
-  return services
-    .reduce<Record<string, number>>(
-      (summary, service) => ({
-        ...summary,
-        [service.finalDecision.decision.serviceCompatibility.status]:
-          summary[service.finalDecision.decision.serviceCompatibility.status] +
-          1,
-      }),
-      {
-        Good: 0,
-        "Use with Caution": 0,
-        "High Risk": 0,
-      },
-    );
-}
-
-function formatCategoryDecisionSummary(
-  services: AnalysisResult["serviceCompatibility"][number]["services"],
-) {
-  const summary = getCategoryDecisionSummary(services);
-
-  return `${summary.Good} Good - ${summary["Use with Caution"]} Caution - ${summary["High Risk"]} High Risk`;
-}
-
 function MainRiskReport({ result }: { result: AnalysisResult }) {
-  const finalDecision = result.finalDecision;
-  const trustScoreDisplay = finalDecision
-    ? finalDecision.display.trustScoreLabel
-    : "--";
-  const summary = finalDecision
-    ? finalDecision.display.summary
-    : "Run an analysis to populate this report.";
+  const display = result.finalDecision?.display;
+  const trustScoreDisplay = display?.trustScoreValue ?? "--";
+  const trustScoreSuffix = display?.trustScoreSuffix ?? "/100";
+  const summary = display?.summary ?? "Run an analysis to populate this report.";
 
   return (
     <section className="surface-card-primary rounded-[28px] border bg-white p-5 sm:p-6">
@@ -154,23 +91,23 @@ function MainRiskReport({ result }: { result: AnalysisResult }) {
           <p className="mt-2 flex items-end gap-1 text-7xl font-semibold leading-none text-neutral-950 sm:justify-end">
             {trustScoreDisplay}
             <span className="pb-2 text-xl font-semibold text-neutral-400">
-              /100
+              {trustScoreSuffix}
             </span>
           </p>
           <div className="mt-3 flex flex-wrap gap-2 sm:justify-end">
-            {finalDecision ? (
+            {display ? (
               <>
                 <StatusBadge
-                  tone={finalDecision.display.riskTone}
+                  tone={display.riskBadge.tone}
                   className="px-3 py-1.5 text-sm"
                 >
-                  {finalDecision.display.riskLabel}
+                  {display.riskBadge.label}
                 </StatusBadge>
                 <StatusBadge
-                  tone={finalDecision.display.serviceCompatibilityTone}
+                  tone={display.serviceCompatibilityBadge.tone}
                   variant="quiet"
                 >
-                  {finalDecision.display.serviceCompatibilityLabel}
+                  {display.serviceCompatibilityBadge.label}
                 </StatusBadge>
               </>
             ) : (
@@ -299,11 +236,19 @@ function ServiceCompatibilitySection({ result }: { result: AnalysisResult }) {
     null,
   );
   const hasServiceCompatibility = result.serviceCompatibility.length > 0;
-  const reportDecision = result.finalDecision;
+  const reportDisplay = result.finalDecision?.display;
+  const sectionTitle =
+    reportDisplay?.serviceCompatibility.sectionTitle ?? "Service Compatibility";
+  const emptyMessage =
+    reportDisplay?.serviceCompatibility.emptyMessage ??
+    "No service compatibility data available.";
+  const footnote =
+    reportDisplay?.serviceCompatibility.footnote ??
+    "This reflects both IP reputation and regional accessibility.";
 
   return (
     <DisclosureSection
-      title="Service Compatibility"
+      title={sectionTitle}
       isExpanded={isServiceCompatibilityVisible}
       onToggle={() =>
         setIsServiceCompatibilityVisible(
@@ -313,16 +258,16 @@ function ServiceCompatibilitySection({ result }: { result: AnalysisResult }) {
       contentId="service-compatibility-content"
     >
       <div className="surface-card mt-3 overflow-hidden rounded-2xl border bg-white">
-        {hasServiceCompatibility && reportDecision ? (
+        {hasServiceCompatibility && reportDisplay ? (
           <div className="flex flex-col gap-2 border-b border-neutral-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
             <span className="text-xs font-semibold uppercase tracking-normal text-neutral-500">
               Regional Availability
             </span>
             <StatusBadge
-              tone={reportDecision.display.regionAvailabilityTone}
+              tone={reportDisplay.regionAvailabilityBadge.tone}
               variant="quiet"
             >
-              {reportDecision.display.regionAvailabilityLabel}
+              {reportDisplay.regionAvailabilityBadge.label}
             </StatusBadge>
           </div>
         ) : null}
@@ -371,7 +316,7 @@ function ServiceCompatibilitySection({ result }: { result: AnalysisResult }) {
                     </span>
                   </span>
                   <span className="pl-6 text-sm font-medium leading-5 text-neutral-600 sm:pl-0 sm:text-right">
-                    {formatCategoryDecisionSummary(category.services)}
+                    {category.summary}
                   </span>
                 </button>
                 <ul
@@ -383,7 +328,7 @@ function ServiceCompatibilitySection({ result }: { result: AnalysisResult }) {
                     const serviceKey = `${category.category}:${service.name}`;
                     const isExpanded = expandedServiceKey === serviceKey;
                     const serviceContentId = `service-compatibility-${serviceKey}`;
-                    const finalDecision = service.finalDecision;
+                    const display = service.finalDecision.display;
 
                     return (
                       <li key={service.name} className="text-sm">
@@ -405,15 +350,11 @@ function ServiceCompatibilitySection({ result }: { result: AnalysisResult }) {
                             <span className="flex flex-wrap items-center gap-2">
                               <StatusBadge
                                 tone={
-                                  finalDecision.display
-                                    .serviceCompatibilityTone
+                                  display.serviceCompatibilityBadge.tone
                                 }
                                 variant="quiet"
                               >
-                                {
-                                  finalDecision.display
-                                    .serviceCompatibilityLabel
-                                }
+                                {display.serviceCompatibilityBadge.label}
                               </StatusBadge>
                               <span className="inline-flex items-center gap-2">
                                 <span className="text-[11px] font-semibold uppercase tracking-normal text-neutral-400">
@@ -421,15 +362,11 @@ function ServiceCompatibilitySection({ result }: { result: AnalysisResult }) {
                                 </span>
                                 <StatusBadge
                                   tone={
-                                    finalDecision.display
-                                      .regionAvailabilityTone
+                                    display.regionAvailabilityBadge.tone
                                   }
                                   variant="quiet"
                                 >
-                                  {
-                                    finalDecision.display
-                                      .regionAvailabilityLabel
-                                  }
+                                  {display.regionAvailabilityBadge.label}
                                 </StatusBadge>
                               </span>
                             </span>
@@ -439,14 +376,14 @@ function ServiceCompatibilitySection({ result }: { result: AnalysisResult }) {
                             hidden={!isExpanded}
                             className="mt-2 block text-xs leading-5 text-neutral-500"
                           >
-                            {finalDecision.display.summary}
+                            {display.summary}
                           </span>
                           <span
                             hidden={!isExpanded}
                             className="mt-2 block text-[11px] leading-5 text-neutral-500"
                           >
-                            Top signals:{" "}
-                            {finalDecision.display.topSignals.join(" ")}
+                            {display.serviceCompatibility.topSignalsLabel}{" "}
+                            {display.serviceCompatibility.topSignalsSummary}
                           </span>
                         </button>
                       </li>
@@ -461,12 +398,10 @@ function ServiceCompatibilitySection({ result }: { result: AnalysisResult }) {
           hidden={result.serviceCompatibility.length > 0}
           className="px-4 py-3 text-sm text-neutral-500"
         >
-          No service compatibility data available.
+          {emptyMessage}
         </p>
         <p className="border-t border-neutral-100 px-4 py-3 text-sm leading-6 text-neutral-500">
-          This reflects both IP reputation and regional accessibility. Services
-          may also consider account history, device reputation, browser
-          fingerprint, and behavior.
+          {footnote}
         </p>
       </div>
     </DisclosureSection>
@@ -474,41 +409,38 @@ function ServiceCompatibilitySection({ result }: { result: AnalysisResult }) {
 }
 
 function ScoreExplanationSection({ result }: { result: AnalysisResult }) {
-  const finalDecision = result.finalDecision;
-  const signals = finalDecision?.decision.signals.slice(0, 3) ?? [];
+  const display = result.finalDecision?.display;
+  const explanation = display?.scoreExplanation;
+  const items = explanation?.items ?? [];
 
   return (
     <section className="surface-card rounded-2xl border bg-white p-5">
       <div className="flex flex-col gap-1">
         <p className="text-sm font-semibold text-neutral-950">
-          Score Explanation
+          {explanation?.title ?? "Score Explanation"}
         </p>
         <p className="text-sm leading-6 text-neutral-500">
-          {finalDecision
-            ? `Why this final decision received a ${finalDecision.decision.trustScore}/100 trust score.`
-            : "Score details will appear here after analysis."}
+          {explanation?.intro ?? "Score details will appear here after analysis."}
         </p>
       </div>
       <ul className="mt-4 space-y-3">
-        {signals.map((signal) => (
-          <li key={signal.signalName} className="flex gap-3 text-sm leading-6">
+        {items.map((item) => (
+          <li key={item.key} className="flex gap-3 text-sm leading-6">
             <span
               aria-hidden="true"
               className="mt-2 size-1.5 shrink-0 rounded-full bg-neutral-900"
             />
-            <span className="text-neutral-600">
-              {formatDecisionSignal(signal)}
-            </span>
+            <span className="text-neutral-600">{item.label}</span>
           </li>
         ))}
-        {signals.length === 0 ? (
+        {items.length === 0 ? (
           <li className="flex gap-3 text-sm leading-6">
             <span
               aria-hidden="true"
               className="mt-2 size-1.5 shrink-0 rounded-full bg-neutral-900"
             />
             <span className="text-neutral-600">
-              Run an analysis to see decision signals.
+              {explanation?.emptyMessage ?? "Run an analysis to see decision signals."}
             </span>
           </li>
         ) : null}
@@ -519,11 +451,13 @@ function ScoreExplanationSection({ result }: { result: AnalysisResult }) {
 
 function RiskSignalsSection({ result }: { result: AnalysisResult }) {
   const [isRiskSignalsVisible, setIsRiskSignalsVisible] = useState(true);
-  const signals = result.finalDecision?.decision.signals ?? [];
+  const display = result.finalDecision?.display;
+  const signals = display?.signals.items ?? [];
+  const signalDisplay = display?.signals;
 
   return (
     <DisclosureSection
-      title="Risk Signals"
+      title={signalDisplay?.sectionTitle ?? "Risk Signals"}
       isExpanded={isRiskSignalsVisible}
       onToggle={() =>
         setIsRiskSignalsVisible((currentVisibility) => !currentVisibility)
@@ -533,17 +467,15 @@ function RiskSignalsSection({ result }: { result: AnalysisResult }) {
       <div className="surface-card mt-3 rounded-2xl border bg-white p-5">
         <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
           <p className="text-sm leading-6 text-neutral-500">
-            Weighted signals from the canonical final decision.
+            {signalDisplay?.summary ??
+              "Weighted signals from the canonical final decision."}
           </p>
-          {signals.length === 0 ? (
-            <StatusBadge tone="good" className="mt-1 sm:mt-0">
-              Clear
-            </StatusBadge>
-          ) : (
-            <StatusBadge tone="caution" className="mt-1 sm:mt-0">
-              {signals.length} signals
-            </StatusBadge>
-          )}
+          <StatusBadge
+            tone={signalDisplay?.summaryBadge.tone ?? "good"}
+            className="mt-1 sm:mt-0"
+          >
+            {signalDisplay?.summaryBadge.label ?? "Clear"}
+          </StatusBadge>
         </div>
 
         <ul
@@ -552,28 +484,19 @@ function RiskSignalsSection({ result }: { result: AnalysisResult }) {
         >
           {signals.map((signal) => (
             <li
-              key={signal.signalName}
+              key={signal.key}
               className="flex flex-col gap-2 py-3 first:pt-0 last:pb-0 sm:flex-row sm:items-start sm:justify-between sm:gap-4"
             >
               <div>
                 <p className="text-sm font-medium text-neutral-950">
-                  {formatSignalName(signal.signalName)}
+                  {signal.label}
                 </p>
                 <p className="mt-1 text-sm leading-6 text-neutral-500">
-                  {`Weight ${formatProbability(signal.weight)}, contribution ${formatProbability(Math.abs(signal.contribution))}.`}
+                  {signal.detail}
                 </p>
               </div>
-              <StatusBadge
-                tone={
-                  signal.direction === "raises_risk"
-                    ? "caution"
-                    : signal.direction === "supports_availability"
-                      ? "good"
-                      : "neutral"
-                }
-                variant="quiet"
-              >
-                {formatSignalDirection(signal.direction)}
+              <StatusBadge tone={signal.badge.tone} variant="quiet">
+                {signal.badge.label}
               </StatusBadge>
             </li>
           ))}
@@ -582,7 +505,8 @@ function RiskSignalsSection({ result }: { result: AnalysisResult }) {
           hidden={signals.length > 0}
           className="mt-4 rounded-xl border border-emerald-100 bg-emerald-50/60 px-4 py-3 text-sm leading-6 text-emerald-800"
         >
-          No final decision signals are available yet.
+          {signalDisplay?.emptyMessage ??
+            "No final decision signals are available yet."}
         </p>
       </div>
     </DisclosureSection>

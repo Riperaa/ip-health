@@ -2,11 +2,13 @@ import type { ProviderResult as AbuseIpDbResponse } from "./providers/abuseipdb"
 import type { ProviderResult as CloudflareTraceResponse } from "./providers/cloudflare";
 import type { ProviderResult as IpInfoResponse } from "./providers/ipinfo";
 import type { ProviderResult as IpqsResponse } from "./providers/ipqs";
+import { calculateTrustScore } from "@/lib/analysis/scoring/trust-score";
 
 export type { ProviderResult as AbuseIpDbResponse } from "./providers/abuseipdb";
 export type { ProviderResult as CloudflareTraceResponse } from "./providers/cloudflare";
 export type { ProviderResult as IpInfoResponse } from "./providers/ipinfo";
 export type { ProviderResult as IpqsResponse } from "./providers/ipqs";
+export { calculateTrustScore } from "@/lib/analysis/scoring/trust-score";
 
 export type ServiceCompatibilityStatus =
   "Good" | "Use with Caution" | "High Risk";
@@ -89,37 +91,6 @@ export function isInfrastructureUsage(usageType?: string | null) {
   );
 }
 
-function getAbuseIpDbPenalties(abuseIpDb?: AbuseIpDbResponse | null) {
-  if (!abuseIpDb) {
-    return [];
-  }
-
-  const abuseConfidence = abuseIpDb.abuseConfidence ?? null;
-
-  return [
-    abuseConfidence !== null && abuseConfidence >= 80 ? 30 : 0,
-    abuseConfidence !== null && abuseConfidence >= 50 && abuseConfidence < 80
-      ? 15
-      : 0,
-    isInfrastructureUsage(abuseIpDb.usageType) ? 20 : 0,
-  ];
-}
-
-function getIpqsPenalties(ipqs?: IpqsResponse | null) {
-  if (!ipqs) {
-    return [];
-  }
-
-  const fraudScore = ipqs.fraudScore ?? null;
-
-  return [
-    fraudScore !== null && fraudScore >= 85 ? 30 : 0,
-    fraudScore !== null && fraudScore >= 60 && fraudScore < 85 ? 20 : 0,
-    ipqs.vpn === true ? 25 : 0,
-    ipqs.proxy === true ? 25 : 0,
-  ];
-}
-
 function normalizeIpAddress(value?: string | null) {
   return value?.trim().toLowerCase() ?? "";
 }
@@ -157,21 +128,6 @@ export function hasCloudflareColoSignal(
   return Boolean(
     cloudflare?.colo?.trim() && hasCloudflareTraceMatch(ipInfo, cloudflare),
   );
-}
-
-function getCloudflarePenalties(
-  ipInfo: IpInfoResponse,
-  cloudflare?: CloudflareTraceResponse | null,
-) {
-  if (!cloudflare) {
-    return [];
-  }
-
-  return [
-    isCloudflareWarpOn(cloudflare) ? 25 : 0,
-    hasCloudflareTraceMismatch(ipInfo, cloudflare) ? 15 : 0,
-    hasCloudflareColoSignal(ipInfo, cloudflare) ? 10 : 0,
-  ];
 }
 
 function getIpInfoSignals(ipInfo: IpInfoResponse) {
@@ -722,36 +678,6 @@ function getIpqsReasons(ipqs?: IpqsResponse | null) {
       ? "IPQS returned no reputation details"
       : null,
   ].filter((reason): reason is string => Boolean(reason));
-}
-
-export function calculateTrustScore(
-  ipInfo: IpInfoResponse,
-  abuseIpDb?: AbuseIpDbResponse | null,
-  ipqs?: IpqsResponse | null,
-  cloudflare?: CloudflareTraceResponse | null,
-) {
-  const { hasAsn, hasIspOrOrg } = getIpInfoSignals(ipInfo);
-  const privacy = ipInfo.privacy;
-  const penalties = [
-    privacy?.hosting === true ? 20 : 0,
-    privacy?.vpn === true ? 25 : 0,
-    privacy?.proxy === true ? 25 : 0,
-    privacy?.tor === true ? 40 : 0,
-    privacy?.relay === true ? 15 : 0,
-    hasAsn ? 0 : 10,
-    hasIspOrOrg ? 0 : 5,
-    ...getAbuseIpDbPenalties(abuseIpDb),
-    ...getIpqsPenalties(ipqs),
-    ...getCloudflarePenalties(ipInfo, cloudflare),
-  ];
-
-  return Math.max(
-    0,
-    Math.min(
-      100,
-      100 - penalties.reduce((total, penalty) => total + penalty, 0),
-    ),
-  );
 }
 
 export function buildReasons(

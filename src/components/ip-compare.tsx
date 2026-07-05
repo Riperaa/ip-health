@@ -1,259 +1,26 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useState } from "react";
 
-import {
-  fetchIpAnalysis,
-  type AnalysisResult,
-} from "@/lib/client-ip-analysis";
 import { StatusBadge } from "@/components/status-badge";
-import {
-  buildRecommendation,
-  buildRecommendationConfidence,
-  calculateTrustScore,
-  isInfrastructureUsage,
-  type AbuseIpDbResponse,
-  type IpInfoResponse,
-  type IpqsResponse,
-  type Recommendation,
-  type RecommendationConfidence,
-} from "@/lib/trust-engine";
 import {
   getRecommendationTone,
   getTrustScoreStatusLabel,
   getTrustScoreTone,
   getUsageTypeTone,
 } from "@/lib/status-colors";
-
-type CompareResult = AnalysisResult & {
-  input: string;
-};
-
-type DisplayResult = {
-  input: string;
-  ip: string;
-  score: number;
-  recommendation: Recommendation;
-  confidence: RecommendationConfidence;
-  usageType: string;
-  abuseConfidence: string;
-  abuseConfidenceValue: number | null;
-  country: string;
-  ispOrg: string;
-  hasSevereAbuseOrTor: boolean;
-  hasInfrastructureSignals: boolean;
-};
-
-type Verdict = "IP A" | "IP B" | "Similar risk";
-
-function formatDetail(value?: string | null) {
-  const trimmedValue = value?.trim();
-
-  if (!trimmedValue || trimmedValue.toLowerCase() === "unknown") {
-    return "Not identified";
-  }
-
-  return trimmedValue;
-}
-
-function pickDetail(...values: (string | null | undefined)[]) {
-  return values.find((value) => formatDetail(value) !== "Not identified");
-}
-
-function parseOrg(org?: string) {
-  if (!org) {
-    return {};
-  }
-
-  const [asn, ...nameParts] = org.split(" ");
-
-  return {
-    asn,
-    name: nameParts.join(" "),
-  };
-}
-
-function formatUsageType(
-  usageType?: string | null,
-  privacy?: IpInfoResponse["privacy"],
-) {
-  if (formatDetail(usageType) !== "Not identified") {
-    return isInfrastructureUsage(usageType)
-      ? "Infrastructure"
-      : formatDetail(usageType);
-  }
-
-  if (privacy?.hosting === true || isInfrastructureUsage(usageType)) {
-    return "Infrastructure";
-  }
-
-  return "Not identified";
-}
-
-function formatAbuseConfidence(abuseIpDb?: AbuseIpDbResponse | null) {
-  const abuseConfidence = abuseIpDb?.abuseConfidence ?? null;
-
-  if (abuseConfidence === null) {
-    return "No abuse score";
-  }
-
-  if (abuseConfidence < 25) {
-    return `Low · ${abuseConfidence}%`;
-  }
-
-  if (abuseConfidence < 60) {
-    return `Elevated · ${abuseConfidence}%`;
-  }
-
-  if (abuseConfidence < 85) {
-    return `High · ${abuseConfidence}%`;
-  }
-
-  return `Severe · ${abuseConfidence}%`;
-}
-
-function getAbuseConfidenceValue(abuseIpDb?: AbuseIpDbResponse | null) {
-  return abuseIpDb?.abuseConfidence ?? null;
-}
-
-function hasTor(
-  ipInfo: IpInfoResponse,
-  ipqs?: IpqsResponse | null,
-) {
-  return ipInfo.privacy?.tor === true || ipqs?.tor === true;
-}
-
-function hasSevereAbuseOrTor(
-  ipInfo: IpInfoResponse,
-  abuseIpDb?: AbuseIpDbResponse | null,
-  ipqs?: IpqsResponse | null,
-) {
-  return (abuseIpDb?.abuseConfidence ?? 0) >= 85 || hasTor(ipInfo, ipqs);
-}
-
-function hasInfrastructureSignals(
-  ipInfo: IpInfoResponse,
-  abuseIpDb?: AbuseIpDbResponse | null,
-) {
-  return (
-    ipInfo.privacy?.hosting === true ||
-    isInfrastructureUsage(abuseIpDb?.usageType)
-  );
-}
-
-function getIspOrg(
-  ipInfo: IpInfoResponse,
-  abuseIpDb?: AbuseIpDbResponse | null,
-) {
-  const parsedOrg = parseOrg(ipInfo.org);
-
-  return formatDetail(
-    pickDetail(
-      ipInfo.company?.name,
-      abuseIpDb?.isp,
-      ipInfo.asn?.name,
-      parsedOrg.name,
-      ipInfo.org,
-    ),
-  );
-}
-
-function getDisplayResult(result: CompareResult): DisplayResult {
-  const { ipInfo, abuseIpDb, ipqs } = result;
-  const score = calculateTrustScore(ipInfo, abuseIpDb, ipqs);
-
-  return {
-    input: result.input,
-    ip: formatDetail(ipInfo.ip ?? result.input),
-    score,
-    recommendation: buildRecommendation(ipInfo, abuseIpDb, ipqs),
-    confidence: buildRecommendationConfidence(ipInfo, abuseIpDb, ipqs),
-    usageType: formatUsageType(abuseIpDb?.usageType, ipInfo.privacy),
-    abuseConfidence: formatAbuseConfidence(abuseIpDb),
-    abuseConfidenceValue: getAbuseConfidenceValue(abuseIpDb),
-    country: formatDetail(pickDetail(ipInfo.country_name, ipInfo.country)),
-    ispOrg: getIspOrg(ipInfo, abuseIpDb),
-    hasSevereAbuseOrTor: hasSevereAbuseOrTor(ipInfo, abuseIpDb, ipqs),
-    hasInfrastructureSignals: hasInfrastructureSignals(ipInfo, abuseIpDb),
-  };
-}
-
-function getVerdict(ipA: DisplayResult, ipB: DisplayResult): Verdict {
-  if (ipA.hasSevereAbuseOrTor && !ipB.hasSevereAbuseOrTor) {
-    return "IP B";
-  }
-
-  if (ipB.hasSevereAbuseOrTor && !ipA.hasSevereAbuseOrTor) {
-    return "IP A";
-  }
-
-  const scoreDifference = ipA.score - ipB.score;
-
-  if (Math.abs(scoreDifference) < 10) {
-    return "Similar risk";
-  }
-
-  return scoreDifference > 0 ? "IP A" : "IP B";
-}
-
-function getAbuseConfidenceDifference(ipA: DisplayResult, ipB: DisplayResult) {
-  if (
-    ipA.abuseConfidenceValue === null ||
-    ipB.abuseConfidenceValue === null
-  ) {
-    return null;
-  }
-
-  return ipA.abuseConfidenceValue - ipB.abuseConfidenceValue;
-}
-
-function getVerdictReason(ipA: DisplayResult, ipB: DisplayResult, verdict: Verdict) {
-  const scoreDifference = ipA.score - ipB.score;
-  const abuseConfidenceDifference = getAbuseConfidenceDifference(ipA, ipB);
-
-  if (verdict === "Similar risk") {
-    return "Both IPs have similar risk levels.";
-  }
-
-  const winner = verdict === "IP A" ? ipA : ipB;
-  const other = verdict === "IP A" ? ipB : ipA;
-  const winnerLabel = verdict;
-  const scoreLead = verdict === "IP A" ? scoreDifference : -scoreDifference;
-  const abuseLead =
-    abuseConfidenceDifference === null
-      ? null
-      : verdict === "IP A"
-        ? -abuseConfidenceDifference
-        : abuseConfidenceDifference;
-
-  if (other.hasSevereAbuseOrTor && !winner.hasSevereAbuseOrTor) {
-    return `${winnerLabel} avoids stronger abuse or Tor signals on the other IP.`;
-  }
-
-  if (other.hasInfrastructureSignals && !winner.hasInfrastructureSignals) {
-    return `${winnerLabel} has fewer infrastructure signals and a cleaner usage profile.`;
-  }
-
-  if (scoreLead >= 10 && abuseLead !== null && abuseLead >= 10) {
-    return `${winnerLabel} has a higher trust score and lower abuse confidence.`;
-  }
-
-  if (scoreLead >= 10) {
-    return `${winnerLabel} has a higher trust score.`;
-  }
-
-  if (abuseLead !== null && abuseLead >= 10) {
-    return `${winnerLabel} has lower abuse confidence.`;
-  }
-
-  return `${winnerLabel} has the stronger overall comparison signals.`;
-}
+import {
+  compareIpAddresses,
+  type ComparisonDisplayResult,
+  type ComparisonVerdict,
+  type IpComparisonResult,
+} from "@/lib/analysis";
 
 function VerdictSummary({
   verdict,
   reason,
 }: {
-  verdict: Verdict;
+  verdict: ComparisonVerdict;
   reason: string;
 }) {
   return (
@@ -278,7 +45,7 @@ function ResultCard({
   result,
 }: {
   label: "IP A" | "IP B";
-  result: DisplayResult;
+  result: ComparisonDisplayResult;
 }) {
   const trustTone = getTrustScoreTone(result.score);
   const rows = [
@@ -356,28 +123,8 @@ export function IpCompare() {
   const [ipA, setIpA] = useState("");
   const [ipB, setIpB] = useState("");
   const [error, setError] = useState("");
-  const [results, setResults] = useState<{
-    ipA: CompareResult;
-    ipB: CompareResult;
-  } | null>(null);
+  const [results, setResults] = useState<IpComparisonResult | null>(null);
   const [isComparing, setIsComparing] = useState(false);
-
-  const displayResults = useMemo(() => {
-    if (!results) {
-      return null;
-    }
-
-    const nextIpA = getDisplayResult(results.ipA);
-    const nextIpB = getDisplayResult(results.ipB);
-    const verdict = getVerdict(nextIpA, nextIpB);
-
-    return {
-      ipA: nextIpA,
-      ipB: nextIpB,
-      verdict,
-      verdictReason: getVerdictReason(nextIpA, nextIpB, verdict),
-    };
-  }, [results]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -395,15 +142,7 @@ export function IpCompare() {
     setIsComparing(true);
 
     try {
-      const [nextIpA, nextIpB] = await Promise.all([
-        fetchIpAnalysis(trimmedIpA),
-        fetchIpAnalysis(trimmedIpB),
-      ]);
-
-      setResults({
-        ipA: { ...nextIpA, input: trimmedIpA },
-        ipB: { ...nextIpB, input: trimmedIpB },
-      });
+      setResults(await compareIpAddresses(trimmedIpA, trimmedIpB));
     } catch {
       setResults(null);
       setError("Unable to compare these IPs.");
@@ -466,16 +205,16 @@ export function IpCompare() {
         ) : null}
       </div>
 
-      {displayResults ? (
+      {results ? (
         <div className="mt-8 w-full">
           <div className="grid items-stretch gap-4 md:grid-cols-2">
-            <ResultCard label="IP A" result={displayResults.ipA} />
-            <ResultCard label="IP B" result={displayResults.ipB} />
+            <ResultCard label="IP A" result={results.ipA} />
+            <ResultCard label="IP B" result={results.ipB} />
           </div>
 
           <VerdictSummary
-            verdict={displayResults.verdict}
-            reason={displayResults.verdictReason}
+            verdict={results.verdict}
+            reason={results.verdictReason}
           />
         </div>
       ) : null}

@@ -11,14 +11,14 @@ import {
 
 import { IpAnalyzer } from "@/components/ip-analyzer";
 import {
-  analyzeIpAddress,
-  fetchPublicIp,
+  buildAnalysis,
+  detectPublicIp as detectCurrentPublicIp,
   getEmptyAnalysisResult,
   loadRecentChecks,
   saveRecentCheck,
   type AnalysisResult,
   type RecentCheck,
-} from "@/lib/analysis-engine";
+} from "@/lib/analysis";
 
 function LoadingSpinner() {
   return (
@@ -61,7 +61,7 @@ export function IpAnalyzerContainer() {
     setIsAnalyzing(true);
 
     try {
-      const nextAnalysisResult = await analyzeIpAddress(trimmedIpAddress);
+      const nextAnalysisResult = await buildAnalysis(trimmedIpAddress);
 
       setAnalysisResult(nextAnalysisResult);
       setRecentChecks(saveRecentCheck(trimmedIpAddress));
@@ -74,13 +74,13 @@ export function IpAnalyzerContainer() {
     }
   }, []);
 
-  const detectPublicIp = useCallback(async () => {
+  const handleDetectPublicIp = useCallback(async () => {
     setError("");
     setAnalysisErrorIp("");
     setIsDetecting(true);
 
     try {
-      const detectedIp = await fetchPublicIp();
+      const detectedIp = await detectCurrentPublicIp();
       setIpAddress(detectedIp);
       setAnalysisResult(getEmptyAnalysisResult(detectedIp));
     } catch {
@@ -91,8 +91,8 @@ export function IpAnalyzerContainer() {
   }, []);
 
   useEffect(() => {
-    void detectPublicIp();
-  }, [detectPublicIp]);
+    void handleDetectPublicIp();
+  }, [handleDetectPublicIp]);
 
   useEffect(() => {
     setRecentChecks(loadRecentChecks());
@@ -152,7 +152,7 @@ export function IpAnalyzerContainer() {
         <div className="flex flex-col items-center gap-2 sm:flex-row">
           <button
             type="button"
-            onClick={detectPublicIp}
+            onClick={handleDetectPublicIp}
             disabled={isDetecting}
             className="h-10 rounded-full border border-neutral-200 bg-white px-5 text-sm font-medium text-neutral-600 shadow-sm shadow-neutral-950/[0.03] transition hover:border-neutral-300 hover:bg-neutral-50 hover:text-neutral-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950 disabled:cursor-not-allowed disabled:opacity-60"
           >

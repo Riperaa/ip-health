@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import { FooterLinks } from "@/components/footer-links";
-import { IpAnalyzer } from "@/components/ip-analyzer";
+import { IpAnalyzerContainer } from "@/components/ip-analyzer-container";
 
 export default function Home() {
   return (
@@ -25,7 +25,7 @@ export default function Home() {
             Check IP reputation and risk signals before logging in.
           </p>
 
-          <IpAnalyzer />
+          <IpAnalyzerContainer />
         </div>
       </section>
 

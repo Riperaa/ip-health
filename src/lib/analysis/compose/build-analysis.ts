@@ -26,6 +26,12 @@ import {
 import { normalizeProviderAnalysisResult } from "../normalize/providers";
 import { normalizeServiceCompatibility } from "../normalize/service-compatibility";
 import {
+  detectRegionFromIpInfo,
+  getRegionRiskLevel,
+  getRegionServiceStatus,
+  type RegionServiceStatus,
+} from "../region/service-map";
+import {
   getHistoryForIp,
   getNextIpHistory,
   loadIpHistory,
@@ -43,6 +49,7 @@ import type {
   IpTypeBadge,
   NetworkIntegrity,
   ProviderAnalysisResult,
+  RegionalAvailability,
   ResultFact,
   RiskLevel,
   RiskSignal,
@@ -479,7 +486,126 @@ function getServiceCompatibilitySummaryLabel(
   return `${summary.Good} Good - ${summary["Use with Caution"]} Caution - ${summary["High Risk"]} High Risk`;
 }
 
-function buildServiceCompatibilityView(
+const SERVICE_COMPATIBILITY_STATUS_WEIGHT: Record<
+  ServiceCompatibilityStatus,
+  number
+> = {
+  Good: 0,
+  "Use with Caution": 1,
+  "High Risk": 2,
+};
+
+function getServiceCompatibilityStatusFromRegion(
+  regionStatus: RegionServiceStatus,
+): ServiceCompatibilityStatus {
+  if (regionStatus === "restricted" || regionStatus === "high risk") {
+    return "High Risk";
+  }
+
+  if (regionStatus === "caution" || regionStatus === "unknown") {
+    return "Use with Caution";
+  }
+
+  return "Good";
+}
+
+function mergeServiceCompatibilityStatus(
+  serviceStatus: ServiceCompatibilityStatus,
+  regionStatus: RegionServiceStatus,
+) {
+  const regionalServiceStatus =
+    getServiceCompatibilityStatusFromRegion(regionStatus);
+
+  return SERVICE_COMPATIBILITY_STATUS_WEIGHT[regionalServiceStatus] >
+    SERVICE_COMPATIBILITY_STATUS_WEIGHT[serviceStatus]
+    ? regionalServiceStatus
+    : serviceStatus;
+}
+
+function getRegionalAvailabilityLabel(regionStatus: RegionServiceStatus) {
+  if (regionStatus === "restricted") {
+    return "Restricted";
+  }
+
+  if (regionStatus === "high risk") {
+    return "High Risk";
+  }
+
+  if (regionStatus === "caution") {
+    return "Caution";
+  }
+
+  if (regionStatus === "unknown") {
+    return "Unknown Region";
+  }
+
+  return "Available";
+}
+
+function getRegionalAvailabilityTone(
+  regionStatus: RegionServiceStatus,
+): StatusTone {
+  if (regionStatus === "good") {
+    return "good";
+  }
+
+  if (regionStatus === "restricted" || regionStatus === "high risk") {
+    return "risk";
+  }
+
+  return "caution";
+}
+
+function getRegionalAvailabilityReason(
+  serviceName: string,
+  region: string | null,
+  regionStatus: RegionServiceStatus,
+) {
+  if (regionStatus === "unknown") {
+    return "IPinfo country is missing, so regional availability uses conservative mode.";
+  }
+
+  if (regionStatus === "restricted") {
+    return `Regional access to ${serviceName} in China is commonly restricted without VPN access.`;
+  }
+
+  if (regionStatus === "high risk") {
+    return `${serviceName} has strict regional availability and verification risk in China without VPN access.`;
+  }
+
+  if (regionStatus === "caution") {
+    return `Regional access for ${serviceName} in ${region ?? "this region"} may be limited, so treat availability cautiously.`;
+  }
+
+  return `No country-level restriction is mapped for ${serviceName} in ${region ?? "this region"}.`;
+}
+
+function buildRegionalAvailability(
+  serviceName: string,
+  region: string | null,
+  regionStatus: RegionServiceStatus,
+): RegionalAvailability {
+  return {
+    status: regionStatus,
+    label: getRegionalAvailabilityLabel(regionStatus),
+    tone: getRegionalAvailabilityTone(regionStatus),
+    region: region ?? "Unknown region",
+    reason: getRegionalAvailabilityReason(serviceName, region, regionStatus),
+  };
+}
+
+function combineServiceCompatibilityReason(
+  serviceReason: string,
+  regionalAvailability: RegionalAvailability,
+) {
+  if (regionalAvailability.status === "good") {
+    return serviceReason;
+  }
+
+  return `${serviceReason} ${regionalAvailability.reason}`;
+}
+
+function buildRegionRiskLevel(
   ipInfo: IpInfoResponse,
   abuseIpDb: AbuseIpDbResponse | null,
   ipqs: IpqsResponse | null,
@@ -492,22 +618,66 @@ function buildServiceCompatibilityView(
     cloudflare,
   );
 
+  return getRegionRiskLevel(
+    detectRegionFromIpInfo(ipInfo),
+    compatibilitySignals.vpn,
+  );
+}
+
+function buildServiceCompatibilityView(
+  ipInfo: IpInfoResponse,
+  abuseIpDb: AbuseIpDbResponse | null,
+  ipqs: IpqsResponse | null,
+  cloudflare: CloudflareTraceResponse | null,
+) {
+  const compatibilitySignals = buildServiceCompatibilitySignals(
+    ipInfo,
+    abuseIpDb,
+    ipqs,
+    cloudflare,
+  );
+  const region = detectRegionFromIpInfo(ipInfo);
+
   return normalizeServiceCompatibility(
     buildServiceCompatibility(ipInfo, abuseIpDb, ipqs, cloudflare),
   ).map((category) => ({
     category: category.category,
-    summary: getServiceCompatibilitySummaryLabel(category.services),
-    services: category.services.map((service) => ({
-      name: service.name,
-      status: service.status,
-      tone: getServiceCompatibilityTone(service.status),
-      reason: buildServiceCompatibilityReason(
+    services: category.services.map((service) => {
+      const regionStatus = getRegionServiceStatus(
+        service.name,
+        region,
+        compatibilitySignals.vpn,
+      );
+      const status = mergeServiceCompatibilityStatus(
+        service.status,
+        regionStatus,
+      );
+      const regionalAvailability = buildRegionalAvailability(
+        service.name,
+        region,
+        regionStatus,
+      );
+      const serviceReason = buildServiceCompatibilityReason(
         service.name,
         category.category,
         service.status,
         compatibilitySignals,
-      ),
-    })),
+      );
+
+      return {
+        name: service.name,
+        status,
+        tone: getServiceCompatibilityTone(status),
+        reason: combineServiceCompatibilityReason(
+          serviceReason,
+          regionalAvailability,
+        ),
+        regionalAvailability,
+      };
+    }),
+  })).map((category) => ({
+    ...category,
+    summary: getServiceCompatibilitySummaryLabel(category.services),
   }));
 }
 
@@ -767,6 +937,9 @@ export function buildAnalysisResult({
     serviceCompatibility: hasAnalysis
       ? buildServiceCompatibilityView(ipInfo, abuseIpDb, ipqs, cloudflare)
       : [],
+    regionRiskLevel: hasAnalysis
+      ? buildRegionRiskLevel(ipInfo, abuseIpDb, ipqs, cloudflare)
+      : "unknown",
     ipHistory: normalizeIpHistory(ipHistory),
     networkIntegrity: buildNetworkIntegrity(ipInfo, cloudflare),
   };

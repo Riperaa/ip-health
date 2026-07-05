@@ -1,5 +1,9 @@
 import type { StatusTone } from "@/lib/status-colors";
 import type {
+  RegionRiskLevel,
+  RegionServiceStatus,
+} from "@/lib/analysis/region/service-map";
+import type {
   Recommendation,
   RecommendationConfidence,
   RecommendationLabel,
@@ -65,11 +69,20 @@ export type RiskSignal = {
   tone: StatusTone;
 };
 
+export type RegionalAvailability = {
+  status: RegionServiceStatus;
+  label: string;
+  tone: StatusTone;
+  region: string;
+  reason: string;
+};
+
 export type ServiceCompatibilityItem = {
   name: string;
   status: ServiceCompatibilityStatus;
   tone: StatusTone;
   reason: string;
+  regionalAvailability: RegionalAvailability;
 };
 
 export type ServiceCompatibilityCategory = {
@@ -112,6 +125,7 @@ export type AnalysisResult = {
   };
   riskSignals: RiskSignal[];
   serviceCompatibility: ServiceCompatibilityCategory[];
+  regionRiskLevel: RegionRiskLevel;
   ipHistory: IpHistoryRecord[];
   networkIntegrity: NetworkIntegrity;
 };

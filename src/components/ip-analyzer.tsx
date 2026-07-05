@@ -4,6 +4,7 @@ import { useState, type ReactNode } from "react";
 
 import { StatusBadge } from "@/components/status-badge";
 import type { AnalysisResult } from "@/lib/analysis";
+import type { StatusTone } from "@/lib/status-colors";
 
 function DisclosureSection({
   title,
@@ -213,6 +214,40 @@ function NetworkIntegritySection({ result }: { result: AnalysisResult }) {
   );
 }
 
+function formatRegionRiskLevel(level: AnalysisResult["regionRiskLevel"]) {
+  if (level === "low") {
+    return "Low Regional Risk";
+  }
+
+  if (level === "medium") {
+    return "Medium Regional Risk";
+  }
+
+  if (level === "high") {
+    return "High Regional Risk";
+  }
+
+  return "Unknown Region";
+}
+
+function getRegionRiskLevelTone(
+  level: AnalysisResult["regionRiskLevel"],
+): StatusTone {
+  if (level === "low") {
+    return "good";
+  }
+
+  if (level === "high") {
+    return "risk";
+  }
+
+  if (level === "medium") {
+    return "caution";
+  }
+
+  return "neutral";
+}
+
 function ServiceCompatibilitySection({ result }: { result: AnalysisResult }) {
   const [isServiceCompatibilityVisible, setIsServiceCompatibilityVisible] =
     useState(false);
@@ -222,6 +257,7 @@ function ServiceCompatibilitySection({ result }: { result: AnalysisResult }) {
   const [expandedServiceKey, setExpandedServiceKey] = useState<string | null>(
     null,
   );
+  const hasServiceCompatibility = result.serviceCompatibility.length > 0;
 
   return (
     <DisclosureSection
@@ -235,6 +271,19 @@ function ServiceCompatibilitySection({ result }: { result: AnalysisResult }) {
       contentId="service-compatibility-content"
     >
       <div className="surface-card mt-3 overflow-hidden rounded-2xl border bg-white">
+        {hasServiceCompatibility ? (
+          <div className="flex flex-col gap-2 border-b border-neutral-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <span className="text-xs font-semibold uppercase tracking-normal text-neutral-500">
+              Regional Availability
+            </span>
+            <StatusBadge
+              tone={getRegionRiskLevelTone(result.regionRiskLevel)}
+              variant="quiet"
+            >
+              {formatRegionRiskLevel(result.regionRiskLevel)}
+            </StatusBadge>
+          </div>
+        ) : null}
         <div className="divide-y divide-neutral-100">
           {result.serviceCompatibility.map((category) => {
             const isCategoryExpanded = expandedServiceCategories.includes(
@@ -310,9 +359,22 @@ function ServiceCompatibilitySection({ result }: { result: AnalysisResult }) {
                             <span className="font-medium text-neutral-950">
                               {service.name}
                             </span>
-                            <StatusBadge tone={service.tone} variant="quiet">
-                              {service.status}
-                            </StatusBadge>
+                            <span className="flex flex-wrap items-center gap-2">
+                              <StatusBadge tone={service.tone} variant="quiet">
+                                {service.status}
+                              </StatusBadge>
+                              <span className="inline-flex items-center gap-2">
+                                <span className="text-[11px] font-semibold uppercase tracking-normal text-neutral-400">
+                                  Regional Availability
+                                </span>
+                                <StatusBadge
+                                  tone={service.regionalAvailability.tone}
+                                  variant="quiet"
+                                >
+                                  {service.regionalAvailability.label}
+                                </StatusBadge>
+                              </span>
+                            </span>
                           </span>
                           <span
                             id={serviceContentId}
@@ -337,9 +399,9 @@ function ServiceCompatibilitySection({ result }: { result: AnalysisResult }) {
           No service compatibility data available.
         </p>
         <p className="border-t border-neutral-100 px-4 py-3 text-sm leading-6 text-neutral-500">
-          These recommendations are based on IP reputation and infrastructure
-          signals. Services may also consider account history, device
-          reputation, browser fingerprint, and behavior.
+          This reflects both IP reputation and regional accessibility. Services
+          may also consider account history, device reputation, browser
+          fingerprint, and behavior.
         </p>
       </div>
     </DisclosureSection>

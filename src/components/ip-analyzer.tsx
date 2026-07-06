@@ -227,67 +227,6 @@ function NetworkIntegritySection({ result }: { result: AnalysisResult }) {
   );
 }
 
-function RealConnectivitySection({ result }: { result: AnalysisResult }) {
-  const connectivityItems = [
-    {
-      label: "Google",
-      probe: result.connectivity?.google,
-    },
-    {
-      label: "YouTube",
-      probe: result.connectivity?.youtube,
-    },
-    {
-      label: "OpenAI / ChatGPT",
-      probe: result.connectivity?.openai,
-    },
-  ];
-
-  return (
-    <section className="surface-card overflow-hidden rounded-2xl border bg-white">
-      <div className="border-b border-neutral-100 px-4 py-3">
-        <h3 className="text-sm font-semibold text-neutral-950">
-          Browser Reachability Signal
-        </h3>
-      </div>
-      <ul className="divide-y divide-neutral-100">
-        {connectivityItems.map((item) => {
-          const status = item.probe?.status ?? "not_verified";
-          const tone =
-            status === "verified_reachable"
-              ? "good"
-              : status === "unreachable"
-                ? "risk"
-                : "neutral";
-          const label =
-            status === "verified_reachable"
-              ? "Verified"
-              : status === "unreachable"
-                ? "Failed"
-                : "Not Verified";
-
-          return (
-            <li
-              key={item.label}
-              className="flex items-center justify-between gap-4 px-4 py-3 text-sm"
-            >
-              <span className="font-medium text-neutral-950">{item.label}</span>
-              <StatusBadge tone={tone} variant="quiet">
-                {label}
-              </StatusBadge>
-            </li>
-          );
-        })}
-      </ul>
-      <p className="border-t border-neutral-100 px-4 py-3 text-sm leading-6 text-neutral-500">
-        Browser privacy and CORS restrictions may prevent full verification.
-        When access cannot be strongly verified, IP Health shows Not Verified
-        instead of Available.
-      </p>
-    </section>
-  );
-}
-
 function getServiceAvailabilityTone(
   finalAvailability: AnalysisResult["serviceCompatibility"][number]["services"][number]["finalAvailability"],
 ) {
@@ -624,7 +563,6 @@ export function IpAnalyzer({ result }: { result: AnalysisResult }) {
       <MainRiskReport result={result} />
       <IpHistorySection result={result} />
       <NetworkIntegritySection result={result} />
-      <RealConnectivitySection result={result} />
       <ServiceCompatibilitySection result={result} />
       <ScoreExplanationSection result={result} />
       <RiskSignalsSection result={result} />

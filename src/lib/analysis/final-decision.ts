@@ -16,6 +16,12 @@ export const FINAL_DECISION_VERSION = "1.0" as const;
 
 type FinalDecisionDecision = FinalDecisionV1["decision"];
 
+const DEFAULT_CONNECTIVITY = {
+  google: true,
+  youtube: true,
+  openai: true,
+} satisfies FinalDecisionDecision["connectivity"];
+
 function isObjectRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === "object");
 }
@@ -188,7 +194,9 @@ function getRegionAvailabilityBadge(
   };
 }
 
-function getSignalItems(signals: FinalDecisionSignal[]): PresentationTextItem[] {
+function getSignalItems(
+  signals: FinalDecisionSignal[],
+): PresentationTextItem[] {
   return signals.map((signal) => ({
     key: signal.signalName,
     label: formatFinalDecisionSignalName(signal.signalName),
@@ -208,7 +216,9 @@ function getTopSignalItems(
   }));
 }
 
-function getSignalSummaryBadge(signals: FinalDecisionSignal[]): PresentationBadge {
+function getSignalSummaryBadge(
+  signals: FinalDecisionSignal[],
+): PresentationBadge {
   if (signals.length === 0) {
     return {
       label: "Clear",
@@ -260,7 +270,9 @@ function assertPresentationValue(value: unknown, path: string) {
     return;
   }
 
-  throw new Error(`PresentationContract contains unsupported value at ${path}.`);
+  throw new Error(
+    `PresentationContract contains unsupported value at ${path}.`,
+  );
 }
 
 function validatePresentationContract(display: PresentationContract) {
@@ -282,7 +294,7 @@ export function buildPresentation(
     riskBadge: getRiskBadge(decision.riskLevel),
     serviceCompatibilityBadge: getServiceCompatibilityBadge(decision),
     regionAvailabilityBadge: getRegionAvailabilityBadge(decision),
-    summary: `IP reputation compatibility probability is ${formatFinalDecisionProbability(decision.serviceCompatibility.probability)}. Regional availability is ${regionLabel.toLowerCase()} at ${formatFinalDecisionProbability(decision.regionAvailability.probability)}. ${regionExplanation}`,
+    summary: `Service compatibility probability is ${formatFinalDecisionProbability(decision.serviceCompatibility.probability)}. Regional availability is ${regionLabel.toLowerCase()} at ${formatFinalDecisionProbability(decision.regionAvailability.probability)}. ${regionExplanation}`,
     scoreExplanation: {
       title: "Score Explanation",
       intro: `Why this final decision received a ${decision.trustScore}/100 trust score.`,
@@ -293,7 +305,7 @@ export function buildPresentation(
       sectionTitle: "Service Compatibility",
       emptyMessage: "No service compatibility data available.",
       footnote:
-        "This reflects both IP reputation and regional accessibility. Services may also consider account history, device reputation, browser fingerprint, and behavior.",
+        "This uses real connectivity first, then IP reputation and regional accessibility. Services may also consider account history, device reputation, browser fingerprint, and behavior.",
       topSignalsLabel: "Top signals:",
       topSignalsSummary: getTopSignalItems(decision.signals)
         .map((item) => item.label)
@@ -432,6 +444,14 @@ function withRegionAvailabilityDefaults(
 
   return {
     ...decision,
+    connectivity:
+      "connectivity" in decision && isObjectRecord(decision.connectivity)
+        ? {
+            google: decision.connectivity.google === true,
+            youtube: decision.connectivity.youtube === true,
+            openai: decision.connectivity.openai === true,
+          }
+        : DEFAULT_CONNECTIVITY,
     regionAvailability: {
       ...regionAvailability,
       restriction: hasRestriction ? regionAvailability.restriction : "none",

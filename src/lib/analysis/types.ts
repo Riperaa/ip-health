@@ -11,6 +11,7 @@ import type {
   RecommendationLabel,
   ServiceCompatibilityStatus,
 } from "@/lib/trust-engine";
+import type { ConnectivityProbeResult } from "./connectivity/probe";
 import type { ProviderResult as AbuseIpDbResponse } from "@/lib/providers/abuseipdb";
 import type { ProviderResult as CloudflareTraceResponse } from "@/lib/providers/cloudflare";
 import type { ProviderResult as IpInfoResponse } from "@/lib/providers/ipinfo";
@@ -137,6 +138,7 @@ export type FinalDecisionV1 = {
     ip: string;
     trustScore: number;
     riskLevel: FinalDecisionRiskLevel;
+    connectivity: ConnectivityProbeResult;
     regionAvailability: {
       status: RegionServiceStatus;
       probability: number;
@@ -220,10 +222,13 @@ export type AnalysisResult = {
   riskSignals: RiskSignal[];
   finalDecision: FinalDecision | null;
   serviceCompatibility: ServiceCompatibilityCategory[];
+  connectivity: ConnectivityProbeResult | null;
   regionRiskLevel: RegionRiskLevel;
   ipHistory: IpHistoryRecord[];
   networkIntegrity: NetworkIntegrity;
 };
+
+export type { ConnectivityProbeResult };
 
 export type ComparisonDisplayResult = {
   input: string;

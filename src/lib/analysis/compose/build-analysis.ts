@@ -18,6 +18,10 @@ import {
   normalizeFinalDecision,
 } from "../final-decision";
 import {
+  probeConnectivity,
+  type ConnectivityProbeResult,
+} from "../connectivity/probe";
+import {
   formatDetail,
   hasDetail,
   isObjectRecord,
@@ -545,6 +549,28 @@ const SERVICE_COMPATIBILITY_GROUPS = [
   },
 ] as const;
 
+const DEFAULT_CONNECTIVITY = {
+  google: true,
+  youtube: true,
+  openai: true,
+} satisfies ConnectivityProbeResult;
+
+const GOOGLE_CONNECTIVITY_SERVICES = new Set([
+  "google account",
+  "gmail",
+  "google play",
+  "google voice",
+]);
+
+const OPENAI_CONNECTIVITY_SERVICES = new Set(["chatgpt", "openai"]);
+
+const CONNECTIVITY_FAILURE_PROBABILITY = 0.2;
+const CONNECTIVITY_FAILURE_REGION_PROBABILITY = 0.1;
+
+function normalizeServiceName(service: string) {
+  return service.trim().toLowerCase();
+}
+
 function roundProbability(value: number) {
   return Number(Math.min(Math.max(value, 0), 1).toFixed(2));
 }
@@ -638,6 +664,102 @@ function sortFinalDecisionSignals(signals: FinalDecisionSignal[]) {
   });
 }
 
+function getConnectivityFailureExplanation(
+  service: string,
+  connectivity: ConnectivityProbeResult,
+) {
+  const normalizedService = normalizeServiceName(service);
+
+  if (normalizedService === "youtube" && !connectivity.youtube) {
+    return "Real connectivity probe failed. This service appears unreachable from the current network, regardless of IP reputation.";
+  }
+
+  if (
+    OPENAI_CONNECTIVITY_SERVICES.has(normalizedService) &&
+    !connectivity.openai
+  ) {
+    return "Real connectivity probe failed. This service appears unreachable from the current network, regardless of IP reputation.";
+  }
+
+  if (
+    GOOGLE_CONNECTIVITY_SERVICES.has(normalizedService) &&
+    !connectivity.google
+  ) {
+    return "Google connectivity probe failed, so Google services are not marked as Good even if IP reputation is clean.";
+  }
+
+  return null;
+}
+
+function buildConnectivityFailureSignal(): FinalDecisionSignal {
+  return {
+    signalName: "real_connectivity_probe",
+    direction: "raises_risk",
+    weight: 1,
+    impact: 0.8,
+    contribution: -0.8,
+  };
+}
+
+export function applyConnectivityFinalGate(
+  finalDecision: FinalDecision,
+): FinalDecision {
+  const failureExplanation = getConnectivityFailureExplanation(
+    finalDecision.rawSignals.service,
+    finalDecision.decision.connectivity,
+  );
+
+  if (!failureExplanation) {
+    return finalDecision;
+  }
+
+  const serviceProbability = roundProbability(
+    Math.min(
+      finalDecision.decision.serviceCompatibility.probability,
+      CONNECTIVITY_FAILURE_PROBABILITY,
+    ),
+  );
+  const regionAvailabilityProbability = roundProbability(
+    Math.min(
+      finalDecision.decision.regionAvailability.probability,
+      CONNECTIVITY_FAILURE_REGION_PROBABILITY,
+    ),
+  );
+  const signals = sortFinalDecisionSignals([
+    buildConnectivityFailureSignal(),
+    ...finalDecision.decision.signals.filter(
+      (signal) => signal.signalName !== "real_connectivity_probe",
+    ),
+  ]);
+
+  return createFinalDecisionV1({
+    rawSignals: {
+      ...finalDecision.rawSignals,
+      signals,
+    },
+    computedMetrics: {
+      ...finalDecision.computedMetrics,
+      regionAvailabilityProbability,
+      serviceCompatibilityProbability: serviceProbability,
+    },
+    decision: {
+      ...finalDecision.decision,
+      regionAvailability: {
+        ...finalDecision.decision.regionAvailability,
+        status: "likely_blocked",
+        probability: regionAvailabilityProbability,
+        restriction: "hard_region",
+        explanation: failureExplanation,
+      },
+      serviceCompatibility: {
+        status: "High Risk",
+        probability: serviceProbability,
+      },
+      signals,
+    },
+  });
+}
+
 function getHistoricalAccessConsistency(
   ipHistory: IpHistoryRecord[],
 ): HistoricalAccessConsistency {
@@ -645,7 +767,9 @@ function getHistoricalAccessConsistency(
     return "unavailable";
   }
 
-  const trustScores = ipHistory.map((historyRecord) => historyRecord.trustScore);
+  const trustScores = ipHistory.map(
+    (historyRecord) => historyRecord.trustScore,
+  );
   const scoreSpread = Math.max(...trustScores) - Math.min(...trustScores);
   const ipTypes = new Set(
     ipHistory.map((historyRecord) => historyRecord.ipType),
@@ -773,6 +897,7 @@ function buildFinalDecision({
   ipqs,
   cloudflare,
   historicalAccessConsistency,
+  connectivity,
 }: {
   service: string;
   region: string | null;
@@ -781,6 +906,7 @@ function buildFinalDecision({
   ipqs: IpqsResponse | null;
   cloudflare: CloudflareTraceResponse | null;
   historicalAccessConsistency: HistoricalAccessConsistency;
+  connectivity: ConnectivityProbeResult;
 }): FinalDecision {
   const trustScore = calculateTrustScore(ipInfo, abuseIpDb, ipqs, cloudflare);
   const trustProbability = roundProbability(trustScore / 100);
@@ -808,7 +934,7 @@ function buildFinalDecision({
     ),
   ]);
 
-  return createFinalDecisionV1({
+  const finalDecision = createFinalDecisionV1({
     rawSignals: {
       ip: ipInfo.ip ?? "",
       region,
@@ -825,6 +951,7 @@ function buildFinalDecision({
       ip: ipInfo.ip ?? "",
       trustScore,
       riskLevel: getFinalRiskLevel(trustScore),
+      connectivity,
       regionAvailability: {
         status: regionInference.status,
         probability: regionInference.probability,
@@ -838,6 +965,8 @@ function buildFinalDecision({
       signals,
     },
   });
+
+  return applyConnectivityFinalGate(finalDecision);
 }
 
 function buildServiceCompatibilityView(
@@ -846,6 +975,7 @@ function buildServiceCompatibilityView(
   ipqs: IpqsResponse | null,
   cloudflare: CloudflareTraceResponse | null,
   ipHistory: IpHistoryRecord[],
+  connectivity: ConnectivityProbeResult,
 ) {
   const region = detectRegionFromIpInfo(ipInfo);
   const historicalAccessConsistency = getHistoricalAccessConsistency(ipHistory);
@@ -861,6 +991,7 @@ function buildServiceCompatibilityView(
         ipqs,
         cloudflare,
         historicalAccessConsistency,
+        connectivity,
       });
       const status = finalDecision.decision.serviceCompatibility.status;
 
@@ -1139,10 +1270,12 @@ export function buildAnalysisResult({
   providerResult,
   ipHistory = [],
   fallbackIpAddress = "",
+  connectivity = null,
 }: {
   providerResult: ProviderAnalysisResult | null;
   ipHistory?: IpHistoryRecord[];
   fallbackIpAddress?: string;
+  connectivity?: ConnectivityProbeResult | null;
 }): AnalysisResult {
   const hasAnalysis = Boolean(providerResult);
   const normalizedResult = normalizeProviderAnalysisResult(
@@ -1158,6 +1291,7 @@ export function buildAnalysisResult({
         ipqs,
         cloudflare,
         normalizedIpHistory,
+        connectivity ?? DEFAULT_CONNECTIVITY,
       )
     : [];
   const region = detectRegionFromIpInfo(ipInfo);
@@ -1171,6 +1305,7 @@ export function buildAnalysisResult({
       : [],
     finalDecision,
     serviceCompatibility,
+    connectivity,
     regionRiskLevel: hasAnalysis
       ? buildRegionRiskLevel(serviceCompatibility, region)
       : "unknown",
@@ -1186,14 +1321,19 @@ export function getEmptyAnalysisResult(fallbackIpAddress = ""): AnalysisResult {
   });
 }
 
-export async function buildAnalysis(ipAddress: string): Promise<AnalysisResult> {
+export async function buildAnalysis(
+  ipAddress: string,
+): Promise<AnalysisResult> {
   const trimmedIpAddress = ipAddress.trim();
 
   if (!trimmedIpAddress) {
     throw new Error("Missing IP address.");
   }
 
-  const providerResult = await fetchProviderAnalysis(trimmedIpAddress);
+  const [providerResult, connectivity] = await Promise.all([
+    fetchProviderAnalysis(trimmedIpAddress),
+    probeConnectivity(),
+  ]);
   const storedIpHistory = loadIpHistory();
   const historyRecord = buildIpHistoryRecord(providerResult, trimmedIpAddress);
   const nextIpHistory = getNextIpHistory(storedIpHistory, historyRecord);
@@ -1204,6 +1344,7 @@ export async function buildAnalysis(ipAddress: string): Promise<AnalysisResult> 
     providerResult,
     ipHistory: getHistoryForIp(nextIpHistory, historyRecord.ip),
     fallbackIpAddress: trimmedIpAddress,
+    connectivity,
   });
 }
 

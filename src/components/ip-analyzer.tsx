@@ -58,7 +58,8 @@ function MainRiskReport({ result }: { result: AnalysisResult }) {
   const display = result.finalDecision?.display;
   const trustScoreDisplay = display?.trustScoreValue ?? "--";
   const trustScoreSuffix = display?.trustScoreSuffix ?? "/100";
-  const summary = display?.summary ?? "Run an analysis to populate this report.";
+  const summary =
+    display?.summary ?? "Run an analysis to populate this report.";
 
   return (
     <section className="surface-card-primary rounded-[28px] border bg-white p-5 sm:p-6">
@@ -226,6 +227,58 @@ function NetworkIntegritySection({ result }: { result: AnalysisResult }) {
   );
 }
 
+function RealConnectivitySection({ result }: { result: AnalysisResult }) {
+  const connectivityItems = [
+    {
+      label: "Google",
+      connected: result.connectivity?.google,
+    },
+    {
+      label: "YouTube",
+      connected: result.connectivity?.youtube,
+    },
+    {
+      label: "OpenAI / ChatGPT",
+      connected: result.connectivity?.openai,
+    },
+  ];
+
+  return (
+    <section className="surface-card overflow-hidden rounded-2xl border bg-white">
+      <div className="border-b border-neutral-100 px-4 py-3">
+        <h3 className="text-sm font-semibold text-neutral-950">
+          Real Connectivity
+        </h3>
+      </div>
+      <ul className="divide-y divide-neutral-100">
+        {connectivityItems.map((item) => {
+          const hasResult = typeof item.connected === "boolean";
+          const isConnected = item.connected === true;
+
+          return (
+            <li
+              key={item.label}
+              className="flex items-center justify-between gap-4 px-4 py-3 text-sm"
+            >
+              <span className="font-medium text-neutral-950">{item.label}</span>
+              <StatusBadge
+                tone={hasResult ? (isConnected ? "good" : "risk") : "neutral"}
+                variant="quiet"
+              >
+                {hasResult
+                  ? isConnected
+                    ? "Connected"
+                    : "Unreachable"
+                  : "Pending"}
+              </StatusBadge>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
+
 function ServiceCompatibilitySection({ result }: { result: AnalysisResult }) {
   const [isServiceCompatibilityVisible, setIsServiceCompatibilityVisible] =
     useState(false);
@@ -377,9 +430,7 @@ function ServiceCompatibilitySection({ result }: { result: AnalysisResult }) {
                                   Regional Availability
                                 </span>
                                 <StatusBadge
-                                  tone={
-                                    display.regionAvailabilityBadge.tone
-                                  }
+                                  tone={display.regionAvailabilityBadge.tone}
                                   variant="quiet"
                                 >
                                   {display.regionAvailabilityBadge.label}
@@ -436,7 +487,8 @@ function ScoreExplanationSection({ result }: { result: AnalysisResult }) {
           {explanation?.title ?? "Score Explanation"}
         </p>
         <p className="text-sm leading-6 text-neutral-500">
-          {explanation?.intro ?? "Score details will appear here after analysis."}
+          {explanation?.intro ??
+            "Score details will appear here after analysis."}
         </p>
       </div>
       <ul className="mt-4 space-y-3">
@@ -456,7 +508,8 @@ function ScoreExplanationSection({ result }: { result: AnalysisResult }) {
               className="mt-2 size-1.5 shrink-0 rounded-full bg-neutral-900"
             />
             <span className="text-neutral-600">
-              {explanation?.emptyMessage ?? "Run an analysis to see decision signals."}
+              {explanation?.emptyMessage ??
+                "Run an analysis to see decision signals."}
             </span>
           </li>
         ) : null}
@@ -535,6 +588,7 @@ export function IpAnalyzer({ result }: { result: AnalysisResult }) {
       <MainRiskReport result={result} />
       <IpHistorySection result={result} />
       <NetworkIntegritySection result={result} />
+      <RealConnectivitySection result={result} />
       <ServiceCompatibilitySection result={result} />
       <ScoreExplanationSection result={result} />
       <RiskSignalsSection result={result} />

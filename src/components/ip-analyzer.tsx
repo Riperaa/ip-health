@@ -241,6 +241,18 @@ function getServiceAvailabilityTone(
   return "neutral";
 }
 
+function shouldShowServiceAccessBadge(
+  finalAvailability: AnalysisResult["serviceCompatibility"][number]["services"][number]["finalAvailability"],
+) {
+  return finalAvailability !== "Not Verified";
+}
+
+function shouldShowRegionalAvailabilityBadge(
+  badge: AnalysisResult["serviceCompatibility"][number]["services"][number]["finalDecision"]["display"]["regionAvailabilityBadge"],
+) {
+  return !badge.label.startsWith("Not Verified");
+}
+
 function ServiceCompatibilitySection({ result }: { result: AnalysisResult }) {
   const [isServiceCompatibilityVisible, setIsServiceCompatibilityVisible] =
     useState(false);
@@ -357,6 +369,15 @@ function ServiceCompatibilitySection({ result }: { result: AnalysisResult }) {
                     const isExpanded = expandedServiceKey === serviceKey;
                     const serviceContentId = `service-compatibility-${serviceKey}`;
                     const display = service.finalDecision.display;
+                    const showAccessBadge = shouldShowServiceAccessBadge(
+                      service.finalAvailability,
+                    );
+                    const showRegionalAvailabilityBadge =
+                      shouldShowRegionalAvailabilityBadge(
+                        display.regionAvailabilityBadge,
+                      );
+                    const showAccessProbeNote =
+                      !showAccessBadge && !showRegionalAvailabilityBadge;
 
                     return (
                       <li key={service.name} className="text-sm">
@@ -376,19 +397,21 @@ function ServiceCompatibilitySection({ result }: { result: AnalysisResult }) {
                               {service.name}
                             </span>
                             <span className="flex flex-wrap items-center gap-2">
-                              <span className="inline-flex items-center gap-2">
-                                <span className="text-[11px] font-semibold uppercase tracking-normal text-neutral-400">
-                                  Access
+                              {showAccessBadge ? (
+                                <span className="inline-flex items-center gap-2">
+                                  <span className="text-[11px] font-semibold uppercase tracking-normal text-neutral-400">
+                                    Access
+                                  </span>
+                                  <StatusBadge
+                                    tone={getServiceAvailabilityTone(
+                                      service.finalAvailability,
+                                    )}
+                                    variant="quiet"
+                                  >
+                                    {service.finalAvailability}
+                                  </StatusBadge>
                                 </span>
-                                <StatusBadge
-                                  tone={getServiceAvailabilityTone(
-                                    service.finalAvailability,
-                                  )}
-                                  variant="quiet"
-                                >
-                                  {service.finalAvailability}
-                                </StatusBadge>
-                              </span>
+                              ) : null}
                               <span className="inline-flex items-center gap-2">
                                 <span className="text-[11px] font-semibold uppercase tracking-normal text-neutral-400">
                                   IP Reputation
@@ -400,18 +423,27 @@ function ServiceCompatibilitySection({ result }: { result: AnalysisResult }) {
                                   {display.serviceCompatibilityBadge.label}
                                 </StatusBadge>
                               </span>
-                              <span className="inline-flex items-center gap-2">
-                                <span className="text-[11px] font-semibold uppercase tracking-normal text-neutral-400">
-                                  Regional Availability
+                              {showRegionalAvailabilityBadge ? (
+                                <span className="inline-flex items-center gap-2">
+                                  <span className="text-[11px] font-semibold uppercase tracking-normal text-neutral-400">
+                                    Regional Availability
+                                  </span>
+                                  <StatusBadge
+                                    tone={display.regionAvailabilityBadge.tone}
+                                    variant="quiet"
+                                  >
+                                    {display.regionAvailabilityBadge.label}
+                                  </StatusBadge>
                                 </span>
-                                <StatusBadge
-                                  tone={display.regionAvailabilityBadge.tone}
-                                  variant="quiet"
-                                >
-                                  {display.regionAvailabilityBadge.label}
-                                </StatusBadge>
-                              </span>
+                              ) : null}
                             </span>
+                          </span>
+                          <span
+                            hidden={!isExpanded || !showAccessProbeNote}
+                            className="mt-2 block text-[11px] leading-5 text-neutral-400"
+                          >
+                            Service access was not strongly verified by browser
+                            probe.
                           </span>
                           <span
                             id={serviceContentId}

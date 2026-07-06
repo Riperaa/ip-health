@@ -734,8 +734,13 @@ function getServiceAvailabilitySummaryLabel(
   services: { finalAvailability: ServiceAvailabilityStatus }[],
 ) {
   const summary = getServiceAvailabilitySummary(services);
+  const serviceCount = Array.isArray(services) ? services.length : 0;
 
-  return `${summary.Verified} Verified - ${summary["Not Verified"]} Not Verified - ${summary.Restricted} Restricted`;
+  if (summary.Verified === 0 && summary.Restricted === 0) {
+    return `${serviceCount} services`;
+  }
+
+  return `${summary.Verified} Verified - ${summary.Restricted} Restricted`;
 }
 
 export function applyConnectivityFinalGate(

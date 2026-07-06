@@ -172,8 +172,9 @@ function getRiskSignalExplanation(signal: {
     text.includes("asn")
   ) {
     return {
-      title: "Datacenter IP detected",
-      whyItMatters: "Some platforms reduce trust for cloud hosting IP ranges.",
+      title: "Cloud or hosting infrastructure",
+      whyItMatters:
+        "Some platforms add review steps for shared cloud hosting IP ranges.",
     };
   }
 
@@ -258,9 +259,9 @@ function getRiskSignalCards(result: AnalysisResult) {
           label: "Hosting",
           detail: "Network ownership raised a hosting risk signal.",
           tone: "infrastructure",
-          title: "Datacenter IP detected",
+          title: "Cloud or hosting infrastructure",
           whyItMatters:
-            "Some platforms reduce trust for cloud hosting IP ranges.",
+            "Some platforms add review steps for shared cloud hosting IP ranges.",
         });
         return;
       }
@@ -363,7 +364,7 @@ function getNegativeScoreSignals(result: AnalysisResult) {
     riskSignalText.includes("infrastructure") ||
     riskSignalText.includes("asn")
   ) {
-    negativeSignals.add("Datacenter IP detected");
+    negativeSignals.add("Cloud or hosting infrastructure");
   }
 
   if (
@@ -807,38 +808,25 @@ function ReputationSection({ result }: { result: AnalysisResult }) {
   );
 }
 
-function getIpTypeDisplay(
+function getNetworkIdentityDisplay(
   identity: AnalysisResult["endUserReport"]["identity"],
 ) {
-  if (identity.ipType === "Residential ISP") {
-    return {
-      icon: "🏠",
-      label: "Residential ISP",
-      detail: "Residential ISP detected. No datacenter or VPN signal.",
-    };
-  }
-
-  if (identity.ipType === "Datacenter") {
-    return {
-      icon: "🏢",
-      label: "Datacenter",
-      detail:
-        "Datacenter IP detected. Some platforms may require verification.",
-    };
-  }
-
-  if (identity.ipType === "VPN / Proxy") {
-    return {
-      icon: "🛡",
-      label: "VPN / Proxy",
-      detail:
-        "VPN / proxy signal detected. Some platforms may require verification.",
-    };
-  }
+  const iconByIdentity: Record<string, string> = {
+    "Residential ISP": "🏠",
+    "Mobile Network": "📱",
+    "Enterprise Network": "🏢",
+    "Public Infrastructure": "🌐",
+    "Cloud Provider": "☁",
+    Datacenter: "🏢",
+    "VPN / Proxy": "🛡",
+    "Tor Exit": "🛡",
+    Unknown: "",
+  };
+  const label = identity.networkIdentity ?? identity.ipType;
 
   return {
-    icon: "",
-    label: "Unknown",
+    icon: iconByIdentity[label] ?? "",
+    label,
     detail: identity.detail,
   };
 }
@@ -850,7 +838,7 @@ function IpIdentitySection({ result }: { result: AnalysisResult }) {
 
   const identity = result.endUserReport.identity;
   const location = result.endUserReport.location;
-  const ipType = getIpTypeDisplay(identity);
+  const networkIdentity = getNetworkIdentityDisplay(identity);
 
   return (
     <section className="surface-card rounded-2xl border bg-white p-5 sm:p-6">
@@ -858,23 +846,31 @@ function IpIdentitySection({ result }: { result: AnalysisResult }) {
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <p className="text-sm font-semibold text-neutral-950">
-              IP Identity
+              Network Identity
             </p>
             <StatusBadge tone={identity.tone} variant="quiet">
-              IP Type
+              Network Identity
             </StatusBadge>
           </div>
           <p className="mt-4 flex items-center gap-3 text-3xl font-semibold leading-tight text-neutral-950">
-            {ipType.icon ? (
+            {networkIdentity.icon ? (
               <span aria-hidden="true" className="text-2xl">
-                {ipType.icon}
+                {networkIdentity.icon}
               </span>
             ) : null}
-            <span>{ipType.label}</span>
+            <span>{networkIdentity.label}</span>
           </p>
           <p className="mt-2 text-sm leading-6 text-neutral-500">
-            {ipType.detail}
+            {networkIdentity.detail}
           </p>
+          <dl className="mt-4 grid gap-3 sm:grid-cols-3">
+            <ReportField label="Provider" value={identity.provider} />
+            <ReportField
+              label="Confidence"
+              value={identity.identityConfidence}
+            />
+            <ReportField label="Reason" value={identity.reason} />
+          </dl>
         </div>
 
         <div className="rounded-2xl border border-neutral-100 bg-neutral-50/70 p-4">
@@ -1148,7 +1144,7 @@ function TechnicalDetailsSection({ result }: { result: AnalysisResult }) {
   return (
     <DisclosureSection
       title="Technical Details"
-      summary="Identity, reputation, ASN, IPInfo, IPQS, connectivity, and Cloudflare"
+      summary="Network identity, reputation, ASN, IPInfo, IPQS, connectivity, and Cloudflare"
       isExpanded={isTechnicalDetailsVisible}
       onToggle={() =>
         setIsTechnicalDetailsVisible((currentVisibility) => !currentVisibility)

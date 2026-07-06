@@ -57,7 +57,14 @@ function ResultCard({
     { label: "IP Health Score", value: `${result.score}/100` },
     { label: "Recommendation", value: result.recommendation.label },
     { label: "Confidence", value: result.confidence },
-    { label: "IP Type / Usage Type", value: result.usageType },
+    {
+      label: "Network Identity",
+      value:
+        result.identityProvider === "Not identified"
+          ? result.networkIdentity
+          : `${result.networkIdentity} · ${result.identityProvider}`,
+    },
+    { label: "Usage Type", value: result.usageType },
     { label: "Abuse Confidence", value: result.abuseConfidence },
     { label: "Country", value: result.country },
     { label: "ISP / Organization", value: result.ispOrg },
@@ -87,7 +94,8 @@ function ResultCard({
       <dl className="mt-4 flex flex-1 flex-col">
         {rows.map((row) => {
           const isRecommendation = row.label === "Recommendation";
-          const isUsageType = row.label === "IP Type / Usage Type";
+          const isUsageType =
+            row.label === "Usage Type" || row.label === "Network Identity";
           const isTrustScore = row.label === "IP Health Score";
 
           return (

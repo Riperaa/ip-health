@@ -125,6 +125,7 @@ export function getUsageTypeTone(value?: string | null): StatusTone {
 
   if (
     normalized.includes("infrastructure") ||
+    normalized.includes("cloud") ||
     normalized.includes("hosting") ||
     normalized.includes("cdn") ||
     normalized.includes("data center") ||
@@ -134,7 +135,19 @@ export function getUsageTypeTone(value?: string | null): StatusTone {
     return "infrastructure";
   }
 
-  if (normalized.includes("residential") || normalized.includes("mobile")) {
+  if (normalized.includes("tor")) {
+    return "risk";
+  }
+
+  if (normalized.includes("vpn") || normalized.includes("proxy")) {
+    return "caution";
+  }
+
+  if (
+    normalized.includes("residential") ||
+    normalized.includes("mobile") ||
+    normalized.includes("enterprise")
+  ) {
     return "good";
   }
 

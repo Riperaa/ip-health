@@ -9,6 +9,7 @@ import {
   pickDetail,
 } from "../normalize/common";
 import { buildIpQualityReport } from "../scoring/ip-quality-report";
+import { classifyNetworkIdentity } from "../network-identity";
 import { assertValidIpv4Address } from "../validation";
 import type {
   AbuseIpDbResponse,
@@ -144,6 +145,12 @@ function getDisplayResult(
     hasAnalysis: true,
   });
   const score = qualityReport.overallScore ?? 0;
+  const identity = classifyNetworkIdentity({
+    ipInfo,
+    abuseIpDb,
+    ipqs,
+    cloudflare,
+  });
 
   return {
     input: result.input,
@@ -155,6 +162,8 @@ function getDisplayResult(
       abuseIpDb,
       ipqs,
     ),
+    networkIdentity: identity.networkIdentity,
+    identityProvider: identity.provider,
     usageType: formatUsageType(abuseIpDb?.usageType, ipInfo.privacy),
     abuseConfidence: formatAbuseConfidence(abuseIpDb),
     abuseConfidenceValue: getAbuseConfidenceValue(abuseIpDb),

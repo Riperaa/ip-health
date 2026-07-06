@@ -547,9 +547,9 @@ function buildNetworkQualityScore({
     return {
       score,
       assessmentLabel,
-      summary: "Datacenter network detected",
+      summary: "Cloud or hosting infrastructure detected",
       detail:
-        "This IP belongs to infrastructure commonly used by hosting providers.",
+        "This IP belongs to a hosting provider rather than a typical residential connection.",
       tone: "infrastructure",
       confidence: providerConfidence.confidence,
       confidenceReason: providerConfidence.confidenceReason,

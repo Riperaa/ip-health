@@ -57,6 +57,19 @@ export type IpTypeBadge =
   | "Hosting"
   | "Unknown";
 
+export type NetworkIdentityCategory =
+  | "Residential ISP"
+  | "Mobile Network"
+  | "Enterprise Network"
+  | "Public Infrastructure"
+  | "Cloud Provider"
+  | "Datacenter"
+  | "VPN / Proxy"
+  | "Tor Exit"
+  | "Unknown";
+
+export type NetworkIdentityConfidence = "High" | "Medium" | "Low";
+
 export type IpHistoryRecord = {
   ip: string;
   timestamp: number;
@@ -289,7 +302,11 @@ export type EndUserReport = {
     confidence: RecommendationConfidence | "Pending";
   };
   identity: {
-    ipType: "Residential ISP" | "Datacenter" | "VPN / Proxy" | "Unknown";
+    networkIdentity: NetworkIdentityCategory;
+    ipType: NetworkIdentityCategory;
+    provider: string;
+    identityConfidence: NetworkIdentityConfidence;
+    reason: string;
     detail: string;
     tone: StatusTone;
   };
@@ -343,6 +360,8 @@ export type ComparisonDisplayResult = {
   score: number;
   recommendation: Recommendation;
   confidence: RecommendationConfidence;
+  networkIdentity: string;
+  identityProvider: string;
   usageType: string;
   abuseConfidence: string;
   abuseConfidenceValue: number | null;

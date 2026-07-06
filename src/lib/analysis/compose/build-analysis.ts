@@ -47,6 +47,7 @@ import {
   normalizeIpHistory,
   persistIpHistory,
 } from "../normalize/storage";
+import { classifyNetworkIdentity } from "../network-identity";
 import { buildIpQualityReport } from "../scoring/ip-quality-report";
 import { calculateTrustScore } from "../scoring/trust-score";
 import { assertValidIpv4Address } from "../validation";
@@ -326,51 +327,6 @@ function formatAbuseSignals(abuseIpDb?: AbuseIpDbResponse | null) {
   return `Severe (${abuseConfidence}%)`;
 }
 
-function getIpIdentity(
-  ipInfo: IpInfoResponse,
-  abuseIpDb: AbuseIpDbResponse | null,
-  ipqs: IpqsResponse | null,
-  cloudflare: CloudflareTraceResponse | null,
-): EndUserReport["identity"] {
-  const usageType = normalizeReportText(abuseIpDb?.usageType);
-  const hasVpnProxy =
-    hasPrivacyVpnProxySignal(ipInfo.privacy) || hasIpqsVpnProxySignal(ipqs);
-
-  if (hasVpnProxy) {
-    return {
-      ipType: "VPN / Proxy",
-      detail: "A VPN, proxy, relay, or Tor signal was detected.",
-      tone: "caution",
-    };
-  }
-
-  if (hasProviderInfrastructureSignal(ipInfo, abuseIpDb, cloudflare)) {
-    return {
-      ipType: "Datacenter",
-      detail: "Hosting or infrastructure network signals were detected.",
-      tone: "infrastructure",
-    };
-  }
-
-  if (
-    usageType.includes("residential") ||
-    usageType.includes("mobile") ||
-    hasNetworkTypeSignal(ipInfo, ["isp", "broadband", "cable", "telecom"])
-  ) {
-    return {
-      ipType: "Residential ISP",
-      detail: "This looks like an ISP network with no datacenter or VPN signal.",
-      tone: "good",
-    };
-  }
-
-  return {
-    ipType: "Unknown",
-    detail: "Provider data does not clearly identify this IP type.",
-    tone: "neutral",
-  };
-}
-
 function getNetworkSharingRisk(
   ipInfo: IpInfoResponse,
   abuseIpDb: AbuseIpDbResponse | null,
@@ -438,10 +394,14 @@ function buildEndUserReport({
   const networkIdentity = getNetworkIdentity(ipInfo, abuseIpDb);
   const ipInfoPresentation = ipInfo as IpInfoPresentationFields;
   const identity = hasAnalysis
-    ? getIpIdentity(ipInfo, abuseIpDb, ipqs, cloudflare)
+    ? classifyNetworkIdentity({ ipInfo, abuseIpDb, ipqs, cloudflare })
     : {
+        networkIdentity: "Unknown",
         ipType: "Unknown",
-        detail: "Run an analysis to identify the IP type.",
+        provider: "Not identified",
+        identityConfidence: "Low",
+        reason: "Run an analysis to identify network ownership.",
+        detail: "Run an analysis to identify the network identity.",
         tone: "neutral" satisfies StatusTone,
       } satisfies EndUserReport["identity"];
 
@@ -745,9 +705,9 @@ function getRiskSignals(
 
   if (hasNativeInfrastructureSignal(ipInfo, abuseIpDb)) {
     signals.push({
-      label: "Suspicious ASN",
+      label: "Hosting infrastructure",
       detail: hasDetail(networkIdentity.asn)
-        ? `${networkIdentity.asn} appears to be hosting or infrastructure.`
+        ? "Network ownership appears to be hosting or infrastructure."
         : "Network appears to be hosting or infrastructure.",
       tone: "infrastructure",
     });

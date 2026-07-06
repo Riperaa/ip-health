@@ -26,7 +26,7 @@ const DEFAULT_CONNECTIVITY = buildConnectivityProbeResult(
 ) satisfies FinalDecisionDecision["connectivity"];
 
 const CONNECTIVITY_VERIFICATION_EXPLANATION =
-  "Browser privacy/CORS restrictions prevent full verification. This result is shown as Not Verified instead of Available.";
+  "Browser privacy and CORS restrictions may prevent full verification. When access cannot be strongly verified, IP Health shows Not Verified instead of Available.";
 
 function isObjectRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === "object");
@@ -92,42 +92,38 @@ function getFinalDecisionRegionLabel(
   regionAvailability: FinalDecisionDecision["regionAvailability"],
 ) {
   if (
-    regionAvailability.status === "likely_available" &&
-    regionAvailability.verification === "probe_passed"
+    regionAvailability.status === "likely_blocked" ||
+    regionAvailability.restriction === "hard_region"
   ) {
-    return "Available";
-  }
-
-  if (regionAvailability.status === "likely_blocked") {
     return "Region Restricted";
   }
 
-  if (regionAvailability.verification === "not_probed") {
-    return "Not Verified";
+  if (regionAvailability.verification === "probe_passed") {
+    return "Available";
   }
 
-  if (regionAvailability.status === "uncertain") {
-    return "Uncertain";
-  }
-
-  return "Region Restricted";
+  return "Not Verified";
 }
 
 function getFinalDecisionRegionTone(
   regionAvailability: FinalDecisionDecision["regionAvailability"],
 ): StatusTone {
   if (
-    regionAvailability.status === "likely_available" &&
+    regionAvailability.status !== "likely_blocked" &&
+    regionAvailability.restriction !== "hard_region" &&
     regionAvailability.verification === "probe_passed"
   ) {
     return "good";
   }
 
-  if (regionAvailability.status === "likely_blocked") {
+  if (
+    regionAvailability.status === "likely_blocked" ||
+    regionAvailability.restriction === "hard_region"
+  ) {
     return "risk";
   }
 
-  return "caution";
+  return "neutral";
 }
 
 function formatFinalDecisionSignalName(signalName: string) {
@@ -210,19 +206,22 @@ function getRegionAvailabilityBadge(
   decision: FinalDecisionDecision,
 ): PresentationBadge {
   const regionAvailability = decision.regionAvailability;
-  const status = regionAvailability.status;
   const isVerifiedAvailable =
-    status === "likely_available" &&
+    regionAvailability.status !== "likely_blocked" &&
+    regionAvailability.restriction !== "hard_region" &&
     regionAvailability.verification === "probe_passed";
+  const isRestricted =
+    regionAvailability.status === "likely_blocked" ||
+    regionAvailability.restriction === "hard_region";
 
   return {
     label: `${getFinalDecisionRegionLabel(regionAvailability)} (${formatFinalDecisionProbability(regionAvailability.probability)})`,
     tone: getFinalDecisionRegionTone(regionAvailability),
     severity: isVerifiedAvailable
       ? "positive"
-      : status === "uncertain"
-        ? "warning"
-        : "critical",
+      : isRestricted
+        ? "critical"
+        : "neutral",
   };
 }
 
@@ -336,7 +335,7 @@ export function buildPresentation(
     serviceCompatibility: {
       sectionTitle: "Service Compatibility",
       emptyMessage: "No service compatibility data available.",
-      footnote: `This uses real connectivity first, then IP reputation and regional accessibility. ${CONNECTIVITY_VERIFICATION_EXPLANATION} Services may also consider account history, device reputation, browser fingerprint, and behavior.`,
+      footnote: `This uses browser reachability signals first, then IP reputation and regional accessibility. ${CONNECTIVITY_VERIFICATION_EXPLANATION} Services may also consider account history, device reputation, browser fingerprint, and behavior.`,
       topSignalsLabel: "Top signals:",
       topSignalsSummary: getTopSignalItems(decision.signals)
         .map((item) => item.label)

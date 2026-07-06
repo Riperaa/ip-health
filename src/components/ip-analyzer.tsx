@@ -247,7 +247,7 @@ function RealConnectivitySection({ result }: { result: AnalysisResult }) {
     <section className="surface-card overflow-hidden rounded-2xl border bg-white">
       <div className="border-b border-neutral-100 px-4 py-3">
         <h3 className="text-sm font-semibold text-neutral-950">
-          Real Connectivity
+          Browser Reachability Signal
         </h3>
       </div>
       <ul className="divide-y divide-neutral-100">
@@ -261,9 +261,9 @@ function RealConnectivitySection({ result }: { result: AnalysisResult }) {
                 : "neutral";
           const label =
             status === "verified_reachable"
-              ? "Reachable"
+              ? "Verified"
               : status === "unreachable"
-                ? "Unreachable"
+                ? "Failed"
                 : "Not Verified";
 
           return (
@@ -280,8 +280,9 @@ function RealConnectivitySection({ result }: { result: AnalysisResult }) {
         })}
       </ul>
       <p className="border-t border-neutral-100 px-4 py-3 text-sm leading-6 text-neutral-500">
-        Browser privacy/CORS restrictions prevent full verification. This result
-        is shown as Not Verified instead of Available.
+        Browser privacy and CORS restrictions may prevent full verification.
+        When access cannot be strongly verified, IP Health shows Not Verified
+        instead of Available.
       </p>
     </section>
   );
@@ -290,7 +291,7 @@ function RealConnectivitySection({ result }: { result: AnalysisResult }) {
 function getServiceAvailabilityTone(
   finalAvailability: AnalysisResult["serviceCompatibility"][number]["services"][number]["finalAvailability"],
 ) {
-  if (finalAvailability === "Available") {
+  if (finalAvailability === "Verified") {
     return "good";
   }
 
@@ -298,7 +299,7 @@ function getServiceAvailabilityTone(
     return "risk";
   }
 
-  return "caution";
+  return "neutral";
 }
 
 function ServiceCompatibilitySection({ result }: { result: AnalysisResult }) {

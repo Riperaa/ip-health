@@ -189,7 +189,7 @@ export type ServiceCompatibilityItem = {
 };
 
 export type ServiceAvailabilityStatus =
-  "Available" | "Not Verified" | "Uncertain" | "Restricted";
+  "Verified" | "Not Verified" | "Restricted";
 
 export type ServiceCompatibilityCategory = {
   category: string;

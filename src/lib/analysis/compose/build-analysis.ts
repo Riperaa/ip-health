@@ -540,11 +540,9 @@ const GOOGLE_CONNECTIVITY_SERVICES = new Set([
 
 const OPENAI_CONNECTIVITY_SERVICES = new Set(["chatgpt", "openai"]);
 
-const CONNECTIVITY_FAILURE_PROBABILITY = 0.2;
-const CONNECTIVITY_FAILURE_REGION_PROBABILITY = 0.1;
 const UNVERIFIED_REGION_PROBABILITY_CAP = 0.69;
 const UNVERIFIED_REGION_EXPLANATION =
-  "Browser privacy/CORS restrictions prevent full verification. This result is shown as Not Verified instead of Available.";
+  "Browser privacy and CORS restrictions may prevent full verification. When access cannot be strongly verified, IP Health shows Not Verified instead of Available.";
 
 function normalizeServiceName(service: string) {
   return service.trim().toLowerCase();
@@ -684,55 +682,19 @@ function sortFinalDecisionSignals(signals: FinalDecisionSignal[]) {
   });
 }
 
-function getConnectivityFailureExplanation(
-  service: string,
-  connectivity: ConnectivityProbeResult,
-) {
-  const normalizedService = normalizeServiceName(service);
-  const probe = getServiceConnectivityProbe(service);
-
-  if (!probe || !isConnectivityProbeUnreachable(connectivity[probe])) {
-    return null;
-  }
-
-  if (normalizedService === "youtube") {
-    return "Real connectivity probe failed. This service appears unreachable from the current network, regardless of IP reputation.";
-  }
-
-  if (OPENAI_CONNECTIVITY_SERVICES.has(normalizedService)) {
-    return "Real connectivity probe failed. This service appears unreachable from the current network, regardless of IP reputation.";
-  }
-
-  if (GOOGLE_CONNECTIVITY_SERVICES.has(normalizedService)) {
-    return "Google connectivity probe failed, so Google services are not marked as Good even if IP reputation is clean.";
-  }
-
-  return null;
-}
-
-function hasConnectivityFailure(finalDecision: FinalDecision) {
-  return Boolean(
-    getConnectivityFailureExplanation(
-      finalDecision.rawSignals.service,
-      finalDecision.decision.connectivity,
-    ),
-  );
-}
-
 function getFinalServiceAvailability(
   finalDecision: FinalDecision,
 ): ServiceAvailabilityStatus {
-  const { regionAvailability, serviceCompatibility } = finalDecision.decision;
+  const { regionAvailability } = finalDecision.decision;
   const verification = getRegionAvailabilityVerification(
     finalDecision.rawSignals.service,
     finalDecision.decision.connectivity,
   );
-
-  if (
-    hasConnectivityFailure(finalDecision) ||
+  const hasHardRestriction =
     regionAvailability.status === "likely_blocked" ||
-    serviceCompatibility.status === "High Risk"
-  ) {
+    regionAvailability.restriction === "hard_region";
+
+  if (hasHardRestriction) {
     return "Restricted";
   }
 
@@ -743,15 +705,11 @@ function getFinalServiceAvailability(
     return "Not Verified";
   }
 
-  if (
-    verification !== "probe_passed" ||
-    regionAvailability.status === "uncertain" ||
-    serviceCompatibility.status === "Use with Caution"
-  ) {
-    return "Uncertain";
+  if (verification !== "probe_passed") {
+    return "Not Verified";
   }
 
-  return "Available";
+  return "Verified";
 }
 
 function getServiceAvailabilitySummary(
@@ -765,9 +723,8 @@ function getServiceAvailabilitySummary(
       [service.finalAvailability]: summary[service.finalAvailability] + 1,
     }),
     {
-      Available: 0,
+      Verified: 0,
       "Not Verified": 0,
-      Uncertain: 0,
       Restricted: 0,
     },
   );
@@ -778,17 +735,7 @@ function getServiceAvailabilitySummaryLabel(
 ) {
   const summary = getServiceAvailabilitySummary(services);
 
-  return `${summary.Available} Available - ${summary["Not Verified"]} Not Verified - ${summary.Uncertain} Uncertain - ${summary.Restricted} Restricted`;
-}
-
-function buildConnectivityFailureSignal(): FinalDecisionSignal {
-  return {
-    signalName: "real_connectivity_probe",
-    direction: "raises_risk",
-    weight: 1,
-    impact: 0.8,
-    contribution: -0.8,
-  };
+  return `${summary.Verified} Verified - ${summary["Not Verified"]} Not Verified - ${summary.Restricted} Restricted`;
 }
 
 export function applyConnectivityFinalGate(
@@ -798,95 +745,38 @@ export function applyConnectivityFinalGate(
     finalDecision.rawSignals.service,
     finalDecision.decision.connectivity,
   );
-  const failureExplanation = getConnectivityFailureExplanation(
-    finalDecision.rawSignals.service,
-    finalDecision.decision.connectivity,
-  );
+  const hasHardRestriction =
+    finalDecision.decision.regionAvailability.status === "likely_blocked" ||
+    finalDecision.decision.regionAvailability.restriction === "hard_region";
 
-  if (!failureExplanation && verification !== "not_probed") {
+  if (verification === "probe_passed") {
     return finalDecision;
   }
 
-  if (verification === "not_probed") {
-    const hasHardRestriction =
-      finalDecision.decision.regionAvailability.status === "likely_blocked" ||
-      finalDecision.decision.regionAvailability.restriction === "hard_region";
-    const regionAvailabilityProbability = roundProbability(
-      Math.min(
-        finalDecision.decision.regionAvailability.probability,
-        UNVERIFIED_REGION_PROBABILITY_CAP,
-      ),
-    );
-
-    return createFinalDecisionV1({
-      rawSignals: finalDecision.rawSignals,
-      computedMetrics: {
-        ...finalDecision.computedMetrics,
-        regionAvailabilityProbability,
-      },
-      decision: {
-        ...finalDecision.decision,
-        regionAvailability: {
-          ...finalDecision.decision.regionAvailability,
-          status: hasHardRestriction ? "likely_blocked" : "uncertain",
-          probability: regionAvailabilityProbability,
-          verification,
-          explanation: hasHardRestriction
-            ? finalDecision.decision.regionAvailability.explanation
-            : UNVERIFIED_REGION_EXPLANATION,
-        },
-      },
-    });
-  }
-
-  if (!failureExplanation) {
-    return finalDecision;
-  }
-
-  const serviceProbability = roundProbability(
-    Math.min(
-      finalDecision.decision.serviceCompatibility.probability,
-      CONNECTIVITY_FAILURE_PROBABILITY,
-    ),
-  );
   const regionAvailabilityProbability = roundProbability(
     Math.min(
       finalDecision.decision.regionAvailability.probability,
-      CONNECTIVITY_FAILURE_REGION_PROBABILITY,
+      UNVERIFIED_REGION_PROBABILITY_CAP,
     ),
   );
-  const signals = sortFinalDecisionSignals([
-    buildConnectivityFailureSignal(),
-    ...finalDecision.decision.signals.filter(
-      (signal) => signal.signalName !== "real_connectivity_probe",
-    ),
-  ]);
 
   return createFinalDecisionV1({
-    rawSignals: {
-      ...finalDecision.rawSignals,
-      signals,
-    },
+    rawSignals: finalDecision.rawSignals,
     computedMetrics: {
       ...finalDecision.computedMetrics,
       regionAvailabilityProbability,
-      serviceCompatibilityProbability: serviceProbability,
     },
     decision: {
       ...finalDecision.decision,
       regionAvailability: {
         ...finalDecision.decision.regionAvailability,
-        status: "likely_blocked",
+        status: hasHardRestriction ? "likely_blocked" : "uncertain",
         probability: regionAvailabilityProbability,
-        restriction: "hard_region",
-        explanation: failureExplanation,
+        explanation: hasHardRestriction
+          ? finalDecision.decision.regionAvailability.explanation
+          : UNVERIFIED_REGION_EXPLANATION,
         verification,
       },
-      serviceCompatibility: {
-        status: "High Risk",
-        probability: serviceProbability,
-      },
-      signals,
     },
   });
 }

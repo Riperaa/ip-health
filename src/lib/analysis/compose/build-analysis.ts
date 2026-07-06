@@ -52,6 +52,7 @@ import type {
   AbuseIpDbResponse,
   AnalysisResult,
   CloudflareTraceResponse,
+  EndUserReport,
   FinalDecision,
   FinalDecisionRiskLevel,
   FinalDecisionSignal,
@@ -76,6 +77,10 @@ type IntegrityStatus = {
   label: string;
   detail: string;
   tone: StatusTone;
+};
+
+type IpInfoPresentationFields = IpInfoResponse & {
+  timezone?: string | null;
 };
 
 function isDataCenterHostingTransitUsage(usageType?: string | null) {
@@ -158,6 +163,311 @@ function formatLocation(ipInfo: IpInfoResponse) {
   const locationParts = [city, country].filter((value) => hasDetail(value));
 
   return locationParts.length > 0 ? locationParts.join(", ") : "Not identified";
+}
+
+function normalizeReportText(value?: string | null) {
+  return value?.trim().toLowerCase() ?? "";
+}
+
+function hasIpqsVpnProxySignal(ipqs?: IpqsResponse | null) {
+  return Boolean(
+    ipqs?.vpn === true ||
+      ipqs?.activeVpn === true ||
+      ipqs?.proxy === true ||
+      ipqs?.tor === true,
+  );
+}
+
+function hasPrivacyVpnProxySignal(
+  privacy?: IpInfoResponse["privacy"],
+) {
+  return Boolean(
+    privacy?.vpn === true ||
+      privacy?.proxy === true ||
+      privacy?.tor === true ||
+      privacy?.relay === true,
+  );
+}
+
+function hasNetworkTypeSignal(
+  ipInfo: IpInfoResponse,
+  keywords: string[],
+) {
+  const values = [
+    ipInfo.asn?.type,
+    ipInfo.company?.type,
+    ipInfo.asn?.name,
+    ipInfo.company?.name,
+    ipInfo.org,
+  ];
+
+  return values.some((value) => {
+    const normalizedValue = normalizeReportText(value);
+
+    return keywords.some((keyword) => normalizedValue.includes(keyword));
+  });
+}
+
+function hasProviderInfrastructureSignal(
+  ipInfo: IpInfoResponse,
+  abuseIpDb?: AbuseIpDbResponse | null,
+  cloudflare?: CloudflareTraceResponse | null,
+) {
+  return (
+    hasNativeInfrastructureSignal(ipInfo, abuseIpDb) ||
+    hasCloudflareColoSignal(ipInfo, cloudflare) ||
+    hasNetworkTypeSignal(ipInfo, [
+      "hosting",
+      "host",
+      "data center",
+      "datacenter",
+      "cloud",
+      "infrastructure",
+      "server",
+    ])
+  );
+}
+
+function getReputationStatus(
+  finalDecision: FinalDecision | null,
+): EndUserReport["reputation"] {
+  const verdict = finalDecision?.decision.overallVerdict;
+
+  if (verdict === "Healthy") {
+    return {
+      status: "Good",
+      tone: "good",
+      fraudRisk: "",
+      abuseSignals: "",
+      confidence: "Pending",
+    };
+  }
+
+  if (verdict === "Use with Caution") {
+    return {
+      status: "Fair",
+      tone: "caution",
+      fraudRisk: "",
+      abuseSignals: "",
+      confidence: "Pending",
+    };
+  }
+
+  if (verdict === "Risky") {
+    return {
+      status: "Poor",
+      tone: "risk",
+      fraudRisk: "",
+      abuseSignals: "",
+      confidence: "Pending",
+    };
+  }
+
+  return {
+    status: "Pending",
+    tone: "neutral",
+    fraudRisk: "",
+    abuseSignals: "",
+    confidence: "Pending",
+  };
+}
+
+function formatFraudRisk(ipqs?: IpqsResponse | null) {
+  const fraudScore = getIpqsFraudScore(ipqs);
+
+  if (ipqs?.status === "unavailable") {
+    return "Unavailable";
+  }
+
+  if (fraudScore === null) {
+    return "Not reported";
+  }
+
+  if (fraudScore < 25) {
+    return `Low (${fraudScore}/100)`;
+  }
+
+  if (fraudScore < 60) {
+    return `Moderate (${fraudScore}/100)`;
+  }
+
+  if (fraudScore < IPQS_STRONG_RISK_FRAUD_SCORE) {
+    return `Elevated (${fraudScore}/100)`;
+  }
+
+  return `High (${fraudScore}/100)`;
+}
+
+function formatAbuseSignals(abuseIpDb?: AbuseIpDbResponse | null) {
+  const abuseConfidence = abuseIpDb?.abuseConfidence ?? null;
+
+  if (abuseConfidence === null) {
+    return "Not reported";
+  }
+
+  if (abuseConfidence === 0) {
+    return "None detected";
+  }
+
+  if (abuseConfidence < 25) {
+    return `Low (${abuseConfidence}%)`;
+  }
+
+  if (abuseConfidence < 60) {
+    return `Moderate (${abuseConfidence}%)`;
+  }
+
+  if (abuseConfidence < 85) {
+    return `High (${abuseConfidence}%)`;
+  }
+
+  return `Severe (${abuseConfidence}%)`;
+}
+
+function getIpIdentity(
+  ipInfo: IpInfoResponse,
+  abuseIpDb: AbuseIpDbResponse | null,
+  ipqs: IpqsResponse | null,
+  cloudflare: CloudflareTraceResponse | null,
+): EndUserReport["identity"] {
+  const usageType = normalizeReportText(abuseIpDb?.usageType);
+  const hasVpnProxy =
+    hasPrivacyVpnProxySignal(ipInfo.privacy) || hasIpqsVpnProxySignal(ipqs);
+
+  if (hasVpnProxy) {
+    return {
+      ipType: "VPN / Proxy",
+      detail: "A VPN, proxy, relay, or Tor signal was detected.",
+      tone: "caution",
+    };
+  }
+
+  if (hasProviderInfrastructureSignal(ipInfo, abuseIpDb, cloudflare)) {
+    return {
+      ipType: "Datacenter",
+      detail: "Hosting or infrastructure network signals were detected.",
+      tone: "infrastructure",
+    };
+  }
+
+  if (
+    usageType.includes("residential") ||
+    usageType.includes("mobile") ||
+    hasNetworkTypeSignal(ipInfo, ["isp", "broadband", "cable", "telecom"])
+  ) {
+    return {
+      ipType: "Residential ISP",
+      detail: "This looks like an ISP network with no datacenter or VPN signal.",
+      tone: "good",
+    };
+  }
+
+  return {
+    ipType: "Unknown",
+    detail: "Provider data does not clearly identify this IP type.",
+    tone: "neutral",
+  };
+}
+
+function getNetworkSharingRisk(
+  ipInfo: IpInfoResponse,
+  abuseIpDb: AbuseIpDbResponse | null,
+  ipqs: IpqsResponse | null,
+  cloudflare: CloudflareTraceResponse | null,
+  identity: EndUserReport["identity"],
+): EndUserReport["sharingRisk"] {
+  const parsedOrg = parseOrg(ipInfo.org);
+  const hasAsn = hasDetail(pickDetail(ipInfo.asn?.asn, parsedOrg.asn));
+  const hasVpnProxy =
+    hasPrivacyVpnProxySignal(ipInfo.privacy) || hasIpqsVpnProxySignal(ipqs);
+  const hasInfrastructure = hasProviderInfrastructureSignal(
+    ipInfo,
+    abuseIpDb,
+    cloudflare,
+  );
+
+  if (hasVpnProxy || hasInfrastructure) {
+    return {
+      level: "High",
+      tone: "risk",
+      explanation: "This IP belongs to highly shared infrastructure.",
+    };
+  }
+
+  if (hasAsn && identity.ipType !== "Residential ISP") {
+    return {
+      level: "Medium",
+      tone: "caution",
+      explanation: "This IP may be shared by multiple users.",
+    };
+  }
+
+  if (!hasAsn && identity.ipType === "Unknown") {
+    return {
+      level: "Unknown",
+      tone: "neutral",
+      explanation: "There is not enough network ownership data to estimate sharing risk.",
+    };
+  }
+
+  return {
+    level: "Low",
+    tone: "good",
+    explanation: "This IP appears to have low shared infrastructure signals.",
+  };
+}
+
+function buildEndUserReport({
+  ipInfo,
+  abuseIpDb,
+  ipqs,
+  cloudflare,
+  finalDecision,
+  hasAnalysis,
+}: {
+  ipInfo: IpInfoResponse;
+  abuseIpDb: AbuseIpDbResponse | null;
+  ipqs: IpqsResponse | null;
+  cloudflare: CloudflareTraceResponse | null;
+  finalDecision: FinalDecision | null;
+  hasAnalysis: boolean;
+}): EndUserReport {
+  const reputation = getReputationStatus(finalDecision);
+  const networkIdentity = getNetworkIdentity(ipInfo, abuseIpDb);
+  const ipInfoPresentation = ipInfo as IpInfoPresentationFields;
+  const identity = hasAnalysis
+    ? getIpIdentity(ipInfo, abuseIpDb, ipqs, cloudflare)
+    : {
+        ipType: "Unknown",
+        detail: "Run an analysis to identify the IP type.",
+        tone: "neutral" satisfies StatusTone,
+      } satisfies EndUserReport["identity"];
+
+  return {
+    reputation: {
+      ...reputation,
+      fraudRisk: hasAnalysis ? formatFraudRisk(ipqs) : "Pending",
+      abuseSignals: hasAnalysis ? formatAbuseSignals(abuseIpDb) : "Pending",
+      confidence: hasAnalysis
+        ? buildRecommendationConfidence(ipInfo, abuseIpDb, ipqs, cloudflare)
+        : "Pending",
+    },
+    identity,
+    location: {
+      country: formatDetail(pickDetail(ipInfo.country_name, ipInfo.country)),
+      region: formatDetail(ipInfo.region),
+      city: formatDetail(ipInfo.city),
+      isp: networkIdentity.isp,
+      timezone: formatDetail(ipInfoPresentation.timezone),
+    },
+    sharingRisk: hasAnalysis
+      ? getNetworkSharingRisk(ipInfo, abuseIpDb, ipqs, cloudflare, identity)
+      : {
+          level: "Unknown",
+          tone: "neutral" satisfies StatusTone,
+          explanation: "Run an analysis to estimate network sharing risk.",
+        },
+  };
 }
 
 function getRiskLevel(score: number): RiskLevel {
@@ -1544,6 +1854,14 @@ export function buildAnalysisResult({
       : "unknown",
     ipHistory: normalizedIpHistory,
     networkIntegrity: buildNetworkIntegrity(ipInfo, cloudflare),
+    endUserReport: buildEndUserReport({
+      ipInfo,
+      abuseIpDb,
+      ipqs,
+      cloudflare,
+      finalDecision,
+      hasAnalysis,
+    }),
   };
 }
 

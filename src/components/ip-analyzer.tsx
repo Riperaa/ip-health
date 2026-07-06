@@ -40,31 +40,51 @@ const verdictContent: Record<
 const usageRecommendations: Record<OverallVerdict, UsageRecommendation[]> = {
   Healthy: [
     {
-      title: "Recommended",
+      title: "Recommended for",
       tone: "good",
-      items: ["Normal browsing", "Daily accounts", "Regular services"],
+      items: ["Browsing", "Streaming", "Daily accounts"],
+    },
+    {
+      title: "Use caution for",
+      tone: "caution",
+      items: ["New account registration", "Important verification"],
     },
   ],
   "Use with Caution": [
     {
-      title: "Recommended",
+      title: "Recommended for",
+      tone: "good",
+      items: ["Browsing", "Streaming", "Low-risk services"],
+    },
+    {
+      title: "Use caution for",
       tone: "caution",
-      items: ["Normal browsing", "Non-critical accounts"],
+      items: ["New account registration", "Important verification"],
     },
     {
       title: "Avoid",
       tone: "risk",
-      items: ["Bulk account creation", "Important verification"],
+      items: ["High-risk account operations"],
     },
   ],
   Risky: [
+    {
+      title: "Recommended for",
+      tone: "caution",
+      items: ["Basic browsing only"],
+    },
+    {
+      title: "Use caution for",
+      tone: "risk",
+      items: ["Streaming", "Existing account login"],
+    },
     {
       title: "Avoid",
       tone: "risk",
       items: [
         "New account registration",
         "Payment verification",
-        "High-value accounts",
+        "High-risk account operations",
       ],
     },
   ],
@@ -379,7 +399,7 @@ export function DisclosureSection({
   );
 }
 
-function MainRiskReport({ result }: { result: AnalysisResult }) {
+function IpHealthScoreCard({ result }: { result: AnalysisResult }) {
   const display = result.finalDecision?.display;
   const verdict = getVerdict(result);
   const verdictDisplay = verdict ? verdictContent[verdict] : null;
@@ -391,46 +411,40 @@ function MainRiskReport({ result }: { result: AnalysisResult }) {
 
   return (
     <section className="surface-card-primary rounded-[28px] border bg-white p-5 sm:p-6">
-      <div className="grid gap-6 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
+      <div className="grid gap-6 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
         <div className="min-w-0">
           <p className="text-xs font-semibold uppercase tracking-normal text-neutral-400">
-            IP Risk Report
+            IP Health Score
           </p>
-          <h2 className="mt-2 break-all text-3xl font-semibold leading-tight text-neutral-950 sm:text-4xl">
-            {result.ip.address}
-          </h2>
-          <dl className="mt-5 grid gap-3 text-left sm:grid-cols-3">
-            {result.ip.facts.map((fact) => (
-              <div key={fact.label} className="min-w-0">
-                <dt className="text-xs font-semibold uppercase tracking-normal text-neutral-400">
-                  {fact.label}
-                </dt>
-                <dd className="mt-1 break-words text-sm font-medium leading-6 text-neutral-800">
-                  {fact.value}
-                </dd>
-              </div>
-            ))}
-          </dl>
-        </div>
-
-        <div className="shrink-0 sm:text-right">
-          <p className="text-xs font-semibold uppercase tracking-normal text-neutral-400">
-            Trust Score
-          </p>
-          <p className="mt-2 flex items-end gap-1 text-7xl font-semibold leading-none text-neutral-950 sm:justify-end">
+          <p className="mt-3 flex items-end gap-1 text-7xl font-semibold leading-none text-neutral-950">
             {trustScoreDisplay}
             <span className="pb-2 text-xl font-semibold text-neutral-400">
               {trustScoreSuffix}
             </span>
           </p>
-          <div className="mt-3 flex flex-wrap gap-2 sm:justify-end">
-            {display ? (
+          <h2 className="mt-3 text-2xl font-semibold leading-tight text-neutral-950">
+            {verdict ?? "Ready to analyze"}
+          </h2>
+          <p className="mt-2 max-w-xl text-sm leading-6 text-neutral-500">
+            {verdictDisplay?.description ?? summary}
+          </p>
+        </div>
+
+        <div className="min-w-0 rounded-2xl border border-neutral-100 bg-neutral-50/70 p-4 sm:w-64">
+          <p className="text-xs font-semibold uppercase tracking-normal text-neutral-400">
+            Checked IP
+          </p>
+          <p className="mt-2 break-all text-lg font-semibold leading-7 text-neutral-950">
+            {result.ip.address || "Not analyzed"}
+          </p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            {display && verdictDisplay ? (
               <>
                 <StatusBadge
-                  tone={display.riskBadge.tone}
+                  tone={verdictDisplay.tone}
                   className="px-3 py-1.5 text-sm"
                 >
-                  {display.riskBadge.label}
+                  {verdict}
                 </StatusBadge>
                 <StatusBadge
                   tone={display.serviceCompatibilityBadge.tone}
@@ -449,11 +463,11 @@ function MainRiskReport({ result }: { result: AnalysisResult }) {
       </div>
 
       {verdictDisplay ? (
-        <div className="mt-5 rounded-2xl border border-neutral-100 bg-neutral-50/70 p-4">
+        <div className="mt-5 rounded-2xl border border-neutral-100 bg-white p-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <p className="text-xs font-semibold uppercase tracking-normal text-neutral-400">
-                IP Health Verdict
+                Quick Answer
               </p>
               <p className="mt-1 text-sm font-semibold text-neutral-950">
                 {verdictDisplay.title}
@@ -468,9 +482,141 @@ function MainRiskReport({ result }: { result: AnalysisResult }) {
           </div>
         </div>
       ) : null}
+    </section>
+  );
+}
 
-      <p className="mt-5 border-t border-neutral-100 pt-4 text-sm leading-6 text-neutral-600">
-        {summary}
+function ReportField({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0">
+      <dt className="text-xs font-semibold uppercase tracking-normal text-neutral-400">
+        {label}
+      </dt>
+      <dd className="mt-1 break-words text-sm font-medium leading-6 text-neutral-800">
+        {value}
+      </dd>
+    </div>
+  );
+}
+
+function IpReputationCard({ result }: { result: AnalysisResult }) {
+  if (!result.finalDecision) {
+    return null;
+  }
+
+  const reputation = result.endUserReport.reputation;
+
+  return (
+    <section className="surface-card rounded-2xl border bg-white p-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-sm font-semibold text-neutral-950">
+            IP Reputation
+          </p>
+          <p className="mt-1 text-sm leading-6 text-neutral-500">
+            A plain-language reputation view from existing fraud, abuse, and
+            trust signals.
+          </p>
+        </div>
+        <StatusBadge tone={reputation.tone} className="mt-1 sm:mt-0">
+          {reputation.status}
+        </StatusBadge>
+      </div>
+
+      <dl className="mt-4 grid gap-3 sm:grid-cols-3">
+        <ReportField label="Fraud Risk" value={reputation.fraudRisk} />
+        <ReportField label="Abuse Signals" value={reputation.abuseSignals} />
+        <ReportField
+          label="Reputation Confidence"
+          value={reputation.confidence}
+        />
+      </dl>
+    </section>
+  );
+}
+
+function IpIdentityCard({ result }: { result: AnalysisResult }) {
+  if (!result.finalDecision) {
+    return null;
+  }
+
+  const identity = result.endUserReport.identity;
+
+  return (
+    <section className="surface-card rounded-2xl border bg-white p-5">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-sm font-semibold text-neutral-950">
+            IP Identity
+          </p>
+          <p className="mt-3 text-2xl font-semibold leading-tight text-neutral-950">
+            {identity.ipType}
+          </p>
+          <p className="mt-2 text-sm leading-6 text-neutral-500">
+            {identity.detail}
+          </p>
+        </div>
+        <StatusBadge tone={identity.tone} variant="quiet">
+          IP Type
+        </StatusBadge>
+      </div>
+    </section>
+  );
+}
+
+function IpLocationCard({ result }: { result: AnalysisResult }) {
+  if (!result.finalDecision) {
+    return null;
+  }
+
+  const location = result.endUserReport.location;
+
+  return (
+    <section className="surface-card rounded-2xl border bg-white p-5">
+      <p className="text-sm font-semibold text-neutral-950">IP Location</p>
+      <p className="mt-1 text-sm leading-6 text-neutral-500">
+        This is the exit IP location, not a physical user location.
+      </p>
+
+      <dl className="mt-4 grid gap-3 sm:grid-cols-2">
+        <ReportField label="Country" value={location.country} />
+        <ReportField label="Region" value={location.region} />
+        <ReportField label="City" value={location.city} />
+        <ReportField label="ISP" value={location.isp} />
+        <ReportField label="Timezone" value={location.timezone} />
+      </dl>
+    </section>
+  );
+}
+
+function NetworkSharingCard({ result }: { result: AnalysisResult }) {
+  if (!result.finalDecision) {
+    return null;
+  }
+
+  const sharingRisk = result.endUserReport.sharingRisk;
+
+  return (
+    <section className="surface-card rounded-2xl border bg-white p-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-sm font-semibold text-neutral-950">
+            Network Sharing Risk
+          </p>
+          <p className="mt-3 text-2xl font-semibold leading-tight text-neutral-950">
+            {sharingRisk.level}
+          </p>
+          <p className="mt-2 text-sm leading-6 text-neutral-500">
+            {sharingRisk.explanation}
+          </p>
+        </div>
+        <StatusBadge tone={sharingRisk.tone} className="mt-1 sm:mt-0">
+          Indicator
+        </StatusBadge>
+      </div>
+      <p className="mt-4 border-t border-neutral-100 pt-3 text-xs leading-5 text-neutral-400">
+        This is an infrastructure risk indicator only. It does not estimate an
+        exact number of users.
       </p>
     </section>
   );
@@ -487,7 +633,7 @@ function RecommendedUsageSection({ result }: { result: AnalysisResult }) {
     <section className="surface-card rounded-2xl border bg-white p-5">
       <div className="flex flex-col gap-1">
         <p className="text-sm font-semibold text-neutral-950">
-          Recommended Actions
+          Recommendation
         </p>
         <p className="text-sm leading-6 text-neutral-500">
           What to use this IP for, based on the final verdict.
@@ -511,7 +657,14 @@ function RecommendedUsageSection({ result }: { result: AnalysisResult }) {
                 >
                   <span
                     aria-hidden="true"
-                    className="mt-2.5 size-1.5 shrink-0 rounded-full bg-neutral-900"
+                    className={[
+                      "mt-2.5 size-1.5 shrink-0 rounded-full",
+                      group.tone === "good"
+                        ? "bg-emerald-700"
+                        : group.tone === "caution"
+                          ? "bg-amber-700"
+                          : "bg-rose-700",
+                    ].join(" ")}
                   />
                   <span>{item}</span>
                 </li>
@@ -952,7 +1105,7 @@ function ScoreExplanationSection({ result }: { result: AnalysisResult }) {
 }
 
 function RiskSignalsSection({ result }: { result: AnalysisResult }) {
-  const [isRiskSignalsVisible, setIsRiskSignalsVisible] = useState(true);
+  const [isRiskSignalsVisible, setIsRiskSignalsVisible] = useState(false);
   const signalDisplay = result.finalDecision?.display.signals;
   const signals = getRiskSignalCards(result);
 
@@ -1015,16 +1168,113 @@ function RiskSignalsSection({ result }: { result: AnalysisResult }) {
   );
 }
 
+function TechnicalIpFactsSection({ result }: { result: AnalysisResult }) {
+  return (
+    <section className="surface-card rounded-2xl border bg-white p-5">
+      <p className="text-sm font-semibold text-neutral-950">
+        Network Facts
+      </p>
+      <p className="mt-1 text-sm leading-6 text-neutral-500">
+        Provider fields used as context for the user-facing report.
+      </p>
+
+      <dl className="mt-4 grid gap-3 sm:grid-cols-3">
+        <ReportField label="IP Address" value={result.ip.address} />
+        {result.ip.facts.map((fact) => (
+          <ReportField
+            key={fact.label}
+            label={fact.label}
+            value={fact.value}
+          />
+        ))}
+      </dl>
+    </section>
+  );
+}
+
+function TechnicalIpqsSection({ result }: { result: AnalysisResult }) {
+  const ipqs = result.finalDecision?.decision.externalSignals.ipqs;
+
+  return (
+    <section className="surface-card rounded-2xl border bg-white p-5">
+      <div className="flex flex-col gap-1">
+        <p className="text-sm font-semibold text-neutral-950">
+          IPQualityScore Signals
+        </p>
+        <p className="text-sm leading-6 text-neutral-500">
+          Raw reputation fields kept for technical review.
+        </p>
+      </div>
+
+      {ipqs?.status === "available" ? (
+        <dl className="mt-4 grid gap-3 sm:grid-cols-3">
+          <ReportField
+            label="Fraud Score"
+            value={`${ipqs.fraud_score}/100`}
+          />
+          <ReportField label="Country" value={ipqs.country || "Not identified"} />
+          <ReportField label="VPN" value={ipqs.vpn ? "Yes" : "No"} />
+          <ReportField label="Proxy" value={ipqs.proxy ? "Yes" : "No"} />
+          <ReportField label="Tor" value={ipqs.tor ? "Yes" : "No"} />
+          <ReportField
+            label="Bot Status"
+            value={ipqs.bot_status ? "Yes" : "No"}
+          />
+        </dl>
+      ) : (
+        <p className="mt-4 rounded-xl border border-neutral-100 bg-neutral-50 px-4 py-3 text-sm leading-6 text-neutral-500">
+          {ipqs?.error ?? "IPQualityScore data is unavailable."}
+        </p>
+      )}
+    </section>
+  );
+}
+
+function TechnicalDetailsSection({ result }: { result: AnalysisResult }) {
+  const [isTechnicalDetailsVisible, setIsTechnicalDetailsVisible] =
+    useState(false);
+
+  if (!result.finalDecision) {
+    return null;
+  }
+
+  return (
+    <DisclosureSection
+      title="Technical Details"
+      summary="ASN, Cloudflare, connectivity, IPQS, and risk signals"
+      isExpanded={isTechnicalDetailsVisible}
+      onToggle={() =>
+        setIsTechnicalDetailsVisible(
+          (currentVisibility) => !currentVisibility,
+        )
+      }
+      contentId="technical-details-content"
+    >
+      <div className="mt-3 flex flex-col gap-4">
+        <TechnicalIpFactsSection result={result} />
+        <TechnicalIpqsSection result={result} />
+        <NetworkIntegritySection result={result} />
+        <ServiceCompatibilitySection result={result} />
+        <ScoreExplanationSection result={result} />
+        <RiskSignalsSection result={result} />
+      </div>
+    </DisclosureSection>
+  );
+}
+
 export function IpAnalyzer({ result }: { result: AnalysisResult }) {
   return (
     <div className="mt-6 flex w-full flex-col gap-4 text-left">
-      <MainRiskReport result={result} />
+      <IpHealthScoreCard result={result} />
+      <IpReputationCard result={result} />
+      <div className="grid gap-4 lg:grid-cols-2">
+        <IpIdentityCard result={result} />
+        <IpLocationCard result={result} />
+      </div>
+      <NetworkSharingCard result={result} />
       <RecommendedUsageSection result={result} />
+      <TechnicalDetailsSection result={result} />
       <IpHistorySection result={result} />
-      <NetworkIntegritySection result={result} />
-      <ServiceCompatibilitySection result={result} />
-      <ScoreExplanationSection result={result} />
-      <RiskSignalsSection result={result} />
 
       <p className="text-xs leading-5 text-neutral-400">
         IP Health provides reputation-based guidance only. Services may also

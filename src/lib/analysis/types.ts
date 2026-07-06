@@ -235,6 +235,33 @@ export type NetworkIntegrity = {
   unavailableMessage: string;
 };
 
+export type EndUserReport = {
+  reputation: {
+    status: "Good" | "Fair" | "Poor" | "Pending";
+    tone: StatusTone;
+    fraudRisk: string;
+    abuseSignals: string;
+    confidence: RecommendationConfidence | "Pending";
+  };
+  identity: {
+    ipType: "Residential ISP" | "Datacenter" | "VPN / Proxy" | "Unknown";
+    detail: string;
+    tone: StatusTone;
+  };
+  location: {
+    country: string;
+    region: string;
+    city: string;
+    isp: string;
+    timezone: string;
+  };
+  sharingRisk: {
+    level: "Low" | "Medium" | "High" | "Unknown";
+    tone: StatusTone;
+    explanation: string;
+  };
+};
+
 export type AnalysisResult = {
   ip: {
     address: string;
@@ -259,6 +286,7 @@ export type AnalysisResult = {
   regionRiskLevel: RegionRiskLevel;
   ipHistory: IpHistoryRecord[];
   networkIntegrity: NetworkIntegrity;
+  endUserReport: EndUserReport;
 };
 
 export type { ConnectivityProbeResult, ConnectivityStatus };

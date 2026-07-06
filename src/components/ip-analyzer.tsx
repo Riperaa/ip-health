@@ -5,7 +5,7 @@ import { useState, type ReactNode } from "react";
 import { StatusBadge } from "@/components/status-badge";
 import type { AnalysisResult } from "@/lib/analysis";
 
-function DisclosureSection({
+export function DisclosureSection({
   title,
   summary,
   isExpanded,

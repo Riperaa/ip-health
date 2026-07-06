@@ -9,7 +9,7 @@ import {
   type FormEvent,
 } from "react";
 
-import { IpAnalyzer } from "@/components/ip-analyzer";
+import { DisclosureSection, IpAnalyzer } from "@/components/ip-analyzer";
 import {
   buildAnalysis,
   detectPublicIp as detectCurrentPublicIp,
@@ -37,6 +37,7 @@ export function IpAnalyzerContainer() {
     getEmptyAnalysisResult(),
   );
   const [recentChecks, setRecentChecks] = useState<RecentCheck[]>([]);
+  const [isRecentChecksVisible, setIsRecentChecksVisible] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isDetecting, setIsDetecting] = useState(true);
   const isAnalysisInFlight = useRef(false);
@@ -189,26 +190,35 @@ export function IpAnalyzerContainer() {
       ) : null}
 
       <div className="w-full text-left">
-        <p className="text-xs font-semibold uppercase tracking-normal text-neutral-400">
-          Recent Checks
-        </p>
-        {recentChecks.length > 0 ? (
-          <div className="mt-2 flex flex-wrap gap-2">
-            {recentChecks.map((recentCheck) => (
-              <button
-                key={recentCheck.ip}
-                type="button"
-                onClick={() => handleRecentCheckClick(recentCheck.ip)}
-                disabled={isAnalyzing}
-                className="rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-neutral-600 shadow-sm shadow-neutral-950/[0.02] transition hover:border-neutral-300 hover:bg-neutral-50 hover:text-neutral-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {recentCheck.ip}
-              </button>
-            ))}
-          </div>
-        ) : (
-          <p className="mt-1 text-sm text-neutral-400">No recent checks yet.</p>
-        )}
+        <DisclosureSection
+          title="Recent Checks"
+          summary="Saved in this browser only"
+          isExpanded={isRecentChecksVisible}
+          onToggle={() =>
+            setIsRecentChecksVisible((currentVisibility) => !currentVisibility)
+          }
+          contentId="recent-checks-content"
+        >
+          {recentChecks.length > 0 ? (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {recentChecks.map((recentCheck) => (
+                <button
+                  key={recentCheck.ip}
+                  type="button"
+                  onClick={() => handleRecentCheckClick(recentCheck.ip)}
+                  disabled={isAnalyzing}
+                  className="rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-neutral-600 shadow-sm shadow-neutral-950/[0.02] transition hover:border-neutral-300 hover:bg-neutral-50 hover:text-neutral-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {recentCheck.ip}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-3 text-sm text-neutral-400">
+              No recent checks yet.
+            </p>
+          )}
+        </DisclosureSection>
       </div>
 
       <IpAnalyzer result={analysisResult} />

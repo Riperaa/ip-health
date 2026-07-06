@@ -1,5 +1,9 @@
 import type { StatusTone } from "@/lib/status-colors";
 
+import {
+  buildConnectivityProbeResult,
+  normalizeConnectivityProbeServiceResult,
+} from "./connectivity/probe";
 import type {
   FinalDecision,
   FinalDecisionCompatible,
@@ -17,11 +21,9 @@ export const FINAL_DECISION_VERSION = "1.0" as const;
 
 type FinalDecisionDecision = FinalDecisionV1["decision"];
 
-const DEFAULT_CONNECTIVITY = {
-  google: true,
-  youtube: true,
-  openai: true,
-} satisfies FinalDecisionDecision["connectivity"];
+const DEFAULT_CONNECTIVITY = buildConnectivityProbeResult(
+  "unknown",
+) satisfies FinalDecisionDecision["connectivity"];
 
 function isObjectRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === "object");
@@ -213,12 +215,11 @@ function getRegionAvailabilityBadge(
   return {
     label: `${getFinalDecisionRegionLabel(regionAvailability)} (${formatFinalDecisionProbability(regionAvailability.probability)})`,
     tone: getFinalDecisionRegionTone(regionAvailability),
-    severity:
-      isVerifiedAvailable
-        ? "positive"
-        : status === "uncertain"
-          ? "warning"
-          : "critical",
+    severity: isVerifiedAvailable
+      ? "positive"
+      : status === "uncertain"
+        ? "warning"
+        : "critical",
   };
 }
 
@@ -475,9 +476,15 @@ function withRegionAvailabilityDefaults(
     connectivity:
       "connectivity" in decision && isObjectRecord(decision.connectivity)
         ? {
-            google: decision.connectivity.google === true,
-            youtube: decision.connectivity.youtube === true,
-            openai: decision.connectivity.openai === true,
+            google: normalizeConnectivityProbeServiceResult(
+              decision.connectivity.google,
+            ),
+            youtube: normalizeConnectivityProbeServiceResult(
+              decision.connectivity.youtube,
+            ),
+            openai: normalizeConnectivityProbeServiceResult(
+              decision.connectivity.openai,
+            ),
           }
         : DEFAULT_CONNECTIVITY,
     regionAvailability: {

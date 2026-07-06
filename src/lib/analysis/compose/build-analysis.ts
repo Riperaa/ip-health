@@ -18,6 +18,9 @@ import {
   normalizeFinalDecision,
 } from "../final-decision";
 import {
+  buildConnectivityProbeResult,
+  isConnectivityProbeReachable,
+  isConnectivityProbeUnreachable,
   probeConnectivity,
   type ConnectivityProbeResult,
 } from "../connectivity/probe";
@@ -525,11 +528,7 @@ const SERVICE_COMPATIBILITY_GROUPS = [
   },
 ] as const;
 
-const DEFAULT_CONNECTIVITY = {
-  google: true,
-  youtube: true,
-  openai: true,
-} satisfies ConnectivityProbeResult;
+const DEFAULT_CONNECTIVITY = buildConnectivityProbeResult("unknown");
 
 const GOOGLE_CONNECTIVITY_SERVICES = new Set([
   "google account",
@@ -581,16 +580,15 @@ function getRegionAvailabilityVerification(
     return "not_probed";
   }
 
-  return connectivity[probe] ? "probe_passed" : "probe_failed";
-}
+  if (isConnectivityProbeReachable(connectivity[probe])) {
+    return "probe_passed";
+  }
 
-function hasPassedConnectivityProbe(finalDecision: FinalDecision) {
-  return (
-    getRegionAvailabilityVerification(
-      finalDecision.rawSignals.service,
-      finalDecision.decision.connectivity,
-    ) === "probe_passed"
-  );
+  if (isConnectivityProbeUnreachable(connectivity[probe])) {
+    return "probe_failed";
+  }
+
+  return "not_probed";
 }
 
 function roundProbability(value: number) {
@@ -693,7 +691,7 @@ function getConnectivityFailureExplanation(
   const normalizedService = normalizeServiceName(service);
   const probe = getServiceConnectivityProbe(service);
 
-  if (!probe || connectivity[probe]) {
+  if (!probe || !isConnectivityProbeUnreachable(connectivity[probe])) {
     return null;
   }
 
@@ -725,6 +723,10 @@ function getFinalServiceAvailability(
   finalDecision: FinalDecision,
 ): ServiceAvailabilityStatus {
   const { regionAvailability, serviceCompatibility } = finalDecision.decision;
+  const verification = getRegionAvailabilityVerification(
+    finalDecision.rawSignals.service,
+    finalDecision.decision.connectivity,
+  );
 
   if (
     hasConnectivityFailure(finalDecision) ||
@@ -734,12 +736,15 @@ function getFinalServiceAvailability(
     return "Restricted";
   }
 
-  if (!getServiceConnectivityProbe(finalDecision.rawSignals.service)) {
+  if (
+    !getServiceConnectivityProbe(finalDecision.rawSignals.service) ||
+    verification === "not_probed"
+  ) {
     return "Not Verified";
   }
 
   if (
-    !hasPassedConnectivityProbe(finalDecision) ||
+    verification !== "probe_passed" ||
     regionAvailability.status === "uncertain" ||
     serviceCompatibility.status === "Use with Caution"
   ) {
@@ -1083,10 +1088,7 @@ function buildFinalDecision({
         probability: regionInference.probability,
         restriction: regionInference.restriction,
         explanation: regionInference.explanation,
-        verification: getRegionAvailabilityVerification(
-          service,
-          connectivity,
-        ),
+        verification: getRegionAvailabilityVerification(service, connectivity),
       },
       serviceCompatibility: {
         status: getServiceStatusFromProbability(serviceProbability),

@@ -231,15 +231,15 @@ function RealConnectivitySection({ result }: { result: AnalysisResult }) {
   const connectivityItems = [
     {
       label: "Google",
-      connected: result.connectivity?.google,
+      probe: result.connectivity?.google,
     },
     {
       label: "YouTube",
-      connected: result.connectivity?.youtube,
+      probe: result.connectivity?.youtube,
     },
     {
       label: "OpenAI / ChatGPT",
-      connected: result.connectivity?.openai,
+      probe: result.connectivity?.openai,
     },
   ];
 
@@ -252,8 +252,19 @@ function RealConnectivitySection({ result }: { result: AnalysisResult }) {
       </div>
       <ul className="divide-y divide-neutral-100">
         {connectivityItems.map((item) => {
-          const hasResult = typeof item.connected === "boolean";
-          const isConnected = item.connected === true;
+          const status = item.probe?.status ?? "unknown";
+          const tone =
+            status === "reachable"
+              ? "good"
+              : status === "unreachable"
+                ? "risk"
+                : "neutral";
+          const label =
+            status === "reachable"
+              ? "Reachable"
+              : status === "unreachable"
+                ? "Unreachable"
+                : "Not Verified";
 
           return (
             <li
@@ -261,15 +272,8 @@ function RealConnectivitySection({ result }: { result: AnalysisResult }) {
               className="flex items-center justify-between gap-4 px-4 py-3 text-sm"
             >
               <span className="font-medium text-neutral-950">{item.label}</span>
-              <StatusBadge
-                tone={hasResult ? (isConnected ? "good" : "risk") : "neutral"}
-                variant="quiet"
-              >
-                {hasResult
-                  ? isConnected
-                    ? "Connected"
-                    : "Unreachable"
-                  : "Pending"}
+              <StatusBadge tone={tone} variant="quiet">
+                {label}
               </StatusBadge>
             </li>
           );

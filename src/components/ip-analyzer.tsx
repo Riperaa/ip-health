@@ -94,6 +94,22 @@ function getVerdict(result: AnalysisResult): OverallVerdict | null {
   return result.finalDecision?.decision.overallVerdict ?? null;
 }
 
+function getSupportingStatusLabel(label: string) {
+  if (label === "Healthy") {
+    return "Evidence clear";
+  }
+
+  if (label === "Use with Caution") {
+    return "Review evidence";
+  }
+
+  if (label === "Risky") {
+    return "Risk evidence";
+  }
+
+  return label;
+}
+
 function getRiskSignalExplanation(signal: {
   label: string;
   detail: string;
@@ -414,7 +430,7 @@ function IpHealthScoreCard({ result }: { result: AnalysisResult }) {
       <div className="grid gap-6 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
         <div className="min-w-0">
           <p className="text-xs font-semibold uppercase tracking-normal text-neutral-400">
-            IP Health Score
+            Trust Score
           </p>
           <p className="mt-3 flex items-end gap-1 text-7xl font-semibold leading-none text-neutral-950">
             {trustScoreDisplay}
@@ -439,20 +455,12 @@ function IpHealthScoreCard({ result }: { result: AnalysisResult }) {
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
             {display && verdictDisplay ? (
-              <>
-                <StatusBadge
-                  tone={verdictDisplay.tone}
-                  className="px-3 py-1.5 text-sm"
-                >
-                  {verdict}
-                </StatusBadge>
-                <StatusBadge
-                  tone={display.serviceCompatibilityBadge.tone}
-                  variant="quiet"
-                >
-                  {display.serviceCompatibilityBadge.label}
-                </StatusBadge>
-              </>
+              <StatusBadge
+                tone={verdictDisplay.tone}
+                className="px-3 py-1.5 text-sm"
+              >
+                Analyzed
+              </StatusBadge>
             ) : (
               <StatusBadge tone="neutral" className="px-3 py-1.5 text-sm">
                 Pending
@@ -461,27 +469,6 @@ function IpHealthScoreCard({ result }: { result: AnalysisResult }) {
           </div>
         </div>
       </div>
-
-      {verdictDisplay ? (
-        <div className="mt-5 rounded-2xl border border-neutral-100 bg-white p-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-normal text-neutral-400">
-                Quick Answer
-              </p>
-              <p className="mt-1 text-sm font-semibold text-neutral-950">
-                {verdictDisplay.title}
-              </p>
-              <p className="mt-1 text-sm leading-6 text-neutral-500">
-                {verdictDisplay.description}
-              </p>
-            </div>
-            <StatusBadge tone={verdictDisplay.tone} className="mt-1 sm:mt-0">
-              {verdict}
-            </StatusBadge>
-          </div>
-        </div>
-      ) : null}
     </section>
   );
 }
@@ -677,57 +664,6 @@ function RecommendedUsageSection({ result }: { result: AnalysisResult }) {
   );
 }
 
-function IpHistorySection({ result }: { result: AnalysisResult }) {
-  const [isIpHistoryVisible, setIsIpHistoryVisible] = useState(false);
-
-  return (
-    <DisclosureSection
-      title="IP History"
-      summary="Saved in this browser only"
-      isExpanded={isIpHistoryVisible}
-      onToggle={() =>
-        setIsIpHistoryVisible((currentVisibility) => !currentVisibility)
-      }
-      contentId="ip-history-content"
-    >
-      <div className="surface-card mt-3 overflow-hidden rounded-2xl border bg-white">
-        <ul
-          hidden={result.ipHistory.length === 0}
-          className="divide-y divide-neutral-100"
-        >
-          {result.ipHistory.map((historyRecord) => (
-            <li
-              key={`${historyRecord.timestamp}:${historyRecord.ip}`}
-              className="grid gap-1 px-4 py-3 text-sm sm:grid-cols-[1.2fr_0.7fr_1fr_0.8fr] sm:gap-3"
-            >
-              <span className="font-medium text-neutral-950">
-                {historyRecord.ip}
-              </span>
-              <span className="text-neutral-600">
-                {historyRecord.trustScore}/100
-              </span>
-              <span className="text-neutral-600">
-                {historyRecord.recommendationLabel}
-              </span>
-              <span className="text-neutral-600">
-                {historyRecord.abuseConfidence === null
-                  ? "No abuse score"
-                  : `${historyRecord.abuseConfidence}%`}
-              </span>
-            </li>
-          ))}
-        </ul>
-        <p
-          hidden={result.ipHistory.length > 0}
-          className="px-4 py-3 text-sm text-neutral-500"
-        >
-          No local history for this IP.
-        </p>
-      </div>
-    </DisclosureSection>
-  );
-}
-
 function NetworkIntegritySection({ result }: { result: AnalysisResult }) {
   return (
     <section className="surface-card rounded-2xl border bg-white p-5">
@@ -845,7 +781,9 @@ function ServiceCompatibilitySection({ result }: { result: AnalysisResult }) {
                 tone={reportDisplay.serviceCompatibilityBadge.tone}
                 variant="quiet"
               >
-                {reportDisplay.serviceCompatibilityBadge.label}
+                {getSupportingStatusLabel(
+                  reportDisplay.serviceCompatibilityBadge.label,
+                )}
               </StatusBadge>
             </span>
             <span className="inline-flex flex-wrap items-center gap-2">
@@ -856,7 +794,9 @@ function ServiceCompatibilitySection({ result }: { result: AnalysisResult }) {
                 tone={reportDisplay.regionAvailabilityBadge.tone}
                 variant="quiet"
               >
-                {reportDisplay.regionAvailabilityBadge.label}
+                {getSupportingStatusLabel(
+                  reportDisplay.regionAvailabilityBadge.label,
+                )}
               </StatusBadge>
             </span>
           </div>
@@ -970,7 +910,9 @@ function ServiceCompatibilitySection({ result }: { result: AnalysisResult }) {
                                   tone={display.serviceCompatibilityBadge.tone}
                                   variant="quiet"
                                 >
-                                  {display.serviceCompatibilityBadge.label}
+                                  {getSupportingStatusLabel(
+                                    display.serviceCompatibilityBadge.label,
+                                  )}
                                 </StatusBadge>
                               </span>
                               {showRegionalAvailabilityBadge ? (
@@ -982,7 +924,9 @@ function ServiceCompatibilitySection({ result }: { result: AnalysisResult }) {
                                     tone={display.regionAvailabilityBadge.tone}
                                     variant="quiet"
                                   >
-                                    {display.regionAvailabilityBadge.label}
+                                    {getSupportingStatusLabel(
+                                      display.regionAvailabilityBadge.label,
+                                    )}
                                   </StatusBadge>
                                 </span>
                               ) : null}
@@ -1041,7 +985,7 @@ function ScoreExplanationSection({ result }: { result: AnalysisResult }) {
     <section className="surface-card rounded-2xl border bg-white p-5">
       <div className="flex flex-col gap-1">
         <p className="text-sm font-semibold text-neutral-950">
-          Why this score?
+          Why this score
         </p>
         <p className="text-sm leading-6 text-neutral-500">
           {hasAnalysis
@@ -1251,11 +1195,12 @@ function TechnicalDetailsSection({ result }: { result: AnalysisResult }) {
       contentId="technical-details-content"
     >
       <div className="mt-3 flex flex-col gap-4">
+        <IpReputationCard result={result} />
         <TechnicalIpFactsSection result={result} />
         <TechnicalIpqsSection result={result} />
+        <NetworkSharingCard result={result} />
         <NetworkIntegritySection result={result} />
         <ServiceCompatibilitySection result={result} />
-        <ScoreExplanationSection result={result} />
         <RiskSignalsSection result={result} />
       </div>
     </DisclosureSection>
@@ -1266,15 +1211,13 @@ export function IpAnalyzer({ result }: { result: AnalysisResult }) {
   return (
     <div className="mt-6 flex w-full flex-col gap-4 text-left">
       <IpHealthScoreCard result={result} />
-      <IpReputationCard result={result} />
+      <ScoreExplanationSection result={result} />
       <div className="grid gap-4 lg:grid-cols-2">
         <IpIdentityCard result={result} />
         <IpLocationCard result={result} />
       </div>
-      <NetworkSharingCard result={result} />
       <RecommendedUsageSection result={result} />
       <TechnicalDetailsSection result={result} />
-      <IpHistorySection result={result} />
 
       <p className="text-xs leading-5 text-neutral-400">
         IP Health provides reputation-based guidance only. Services may also

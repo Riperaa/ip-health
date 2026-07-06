@@ -1452,7 +1452,8 @@ function buildTrustScore(
       riskTone: "neutral" satisfies StatusTone,
       recommendationLabel: "Not analyzed",
       recommendationTone: "neutral" satisfies StatusTone,
-      summary: "Run an analysis to populate this report.",
+      summary:
+        "Enter an IP address or analyze your current IP to see risk, trust, and compatibility.",
       explanationIntro: "Score details will appear here after analysis.",
       explanationItems: ["Run an analysis to see score details."],
       hasAnalysis,

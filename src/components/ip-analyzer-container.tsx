@@ -23,15 +23,15 @@ import {
 const checkBeforeCards = [
   {
     title: "Account Registration",
-    description: "Reduce account verification issues.",
+    description: "Check whether your IP may trigger signup verification.",
   },
   {
     title: "VPN Usage",
-    description: "Check whether your exit IP looks clean.",
+    description: "Understand whether your VPN exit IP looks trustworthy.",
   },
   {
     title: "Online Security",
-    description: "Understand how websites see your network identity.",
+    description: "See how websites may evaluate your network identity.",
   },
 ];
 
@@ -185,7 +185,7 @@ export function IpAnalyzerContainer() {
 
       <section className="w-full text-left">
         <p className="text-sm font-semibold text-neutral-950">
-          Check your IP before:
+          Why check your IP?
         </p>
         <div className="mt-3 grid gap-3 sm:grid-cols-3">
           {checkBeforeCards.map((card) => (

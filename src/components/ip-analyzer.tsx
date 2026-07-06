@@ -22,7 +22,7 @@ const verdictContent: Record<
 > = {
   Healthy: {
     title: "This IP looks trustworthy",
-    description: "No major risk signals detected.",
+    description: "No major risk signals were detected.",
     tone: "good",
   },
   "Use with Caution": {
@@ -49,12 +49,12 @@ const usageRecommendations: Record<OverallVerdict, UsageRecommendation[]> = {
     {
       title: "Recommended",
       tone: "caution",
-      items: ["General browsing", "Non-critical accounts"],
+      items: ["Normal browsing", "Non-critical accounts"],
     },
     {
       title: "Avoid",
       tone: "risk",
-      items: ["Bulk account creation", "Payment verification"],
+      items: ["Bulk account creation", "Important verification"],
     },
   ],
   Risky: [
@@ -63,7 +63,7 @@ const usageRecommendations: Record<OverallVerdict, UsageRecommendation[]> = {
       tone: "risk",
       items: [
         "New account registration",
-        "Financial services",
+        "Payment verification",
         "High-value accounts",
       ],
     },
@@ -91,7 +91,7 @@ function getRiskSignalExplanation(signal: {
     return {
       title: "Datacenter IP detected",
       whyItMatters:
-        "Some platforms assign lower trust scores to hosting IP ranges.",
+        "Some platforms reduce trust for cloud hosting IP ranges.",
     };
   }
 
@@ -103,16 +103,17 @@ function getRiskSignalExplanation(signal: {
     text.includes("warp")
   ) {
     return {
-      title: "VPN / Proxy detected",
+      title: "VPN or proxy signal detected",
       whyItMatters:
-        "Some services require additional verification for anonymized connections.",
+        "Some services may request additional verification.",
     };
   }
 
   if (text.includes("fraud") || text.includes("abuse")) {
     return {
-      title: "High fraud score",
-      whyItMatters: "This IP has stronger risk indicators.",
+      title: "High fraud risk signal",
+      whyItMatters:
+        "External risk intelligence detected suspicious indicators.",
     };
   }
 
@@ -163,8 +164,9 @@ function getRiskSignalCards(result: AnalysisResult) {
           label: "Reputation",
           detail: "Reputation scoring raised a risk signal.",
           tone: "risk",
-          title: "High fraud score",
-          whyItMatters: "This IP has stronger risk indicators.",
+          title: "High fraud risk signal",
+          whyItMatters:
+            "External risk intelligence detected suspicious indicators.",
         });
         return;
       }
@@ -179,7 +181,7 @@ function getRiskSignalCards(result: AnalysisResult) {
           tone: "infrastructure",
           title: "Datacenter IP detected",
           whyItMatters:
-            "Some platforms assign lower trust scores to hosting IP ranges.",
+            "Some platforms reduce trust for cloud hosting IP ranges.",
         });
         return;
       }
@@ -189,9 +191,8 @@ function getRiskSignalCards(result: AnalysisResult) {
           label: "VPN / Proxy",
           detail: "An anonymized or relayed network path raised risk.",
           tone: "caution",
-          title: "VPN / Proxy detected",
-          whyItMatters:
-            "Some services require additional verification for anonymized connections.",
+          title: "VPN or proxy signal detected",
+          whyItMatters: "Some services may request additional verification.",
         });
         return;
       }
@@ -278,7 +279,7 @@ function getNegativeScoreSignals(result: AnalysisResult) {
     riskSignalText.includes("infrastructure") ||
     riskSignalText.includes("asn")
   ) {
-    negativeSignals.add("Hosting provider detected");
+    negativeSignals.add("Datacenter IP detected");
   }
 
   if (
@@ -288,7 +289,7 @@ function getNegativeScoreSignals(result: AnalysisResult) {
     riskSignalText.includes("relay") ||
     riskSignalText.includes("warp")
   ) {
-    negativeSignals.add("Proxy/VPN detected");
+    negativeSignals.add("VPN or proxy signal detected");
   }
 
   if (
@@ -300,7 +301,7 @@ function getNegativeScoreSignals(result: AnalysisResult) {
         signal.direction === "raises_risk",
     )
   ) {
-    negativeSignals.add("High fraud score");
+    negativeSignals.add("High fraud risk signal");
   }
 
   if (
@@ -385,7 +386,8 @@ function MainRiskReport({ result }: { result: AnalysisResult }) {
   const trustScoreDisplay = display?.trustScoreValue ?? "--";
   const trustScoreSuffix = display?.trustScoreSuffix ?? "/100";
   const summary =
-    display?.summary ?? "Run an analysis to populate this report.";
+    display?.summary ??
+    "Enter an IP address or analyze your current IP to see risk, trust, and compatibility.";
 
   return (
     <section className="surface-card-primary rounded-[28px] border bg-white p-5 sm:p-6">
@@ -450,7 +452,10 @@ function MainRiskReport({ result }: { result: AnalysisResult }) {
         <div className="mt-5 rounded-2xl border border-neutral-100 bg-neutral-50/70 p-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <p className="text-sm font-semibold text-neutral-950">
+              <p className="text-xs font-semibold uppercase tracking-normal text-neutral-400">
+                IP Health Verdict
+              </p>
+              <p className="mt-1 text-sm font-semibold text-neutral-950">
                 {verdictDisplay.title}
               </p>
               <p className="mt-1 text-sm leading-6 text-neutral-500">
@@ -482,10 +487,10 @@ function RecommendedUsageSection({ result }: { result: AnalysisResult }) {
     <section className="surface-card rounded-2xl border bg-white p-5">
       <div className="flex flex-col gap-1">
         <p className="text-sm font-semibold text-neutral-950">
-          Recommended Usage
+          Recommended Actions
         </p>
         <p className="text-sm leading-6 text-neutral-500">
-          Based on the final verdict for this IP.
+          What to use this IP for, based on the final verdict.
         </p>
       </div>
 
@@ -495,14 +500,9 @@ function RecommendedUsageSection({ result }: { result: AnalysisResult }) {
             key={group.title}
             className="rounded-2xl border border-neutral-100 bg-neutral-50/60 p-4"
           >
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-sm font-semibold text-neutral-950">
-                {group.title}
-              </p>
-              <StatusBadge tone={group.tone} variant="quiet">
-                {group.title}
-              </StatusBadge>
-            </div>
+            <p className="text-sm font-semibold text-neutral-950">
+              {group.title}
+            </p>
             <ul className="mt-3 space-y-2">
               {group.items.map((item) => (
                 <li
@@ -991,7 +991,7 @@ function RiskSignalsSection({ result }: { result: AnalysisResult }) {
           {signals.map((signal) => (
             <li
               key={`${signal.label}:${signal.detail}`}
-              className="flex flex-col gap-2 py-3 first:pt-0 last:pb-0 sm:flex-row sm:items-start sm:justify-between sm:gap-4"
+              className="py-3 first:pt-0 last:pb-0"
             >
               <div>
                 <p className="text-sm font-medium text-neutral-950">
@@ -1001,9 +1001,6 @@ function RiskSignalsSection({ result }: { result: AnalysisResult }) {
                   Why it matters: {signal.whyItMatters}
                 </p>
               </div>
-              <StatusBadge tone={signal.tone} variant="quiet">
-                {signal.label}
-              </StatusBadge>
             </li>
           ))}
         </ul>

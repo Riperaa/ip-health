@@ -11,7 +11,10 @@ import type {
   RecommendationLabel,
   ServiceCompatibilityStatus,
 } from "@/lib/trust-engine";
-import type { ConnectivityProbeResult } from "./connectivity/probe";
+import type {
+  ConnectivityProbeResult,
+  ConnectivityStatus,
+} from "./connectivity/probe";
 import type { ProviderResult as AbuseIpDbResponse } from "@/lib/providers/abuseipdb";
 import type { ProviderResult as CloudflareTraceResponse } from "@/lib/providers/cloudflare";
 import type { ProviderResult as IpInfoResponse } from "@/lib/providers/ipinfo";
@@ -43,9 +46,7 @@ export type RecentCheck = {
 export type RiskLevel = "Low" | "Medium" | "High";
 export type FinalDecisionRiskLevel = "low" | "medium" | "high";
 export type RegionAvailabilityVerification =
-  | "probe_passed"
-  | "probe_failed"
-  | "not_probed";
+  "probe_passed" | "probe_failed" | "not_probed";
 
 export type IpTypeBadge =
   | "Residential"
@@ -188,10 +189,7 @@ export type ServiceCompatibilityItem = {
 };
 
 export type ServiceAvailabilityStatus =
-  | "Available"
-  | "Not Verified"
-  | "Uncertain"
-  | "Restricted";
+  "Available" | "Not Verified" | "Uncertain" | "Restricted";
 
 export type ServiceCompatibilityCategory = {
   category: string;
@@ -240,7 +238,7 @@ export type AnalysisResult = {
   networkIntegrity: NetworkIntegrity;
 };
 
-export type { ConnectivityProbeResult };
+export type { ConnectivityProbeResult, ConnectivityStatus };
 
 export type ComparisonDisplayResult = {
   input: string;

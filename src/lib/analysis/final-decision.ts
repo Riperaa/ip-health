@@ -22,8 +22,11 @@ export const FINAL_DECISION_VERSION = "1.0" as const;
 type FinalDecisionDecision = FinalDecisionV1["decision"];
 
 const DEFAULT_CONNECTIVITY = buildConnectivityProbeResult(
-  "unknown",
+  "not_verified",
 ) satisfies FinalDecisionDecision["connectivity"];
+
+const CONNECTIVITY_VERIFICATION_EXPLANATION =
+  "Browser privacy/CORS restrictions prevent full verification. This result is shown as Not Verified instead of Available.";
 
 function isObjectRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === "object");
@@ -333,8 +336,7 @@ export function buildPresentation(
     serviceCompatibility: {
       sectionTitle: "Service Compatibility",
       emptyMessage: "No service compatibility data available.",
-      footnote:
-        "This uses real connectivity first, then IP reputation and regional accessibility. Services may also consider account history, device reputation, browser fingerprint, and behavior.",
+      footnote: `This uses real connectivity first, then IP reputation and regional accessibility. ${CONNECTIVITY_VERIFICATION_EXPLANATION} Services may also consider account history, device reputation, browser fingerprint, and behavior.`,
       topSignalsLabel: "Top signals:",
       topSignalsSummary: getTopSignalItems(decision.signals)
         .map((item) => item.label)

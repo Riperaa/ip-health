@@ -252,15 +252,15 @@ function RealConnectivitySection({ result }: { result: AnalysisResult }) {
       </div>
       <ul className="divide-y divide-neutral-100">
         {connectivityItems.map((item) => {
-          const status = item.probe?.status ?? "unknown";
+          const status = item.probe?.status ?? "not_verified";
           const tone =
-            status === "reachable"
+            status === "verified_reachable"
               ? "good"
               : status === "unreachable"
                 ? "risk"
                 : "neutral";
           const label =
-            status === "reachable"
+            status === "verified_reachable"
               ? "Reachable"
               : status === "unreachable"
                 ? "Unreachable"
@@ -279,8 +279,26 @@ function RealConnectivitySection({ result }: { result: AnalysisResult }) {
           );
         })}
       </ul>
+      <p className="border-t border-neutral-100 px-4 py-3 text-sm leading-6 text-neutral-500">
+        Browser privacy/CORS restrictions prevent full verification. This result
+        is shown as Not Verified instead of Available.
+      </p>
     </section>
   );
+}
+
+function getServiceAvailabilityTone(
+  finalAvailability: AnalysisResult["serviceCompatibility"][number]["services"][number]["finalAvailability"],
+) {
+  if (finalAvailability === "Available") {
+    return "good";
+  }
+
+  if (finalAvailability === "Restricted") {
+    return "risk";
+  }
+
+  return "caution";
 }
 
 function ServiceCompatibilitySection({ result }: { result: AnalysisResult }) {
@@ -418,6 +436,19 @@ function ServiceCompatibilitySection({ result }: { result: AnalysisResult }) {
                               {service.name}
                             </span>
                             <span className="flex flex-wrap items-center gap-2">
+                              <span className="inline-flex items-center gap-2">
+                                <span className="text-[11px] font-semibold uppercase tracking-normal text-neutral-400">
+                                  Access
+                                </span>
+                                <StatusBadge
+                                  tone={getServiceAvailabilityTone(
+                                    service.finalAvailability,
+                                  )}
+                                  variant="quiet"
+                                >
+                                  {service.finalAvailability}
+                                </StatusBadge>
+                              </span>
                               <span className="inline-flex items-center gap-2">
                                 <span className="text-[11px] font-semibold uppercase tracking-normal text-neutral-400">
                                   IP Reputation

@@ -528,7 +528,7 @@ const SERVICE_COMPATIBILITY_GROUPS = [
   },
 ] as const;
 
-const DEFAULT_CONNECTIVITY = buildConnectivityProbeResult("unknown");
+const DEFAULT_CONNECTIVITY = buildConnectivityProbeResult("not_verified");
 
 const GOOGLE_CONNECTIVITY_SERVICES = new Set([
   "google account",
@@ -544,7 +544,7 @@ const CONNECTIVITY_FAILURE_PROBABILITY = 0.2;
 const CONNECTIVITY_FAILURE_REGION_PROBABILITY = 0.1;
 const UNVERIFIED_REGION_PROBABILITY_CAP = 0.69;
 const UNVERIFIED_REGION_EXPLANATION =
-  "Regional availability is not verified because this service has no matching real connectivity probe. IP reputation is evaluated separately.";
+  "Browser privacy/CORS restrictions prevent full verification. This result is shown as Not Verified instead of Available.";
 
 function normalizeServiceName(service: string) {
   return service.trim().toLowerCase();

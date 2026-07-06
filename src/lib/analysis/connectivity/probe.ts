@@ -5,13 +5,16 @@ export type ConnectivityProbeResult = {
 };
 
 export type ConnectivityProbeServiceResult = {
-  status: ConnectivityProbeStatus;
+  status: ConnectivityStatus;
   method: ConnectivityProbeMethod;
 };
 
-export type ConnectivityProbeStatus = "reachable" | "unreachable" | "unknown";
+export type ConnectivityStatus =
+  "verified_reachable" | "not_verified" | "unreachable";
 
-export type ConnectivityProbeMethod = "no-cors-fetch" | "image";
+export type ConnectivityProbeStatus = ConnectivityStatus;
+
+export type ConnectivityProbeMethod = "cors-fetch" | "no-cors-fetch" | "image";
 
 const CONNECTIVITY_PROBE_TIMEOUT_MS = 4000;
 
@@ -31,7 +34,7 @@ const CONNECTIVITY_PROBE_URLS = {
 } as const;
 
 function buildProbeResult(
-  status: ConnectivityProbeStatus,
+  status: ConnectivityStatus,
   method: ConnectivityProbeMethod,
 ): ConnectivityProbeServiceResult {
   return {
@@ -42,16 +45,32 @@ function buildProbeResult(
 
 function isConnectivityProbeStatus(
   value: unknown,
-): value is ConnectivityProbeStatus {
+): value is ConnectivityStatus {
   return (
-    value === "reachable" || value === "unreachable" || value === "unknown"
+    value === "verified_reachable" ||
+    value === "not_verified" ||
+    value === "unreachable"
   );
 }
 
 function isConnectivityProbeMethod(
   value: unknown,
 ): value is ConnectivityProbeMethod {
-  return value === "no-cors-fetch" || value === "image";
+  return (
+    value === "cors-fetch" || value === "no-cors-fetch" || value === "image"
+  );
+}
+
+function normalizeConnectivityProbeStatus(value: unknown): ConnectivityStatus {
+  if (isConnectivityProbeStatus(value)) {
+    return value;
+  }
+
+  if (value === "unreachable" || value === false) {
+    return "unreachable";
+  }
+
+  return "not_verified";
 }
 
 export function normalizeConnectivityProbeServiceResult(
@@ -60,29 +79,22 @@ export function normalizeConnectivityProbeServiceResult(
   if (value && typeof value === "object") {
     const candidate = value as Partial<ConnectivityProbeServiceResult>;
 
-    if (isConnectivityProbeStatus(candidate.status)) {
-      return buildProbeResult(
-        candidate.status,
-        isConnectivityProbeMethod(candidate.method)
-          ? candidate.method
-          : "no-cors-fetch",
-      );
-    }
+    return buildProbeResult(
+      normalizeConnectivityProbeStatus(candidate.status),
+      isConnectivityProbeMethod(candidate.method)
+        ? candidate.method
+        : "no-cors-fetch",
+    );
   }
 
-  if (value === true) {
-    return buildProbeResult("reachable", "no-cors-fetch");
-  }
-
-  if (value === false) {
-    return buildProbeResult("unreachable", "no-cors-fetch");
-  }
-
-  return buildProbeResult("unknown", "no-cors-fetch");
+  return buildProbeResult(
+    normalizeConnectivityProbeStatus(value),
+    "no-cors-fetch",
+  );
 }
 
 export function buildConnectivityProbeResult(
-  status: ConnectivityProbeStatus,
+  status: ConnectivityStatus,
   method: ConnectivityProbeMethod = "no-cors-fetch",
 ): ConnectivityProbeResult {
   return {
@@ -95,13 +107,39 @@ export function buildConnectivityProbeResult(
 export function isConnectivityProbeReachable(
   result: ConnectivityProbeServiceResult,
 ) {
-  return result.status === "reachable";
+  return result.status === "verified_reachable";
 }
 
 export function isConnectivityProbeUnreachable(
   result: ConnectivityProbeServiceResult,
 ) {
   return result.status === "unreachable";
+}
+
+async function probeWithCorsFetch(
+  url: string,
+): Promise<ConnectivityProbeServiceResult> {
+  const controller = new AbortController();
+  const timeoutId = globalThis.setTimeout(
+    () => controller.abort(),
+    CONNECTIVITY_PROBE_TIMEOUT_MS,
+  );
+
+  try {
+    const response = await fetch(url, {
+      method: "GET",
+      mode: "cors",
+      cache: "no-store",
+      signal: controller.signal,
+    });
+
+    return buildProbeResult(
+      response.ok ? "verified_reachable" : "not_verified",
+      "cors-fetch",
+    );
+  } finally {
+    globalThis.clearTimeout(timeoutId);
+  }
 }
 
 async function probeWithNoCorsFetch(
@@ -121,7 +159,7 @@ async function probeWithNoCorsFetch(
       signal: controller.signal,
     });
 
-    return buildProbeResult("reachable", "no-cors-fetch");
+    return buildProbeResult("not_verified", "no-cors-fetch");
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError") {
       return buildProbeResult("unreachable", "no-cors-fetch");
@@ -137,7 +175,7 @@ async function probeWithImage(
   url: string,
 ): Promise<ConnectivityProbeServiceResult> {
   if (typeof Image === "undefined") {
-    return buildProbeResult("unknown", "image");
+    return buildProbeResult("not_verified", "image");
   }
 
   return new Promise((resolve) => {
@@ -150,7 +188,7 @@ async function probeWithImage(
 
     image.onload = () => {
       globalThis.clearTimeout(timeoutId);
-      resolve(buildProbeResult("reachable", "image"));
+      resolve(buildProbeResult("not_verified", "image"));
     };
     image.onerror = () => {
       globalThis.clearTimeout(timeoutId);
@@ -166,9 +204,13 @@ async function probeUrl({
   image: imageUrl,
 }: (typeof CONNECTIVITY_PROBE_URLS)[keyof typeof CONNECTIVITY_PROBE_URLS]) {
   try {
-    return await probeWithNoCorsFetch(fetchUrl);
+    return await probeWithCorsFetch(fetchUrl);
   } catch {
-    return probeWithImage(imageUrl);
+    try {
+      return await probeWithNoCorsFetch(fetchUrl);
+    } catch {
+      return probeWithImage(imageUrl);
+    }
   }
 }
 
@@ -186,6 +228,6 @@ export async function probeConnectivity(): Promise<ConnectivityProbeResult> {
       openai,
     };
   } catch {
-    return buildConnectivityProbeResult("unknown");
+    return buildConnectivityProbeResult("not_verified");
   }
 }

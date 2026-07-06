@@ -20,6 +20,21 @@ import {
   type RecentCheck,
 } from "@/lib/analysis";
 
+const checkBeforeCards = [
+  {
+    title: "Account Registration",
+    description: "Reduce account verification issues.",
+  },
+  {
+    title: "VPN Usage",
+    description: "Check whether your exit IP looks clean.",
+  },
+  {
+    title: "Online Security",
+    description: "Understand how websites see your network identity.",
+  },
+];
+
 function LoadingSpinner() {
   return (
     <span
@@ -167,6 +182,27 @@ export function IpAnalyzerContainer() {
           </Link>
         </div>
       </form>
+
+      <section className="w-full text-left">
+        <p className="text-sm font-semibold text-neutral-950">
+          Check your IP before:
+        </p>
+        <div className="mt-3 grid gap-3 sm:grid-cols-3">
+          {checkBeforeCards.map((card) => (
+            <div
+              key={card.title}
+              className="surface-card-soft rounded-2xl border bg-white p-4"
+            >
+              <h2 className="text-sm font-semibold text-neutral-950">
+                {card.title}
+              </h2>
+              <p className="mt-2 text-sm leading-6 text-neutral-500">
+                {card.description}
+              </p>
+            </div>
+          ))}
+        </div>
+      </section>
 
       {analysisErrorIp ? (
         <div className="w-full rounded-2xl border border-red-100 bg-red-50 p-4 text-left">

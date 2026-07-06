@@ -1,3 +1,5 @@
+import type { OverallVerdict } from "../types";
+
 export type FinalDecisionService = "google" | "youtube" | "openai";
 
 export type FinalDecisionServiceStatus =
@@ -37,6 +39,7 @@ export type FinalDecisionTrustSignals = {
 
 export type FinalDecisionServiceResult = {
   status: FinalDecisionServiceStatus;
+  overallVerdict: OverallVerdict;
   trustScore: number;
   confidence: number;
   explanation: string[];
@@ -56,7 +59,7 @@ const IPQS_RESTRICTED_THRESHOLD = 90;
 const IPQS_HIGH_RISK_PENALTY = 45;
 const IPQS_RESTRICTED_PENALTY = 65;
 const HOSTING_PENALTY = 8;
-const RESTRICTED_TRUST_SCORE_THRESHOLD = 40;
+const RISKY_TRUST_SCORE_THRESHOLD = 40;
 const REGION_RESTRICTION_CONFIDENCE_PENALTY = 20;
 const REGION_CONFIDENCE_PENALTY_FACTOR = 0.3;
 
@@ -92,15 +95,25 @@ function hasAsn(asn?: string | number | null) {
   return Boolean(asn?.trim());
 }
 
+function isHardRegionRestriction(
+  region?: FinalDecisionRegionSignals | null,
+) {
+  return region?.restricted === true;
+}
+
+function hasStrongIpqsRisk(fraudScore: number | null) {
+  return fraudScore !== null && fraudScore >= IPQS_RESTRICTED_THRESHOLD;
+}
+
 export function computeTrustScore(signals: FinalDecisionTrustSignals) {
   const fraudScore = normalizeFraudScore(signals.ipqs?.fraud_score);
   const penalties = [
-    fraudScore !== null && fraudScore > IPQS_RESTRICTED_THRESHOLD
+    fraudScore !== null && fraudScore >= IPQS_RESTRICTED_THRESHOLD
       ? IPQS_RESTRICTED_PENALTY
       : 0,
     fraudScore !== null &&
-    fraudScore > IPQS_HIGH_RISK_THRESHOLD &&
-    fraudScore <= IPQS_RESTRICTED_THRESHOLD
+    fraudScore >= IPQS_HIGH_RISK_THRESHOLD &&
+    fraudScore < IPQS_RESTRICTED_THRESHOLD
       ? IPQS_HIGH_RISK_PENALTY
       : 0,
     signals.ipinfo?.hosting === true ? HOSTING_PENALTY : 0,
@@ -114,21 +127,49 @@ export function computeTrustScore(signals: FinalDecisionTrustSignals) {
 export function decideServiceStatus(
   connectivity: boolean,
   trustScore: number,
+  ipqs?: FinalDecisionIpqsSignals | null,
   region?: FinalDecisionRegionSignals | null,
 ): FinalDecisionServiceStatus {
   if (connectivity === false) {
     return "Unavailable";
   }
 
-  if (trustScore <= RESTRICTED_TRUST_SCORE_THRESHOLD) {
+  if (isHardRegionRestriction(region)) {
     return "Restricted";
   }
 
-  if (region?.restricted === true) {
-    return "Available";
+  if (hasStrongIpqsRisk(normalizeFraudScore(ipqs?.fraud_score))) {
+    return "Restricted";
+  }
+
+  if (trustScore < RISKY_TRUST_SCORE_THRESHOLD) {
+    return "Restricted";
   }
 
   return "Available";
+}
+
+export function decideOverallVerdict({
+  trustScore,
+  ipqs,
+  region,
+}: {
+  trustScore: number;
+  ipqs?: FinalDecisionIpqsSignals | null;
+  region?: FinalDecisionRegionSignals | null;
+}): OverallVerdict {
+  if (
+    trustScore < RISKY_TRUST_SCORE_THRESHOLD ||
+    hasStrongIpqsRisk(normalizeFraudScore(ipqs?.fraud_score))
+  ) {
+    return "Risky";
+  }
+
+  if (trustScore >= IPQS_HIGH_RISK_THRESHOLD && !isHardRegionRestriction(region)) {
+    return "Healthy";
+  }
+
+  return "Use with Caution";
 }
 
 function computeDecisionConfidence(region?: FinalDecisionRegionSignals | null) {
@@ -153,35 +194,33 @@ function buildBaseExplanation(
   const explanation: string[] = [];
   const fraudScore = normalizeFraudScore(input.ipqs?.fraud_score);
 
-  if (fraudScore !== null && fraudScore > IPQS_RESTRICTED_THRESHOLD) {
+  if (fraudScore !== null && fraudScore >= IPQS_RESTRICTED_THRESHOLD) {
     explanation.push(
-      `IPQS fraud_score ${fraudScore} is above 90, so trustScore is significantly reduced and connected services are restricted.`,
+      `IPQS fraud score is high. fraud_score ${fraudScore} applies a strong risk penalty.`,
     );
-  } else if (fraudScore !== null && fraudScore > IPQS_HIGH_RISK_THRESHOLD) {
+  } else if (fraudScore !== null && fraudScore >= IPQS_HIGH_RISK_THRESHOLD) {
     explanation.push(
-      `IPQS fraud_score ${fraudScore} is above 80, so trustScore is significantly reduced.`,
+      `IPQS fraud_score ${fraudScore} reduces trustScore but does not decide connectivity.`,
     );
   } else if (fraudScore !== null) {
     explanation.push(
-      `IPQS fraud_score ${fraudScore} does not trigger a high-risk reputation rule.`,
+      `IPQS fraud_score ${fraudScore} is below the high-risk threshold.`,
     );
   }
 
-  if (input.region?.restricted === true) {
-    explanation.push(
-      "Region restriction signal lowers confidence only and does not override connectivity.",
-    );
+  if (isHardRegionRestriction(input.region)) {
+    explanation.push("Regional restriction detected.");
   }
 
   if (input.ipinfo?.hosting === true) {
     explanation.push(
-      "IPInfo hosting classification applies a minor trustScore adjustment.",
+      "IPInfo hosting signal reduces trustScore and does not decide availability.",
     );
   }
 
   if (hasAsn(input.ipinfo?.asn)) {
     explanation.push(
-      `IPInfo ASN ${String(input.ipinfo?.asn)} is informational and does not override connectivity.`,
+      `IPInfo ASN ${String(input.ipinfo?.asn)} is a risk context signal and does not decide availability.`,
     );
   }
 
@@ -195,14 +234,13 @@ function buildServiceExplanation(
   service: FinalDecisionService,
   connectivity: boolean,
   status: FinalDecisionServiceStatus,
+  overallVerdict: OverallVerdict,
   baseExplanation: string[],
 ) {
   const explanation = [...baseExplanation];
 
   if (connectivity === false) {
-    explanation.unshift(
-      `${service} connectivity is false, so status is Unavailable by hard-block rule.`,
-    );
+    explanation.unshift("Connectivity probe failed.");
     return explanation;
   }
 
@@ -212,13 +250,14 @@ function buildServiceExplanation(
 
   if (status === "Restricted") {
     explanation.push(
-      `${service} remains connected, but trustScore requires Restricted status.`,
+      `${service} remains connected, but a higher-priority restriction or risk rule requires Restricted status.`,
     );
   } else {
-    explanation.push(
-      `${service} status is Available because connectivity is true.`,
-    );
+    explanation.push("No hard restrictions detected.");
+    explanation.push(`${service} status is Available because acceptable risk remains.`);
   }
+
+  explanation.push(`Overall verdict is ${overallVerdict}.`);
 
   return explanation;
 }
@@ -232,19 +271,31 @@ export function runFinalDecisionEngine(
   });
   const confidence = computeDecisionConfidence(input.region);
   const baseExplanation = buildBaseExplanation(input, trustScore, confidence);
+  const overallVerdict = decideOverallVerdict({
+    trustScore,
+    ipqs: input.ipqs,
+    region: input.region,
+  });
 
   return SERVICES.reduce<FinalDecisionEngineOutput>((decisions, service) => {
     const connectivity = input.connectivity[service];
-    const status = decideServiceStatus(connectivity, trustScore, input.region);
+    const status = decideServiceStatus(
+      connectivity,
+      trustScore,
+      input.ipqs,
+      input.region,
+    );
 
     decisions[service] = {
       status,
+      overallVerdict,
       trustScore,
       confidence,
       explanation: buildServiceExplanation(
         service,
         connectivity,
         status,
+        overallVerdict,
         baseExplanation,
       ),
     };

@@ -11,6 +11,7 @@ import type {
   FinalDecisionSignal,
   FinalDecisionV1,
   LegacyFinalDecision,
+  OverallVerdict,
   PresentationBadge,
   PresentationContract,
   PresentationTextItem,
@@ -40,6 +41,34 @@ function isRegionAvailabilityVerification(
     value === "probe_failed" ||
     value === "not_probed"
   );
+}
+
+function isOverallVerdict(value: unknown): value is OverallVerdict {
+  return (
+    value === "Healthy" ||
+    value === "Use with Caution" ||
+    value === "Risky"
+  );
+}
+
+function getOverallVerdict({
+  trustScore,
+  hasHardRestriction,
+  ipqsFraudScore,
+}: {
+  trustScore: number;
+  hasHardRestriction: boolean;
+  ipqsFraudScore: number | null;
+}): OverallVerdict {
+  if (trustScore < 40 || (ipqsFraudScore !== null && ipqsFraudScore >= 90)) {
+    return "Risky";
+  }
+
+  if (trustScore >= 80 && !hasHardRestriction) {
+    return "Healthy";
+  }
+
+  return "Use with Caution";
 }
 
 function formatFinalDecisionProbability(probability: number) {
@@ -479,9 +508,48 @@ function withRegionAvailabilityDefaults(
   const hasExplanation =
     "explanation" in regionAvailability &&
     typeof regionAvailability.explanation === "string";
+  const normalizedRegionAvailability = {
+    ...regionAvailability,
+    restriction: hasRestriction ? regionAvailability.restriction : "none",
+    explanation: hasExplanation
+      ? regionAvailability.explanation
+      : "Regional availability is inferred from weighted regional signals.",
+    verification:
+      "verification" in regionAvailability &&
+      isRegionAvailabilityVerification(regionAvailability.verification)
+        ? regionAvailability.verification
+        : "not_probed",
+  };
+  const externalSignals: FinalDecisionV1["decision"]["externalSignals"] =
+    "externalSignals" in decision && isObjectRecord(decision.externalSignals)
+      ? {
+          ipqs: isObjectRecord(decision.externalSignals.ipqs)
+            ? (decision.externalSignals
+                .ipqs as FinalDecisionV1["decision"]["externalSignals"]["ipqs"])
+            : { status: "unavailable" },
+        }
+      : {
+          ipqs: { status: "unavailable" },
+        };
+  const hasHardRestriction =
+    normalizedRegionAvailability.status === "likely_blocked" ||
+    normalizedRegionAvailability.restriction === "hard_region";
+  const ipqsFraudScore =
+    externalSignals.ipqs.status === "available"
+      ? externalSignals.ipqs.fraud_score
+      : null;
+  const overallVerdict =
+    "overallVerdict" in decision && isOverallVerdict(decision.overallVerdict)
+      ? decision.overallVerdict
+      : getOverallVerdict({
+          trustScore: decision.trustScore,
+          hasHardRestriction,
+          ipqsFraudScore,
+        });
 
   return {
     ...decision,
+    overallVerdict,
     connectivity:
       "connectivity" in decision && isObjectRecord(decision.connectivity)
         ? {
@@ -496,29 +564,8 @@ function withRegionAvailabilityDefaults(
             ),
           }
         : DEFAULT_CONNECTIVITY,
-    regionAvailability: {
-      ...regionAvailability,
-      restriction: hasRestriction ? regionAvailability.restriction : "none",
-      explanation: hasExplanation
-        ? regionAvailability.explanation
-        : "Regional availability is inferred from weighted regional signals.",
-      verification:
-        "verification" in regionAvailability &&
-        isRegionAvailabilityVerification(regionAvailability.verification)
-          ? regionAvailability.verification
-          : "not_probed",
-    },
-    externalSignals:
-      "externalSignals" in decision && isObjectRecord(decision.externalSignals)
-        ? {
-            ipqs: isObjectRecord(decision.externalSignals.ipqs)
-              ? (decision.externalSignals
-                  .ipqs as FinalDecisionV1["decision"]["externalSignals"]["ipqs"])
-              : { status: "unavailable" },
-          }
-        : {
-            ipqs: { status: "unavailable" },
-          },
+    regionAvailability: normalizedRegionAvailability,
+    externalSignals,
   };
 }
 

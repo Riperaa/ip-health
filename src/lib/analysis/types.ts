@@ -45,6 +45,7 @@ export type RecentCheck = {
 
 export type RiskLevel = "Low" | "Medium" | "High";
 export type FinalDecisionRiskLevel = "low" | "medium" | "high";
+export type OverallVerdict = "Healthy" | "Use with Caution" | "Risky";
 export type RegionAvailabilityVerification =
   "probe_passed" | "probe_failed" | "not_probed";
 
@@ -160,6 +161,7 @@ export type FinalDecisionV1 = {
   decision: {
     ip: string;
     trustScore: number;
+    overallVerdict: OverallVerdict;
     riskLevel: FinalDecisionRiskLevel;
     connectivity: ConnectivityProbeResult;
     regionAvailability: {

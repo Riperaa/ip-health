@@ -8,7 +8,7 @@ import {
   parseOrg,
   pickDetail,
 } from "../normalize/common";
-import { calculateTrustScore } from "../scoring/trust-score";
+import { buildIpQualityReport } from "../scoring/ip-quality-report";
 import type {
   AbuseIpDbResponse,
   ComparisonDisplayResult,
@@ -111,14 +111,14 @@ function buildScoreRecommendation(score: number): Recommendation {
   if (score >= 70) {
     return {
       label: "Recommended",
-      summary: "This IP has a stronger trust score profile.",
+      summary: "This IP has a stronger IP Health Score profile.",
     };
   }
 
   if (score >= 40) {
     return {
       label: "Use with Caution",
-      summary: "This IP has moderate risk signals.",
+      summary: "This IP has moderate IP quality signals.",
     };
   }
 
@@ -131,8 +131,18 @@ function buildScoreRecommendation(score: number): Recommendation {
 function getDisplayResult(
   result: CompareProviderResult,
 ): ComparisonDisplayResult {
-  const { ipInfo, abuseIpDb, ipqs } = result;
-  const score = calculateTrustScore(ipInfo, abuseIpDb, ipqs);
+  const { ipInfo, abuseIpDb, ipqs, cloudflare } = result;
+  const qualityReport = buildIpQualityReport({
+    ipInfo,
+    abuseIpDb,
+    ipqs,
+    cloudflare,
+    connectivity: null,
+    finalDecision: null,
+    serviceCompatibility: [],
+    hasAnalysis: true,
+  });
+  const score = qualityReport.overallScore ?? 0;
 
   return {
     input: result.input,
@@ -221,11 +231,11 @@ function getVerdictReason(
   }
 
   if (scoreLead >= 10 && abuseLead !== null && abuseLead >= 10) {
-    return `${winnerLabel} has a higher trust score and lower abuse confidence.`;
+    return `${winnerLabel} has a higher IP Health Score and lower abuse confidence.`;
   }
 
   if (scoreLead >= 10) {
-    return `${winnerLabel} has a higher trust score.`;
+    return `${winnerLabel} has a higher IP Health Score.`;
   }
 
   if (abuseLead !== null && abuseLead >= 10) {

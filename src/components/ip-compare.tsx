@@ -50,7 +50,7 @@ function ResultCard({
   const trustTone = getTrustScoreTone(result.score);
   const rows = [
     { label: "IP", value: result.ip },
-    { label: "Trust Score", value: `${result.score}/100` },
+    { label: "IP Health Score", value: `${result.score}/100` },
     { label: "Recommendation", value: result.recommendation.label },
     { label: "Confidence", value: result.confidence },
     { label: "IP Type / Usage Type", value: result.usageType },
@@ -84,7 +84,7 @@ function ResultCard({
         {rows.map((row) => {
           const isRecommendation = row.label === "Recommendation";
           const isUsageType = row.label === "IP Type / Usage Type";
-          const isTrustScore = row.label === "Trust Score";
+          const isTrustScore = row.label === "IP Health Score";
 
           return (
             <div

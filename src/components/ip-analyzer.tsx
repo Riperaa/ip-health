@@ -18,17 +18,20 @@ type UsageRecommendation = {
 
 const verdictContent: Record<
   OverallVerdict,
-  { description: string; tone: StatusTone }
+  { label: string; description: string; tone: StatusTone }
 > = {
   Healthy: {
-    description: "No major reputation signals detected.",
+    label: "High quality IP",
+    description: "Strong overall IP quality signals.",
     tone: "good",
   },
   "Use with Caution": {
+    label: "Review dimensions",
     description: "Some signals may require verification.",
     tone: "caution",
   },
   Risky: {
+    label: "High risk signals",
     description: "Sensitive services may restrict this IP.",
     tone: "risk",
   },
@@ -252,7 +255,7 @@ function getPositiveScoreSignals(result: AnalysisResult) {
   }
 
   if (
-    result.finalDecision.decision.trustScore >= 80 ||
+    (result.qualityReport.dimensions.reputation.score ?? 0) >= 85 ||
     finalDecisionSignals.some(
       (signal) =>
         signal.signalName === "trust_score" &&
@@ -263,6 +266,7 @@ function getPositiveScoreSignals(result: AnalysisResult) {
   }
 
   if (
+    (result.qualityReport.dimensions.networkQuality.score ?? 0) >= 85 ||
     finalDecisionSignals.some(
       (signal) =>
         (signal.signalName === "region_availability" ||
@@ -272,6 +276,10 @@ function getPositiveScoreSignals(result: AnalysisResult) {
     )
   ) {
     positiveSignals.add("Normal network path");
+  }
+
+  if ((result.qualityReport.dimensions.compatibility.score ?? 0) >= 85) {
+    positiveSignals.add("Strong compatibility");
   }
 
   if (
@@ -395,14 +403,17 @@ export function DisclosureSection({
 }
 
 function IpHealthScoreCard({ result }: { result: AnalysisResult }) {
-  const display = result.finalDecision?.display;
   const verdict = getVerdict(result);
   const verdictDisplay = verdict ? verdictContent[verdict] : null;
-  const trustScoreDisplay = display?.trustScoreValue ?? "--";
-  const trustScoreSuffix = display?.trustScoreSuffix ?? "/100";
-  const summary =
-    display?.summary ??
-    "Enter an IP address or analyze your current IP to see risk, trust, and compatibility.";
+  const qualityReport = result.qualityReport;
+  const scoreDisplay = qualityReport.displayValue;
+  const scoreSuffix = "/100";
+  const summary = qualityReport.summary;
+  const dimensions = [
+    qualityReport.dimensions.reputation,
+    qualityReport.dimensions.networkQuality,
+    qualityReport.dimensions.compatibility,
+  ];
 
   return (
     <section className="surface-card-primary rounded-[28px] border bg-white p-5 sm:p-6">
@@ -412,18 +423,18 @@ function IpHealthScoreCard({ result }: { result: AnalysisResult }) {
             IP Health Score
           </p>
           <p className="mt-3 flex items-end gap-1 text-7xl font-semibold leading-none text-neutral-950">
-            {trustScoreDisplay}
+            {scoreDisplay}
             <span className="pb-2 text-xl font-semibold text-neutral-400">
-              {trustScoreSuffix}
+              {scoreSuffix}
             </span>
           </p>
           <div className="mt-4 flex flex-wrap items-center gap-3">
-            {verdict && verdictDisplay ? (
+            {result.trustScore.hasAnalysis ? (
               <StatusBadge
-                tone={verdictDisplay.tone}
+                tone={result.trustScore.riskTone}
                 className="px-3 py-1.5 text-sm"
               >
-                {verdict}
+                {result.trustScore.riskLabel}
               </StatusBadge>
             ) : (
               <StatusBadge tone="neutral" className="px-3 py-1.5 text-sm">
@@ -431,7 +442,7 @@ function IpHealthScoreCard({ result }: { result: AnalysisResult }) {
               </StatusBadge>
             )}
             <span className="text-sm leading-6 text-neutral-500">
-              {verdictDisplay?.description ?? summary}
+              {summary}
             </span>
           </div>
         </div>
@@ -444,12 +455,12 @@ function IpHealthScoreCard({ result }: { result: AnalysisResult }) {
             {result.ip.address || "Not analyzed"}
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
-            {display && verdictDisplay ? (
+            {result.trustScore.hasAnalysis && verdictDisplay ? (
               <StatusBadge
                 tone={verdictDisplay.tone}
                 className="px-3 py-1.5 text-sm"
               >
-                Analyzed
+                {verdictDisplay.label}
               </StatusBadge>
             ) : (
               <StatusBadge tone="neutral" className="px-3 py-1.5 text-sm">
@@ -458,6 +469,39 @@ function IpHealthScoreCard({ result }: { result: AnalysisResult }) {
             )}
           </div>
         </div>
+      </div>
+
+      <div className="mt-6 grid gap-3 lg:grid-cols-3">
+        {dimensions.map((dimension) => (
+          <div
+            key={dimension.key}
+            className="rounded-2xl border border-neutral-100 bg-neutral-50/70 p-4"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="flex items-center gap-2 text-sm font-semibold text-neutral-950">
+                  <span aria-hidden="true">
+                    {dimension.key === "reputation"
+                      ? "🛡"
+                      : dimension.key === "networkQuality"
+                        ? "🌐"
+                        : "✅"}
+                  </span>
+                  <span>{dimension.label}</span>
+                </p>
+                <p className="mt-2 text-sm leading-6 text-neutral-500">
+                  {dimension.summary}
+                </p>
+              </div>
+              <StatusBadge tone={dimension.tone} variant="quiet">
+                {dimension.displayValue}/100
+              </StatusBadge>
+            </div>
+            <p className="mt-3 text-xs leading-5 text-neutral-400">
+              {dimension.detail}
+            </p>
+          </div>
+        ))}
       </div>
     </section>
   );
@@ -757,7 +801,7 @@ function RecommendedUsageSection({ result }: { result: AnalysisResult }) {
       <div className="flex flex-col gap-1">
         <p className="text-sm font-semibold text-neutral-950">Recommendation</p>
         <p className="text-sm leading-6 text-neutral-500">
-          Suitable usage and places to avoid.
+          {result.qualityReport.recommendationExplanation}
         </p>
       </div>
 

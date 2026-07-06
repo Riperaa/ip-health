@@ -357,7 +357,7 @@ export function buildPresentation(
     summary: `Service compatibility probability is ${formatFinalDecisionProbability(decision.serviceCompatibility.probability)}. Regional availability is ${regionLabel.toLowerCase()} at ${formatFinalDecisionProbability(decision.regionAvailability.probability)}. ${regionExplanation}`,
     scoreExplanation: {
       title: "Score Explanation",
-      intro: `Why this final decision received a ${decision.trustScore}/100 trust score.`,
+      intro: `Why this final decision received a ${decision.trustScore}/100 decision score.`,
       items: getTopSignalItems(decision.signals),
       emptyMessage: "Run an analysis to see decision signals.",
     },

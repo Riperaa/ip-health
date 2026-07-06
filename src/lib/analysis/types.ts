@@ -235,6 +235,31 @@ export type NetworkIntegrity = {
   unavailableMessage: string;
 };
 
+export type IpQualityScoreDimensionKey =
+  | "reputation"
+  | "networkQuality"
+  | "compatibility";
+
+export type IpQualityScoreDimension = {
+  key: IpQualityScoreDimensionKey;
+  label: string;
+  icon: string;
+  score: number | null;
+  displayValue: string;
+  summary: string;
+  detail: string;
+  tone: StatusTone;
+};
+
+export type IpQualityReport = {
+  overallScore: number | null;
+  displayValue: string;
+  summary: string;
+  recommendationExplanation: string;
+  weights: Record<IpQualityScoreDimensionKey, number>;
+  dimensions: Record<IpQualityScoreDimensionKey, IpQualityScoreDimension>;
+};
+
 export type EndUserReport = {
   reputation: {
     status: "Good" | "Fair" | "Poor" | "Pending";
@@ -285,6 +310,7 @@ export type AnalysisResult = {
   connectivity: ConnectivityProbeResult | null;
   regionRiskLevel: RegionRiskLevel;
   ipHistory: IpHistoryRecord[];
+  qualityReport: IpQualityReport;
   networkIntegrity: NetworkIntegrity;
   endUserReport: EndUserReport;
 };

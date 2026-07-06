@@ -47,6 +47,7 @@ import {
   normalizeIpHistory,
   persistIpHistory,
 } from "../normalize/storage";
+import { buildIpQualityReport } from "../scoring/ip-quality-report";
 import { calculateTrustScore } from "../scoring/trust-score";
 import type {
   AbuseIpDbResponse,
@@ -60,12 +61,12 @@ import type {
   IpHistoryRecord,
   IpInfoResponse,
   IpqsResponse,
+  IpQualityReport,
   IpTypeBadge,
   NetworkIntegrity,
   OverallVerdict,
   ProviderAnalysisResult,
   ResultFact,
-  RiskLevel,
   RiskSignal,
   RegionAvailabilityVerification,
   ServiceAvailabilityStatus,
@@ -470,42 +471,6 @@ function buildEndUserReport({
   };
 }
 
-function getRiskLevel(score: number): RiskLevel {
-  if (score >= 70) {
-    return "Low";
-  }
-
-  if (score >= 40) {
-    return "Medium";
-  }
-
-  return "High";
-}
-
-function getRiskLevelTone(riskLevel: RiskLevel): StatusTone {
-  if (riskLevel === "Low") {
-    return "good";
-  }
-
-  if (riskLevel === "Medium") {
-    return "caution";
-  }
-
-  return "risk";
-}
-
-function getRiskLevelSummary(riskLevel: RiskLevel) {
-  if (riskLevel === "Low") {
-    return "No major risk signals were found in the available data.";
-  }
-
-  if (riskLevel === "Medium") {
-    return "Some risk signals need review before using this IP for sensitive accounts.";
-  }
-
-  return "Strong risk signals were found. Avoid this IP for sensitive accounts.";
-}
-
 function formatAbuseConfidence(abuseIpDb?: AbuseIpDbResponse | null) {
   const abuseConfidence = abuseIpDb?.abuseConfidence ?? null;
 
@@ -606,7 +571,7 @@ function getScoreExplanationItems(
   abuseIpDb: AbuseIpDbResponse | null,
   ipqs: IpqsResponse | null,
   cloudflare: CloudflareTraceResponse | null,
-  score: number,
+  qualityReport: IpQualityReport,
 ) {
   const abuseConfidence = abuseIpDb?.abuseConfidence ?? null;
   const privacySignals = getPrivacySignals(ipInfo);
@@ -618,25 +583,18 @@ function getScoreExplanationItems(
   const usageType = formatUsageType(abuseIpDb?.usageType, ipInfo.privacy);
   const networkIdentity = getNetworkIdentity(ipInfo, abuseIpDb);
   const reverseDns = getReverseDns(ipInfo, abuseIpDb);
-  const items: string[] = [];
-
-  if (score >= 85) {
-    items.push(
-      "The trust score is high because no major abuse or privacy signals were found.",
-    );
-  } else if (score >= 70) {
-    items.push(
-      "The trust score is strong, with only minor caution signals in the available data.",
-    );
-  } else if (score >= 40) {
-    items.push(
-      "The trust score is medium because one or more risk signals need review.",
-    );
-  } else {
-    items.push(
-      "The trust score is low because stronger abuse, privacy, or network signals were detected.",
-    );
-  }
+  const items = [
+    `Overall score blends Reputation (${Math.round(
+      qualityReport.weights.reputation * 100,
+    )}%), Network Quality (${Math.round(
+      qualityReport.weights.networkQuality * 100,
+    )}%), and Compatibility (${Math.round(
+      qualityReport.weights.compatibility * 100,
+    )}%).`,
+    `${qualityReport.dimensions.reputation.label}: ${qualityReport.dimensions.reputation.summary}.`,
+    `${qualityReport.dimensions.networkQuality.label}: ${qualityReport.dimensions.networkQuality.summary}.`,
+    `${qualityReport.dimensions.compatibility.label}: ${qualityReport.dimensions.compatibility.summary}.`,
+  ];
 
   if (abuseConfidence === null) {
     items.push("No abuse database score was returned for this IP.");
@@ -946,18 +904,6 @@ function getFinalRiskLevel(score: number): FinalDecisionRiskLevel {
   return "high";
 }
 
-function getLegacyRiskLevel(riskLevel: FinalDecisionRiskLevel): RiskLevel {
-  if (riskLevel === "low") {
-    return "Low";
-  }
-
-  if (riskLevel === "medium") {
-    return "Medium";
-  }
-
-  return "High";
-}
-
 function getServiceStatusFromProbability(
   probability: number,
 ): ServiceCompatibilityStatus {
@@ -970,6 +916,34 @@ function getServiceStatusFromProbability(
   }
 
   return "High Risk";
+}
+
+function getIpHealthScoreLabel(score: number) {
+  if (score >= 85) {
+    return "High Quality";
+  }
+
+  if (score >= 70) {
+    return "Good Quality";
+  }
+
+  if (score >= 40) {
+    return "Review Needed";
+  }
+
+  return "High Risk";
+}
+
+function getIpHealthScoreTone(score: number): StatusTone {
+  if (score >= 70) {
+    return "good";
+  }
+
+  if (score >= 40) {
+    return "caution";
+  }
+
+  return "risk";
 }
 
 function getIpqsFraudScore(ipqs?: IpqsResponse | null) {
@@ -1751,6 +1725,7 @@ function buildTrustScore(
   providerResult: ProviderAnalysisResult,
   hasAnalysis: boolean,
   finalDecision: FinalDecision | null,
+  qualityReport: IpQualityReport,
 ): AnalysisResult["trustScore"] {
   const { ipInfo, abuseIpDb, ipqs, cloudflare } = providerResult;
 
@@ -1763,7 +1738,7 @@ function buildTrustScore(
       recommendationLabel: "Not analyzed",
       recommendationTone: "neutral" satisfies StatusTone,
       summary:
-        "Enter an IP address or analyze your current IP to see risk, trust, and compatibility.",
+        "Enter an IP address or analyze your current IP to see IP quality and compatibility.",
       explanationIntro: "Score details will appear here after analysis.",
       explanationItems: ["Run an analysis to see score details."],
       hasAnalysis,
@@ -1774,11 +1749,9 @@ function buildTrustScore(
     ? normalizeFinalDecision(finalDecision)
     : null;
   const value =
+    qualityReport.overallScore ??
     normalizedFinalDecision?.decision.trustScore ??
     calculateTrustScore(ipInfo, abuseIpDb, ipqs, cloudflare);
-  const riskLevel = normalizedFinalDecision
-    ? getLegacyRiskLevel(normalizedFinalDecision.decision.riskLevel)
-    : getRiskLevel(value);
   const serviceStatus =
     normalizedFinalDecision?.decision.serviceCompatibility.status ??
     getServiceStatusFromProbability(value / 100);
@@ -1792,18 +1765,18 @@ function buildTrustScore(
   return {
     value,
     displayValue: String(value),
-    riskLabel: `${riskLevel} Risk`,
-    riskTone: getRiskLevelTone(riskLevel),
+    riskLabel: getIpHealthScoreLabel(value),
+    riskTone: getIpHealthScoreTone(value),
     recommendationLabel,
     recommendationTone: getRecommendationTone(recommendationLabel),
-    summary: `${getRiskLevelSummary(riskLevel)} IP reputation compatibility probability is ${serviceProbability}%.`,
-    explanationIntro: `Why this IP received a ${value}/100 trust score.`,
+    summary: `${qualityReport.summary} Service compatibility probability is ${serviceProbability}%.`,
+    explanationIntro: `Why this IP received a ${value}/100 IP Health Score.`,
     explanationItems: getScoreExplanationItems(
       ipInfo,
       abuseIpDb,
       ipqs,
       cloudflare,
-      value,
+      qualityReport,
     ),
     hasAnalysis,
   };
@@ -1839,10 +1812,25 @@ export function buildAnalysisResult({
     : [];
   const region = detectRegionFromIpInfo(ipInfo);
   const finalDecision = getReportFinalDecision(serviceCompatibility);
+  const qualityReport = buildIpQualityReport({
+    ipInfo,
+    abuseIpDb,
+    ipqs,
+    cloudflare,
+    connectivity,
+    finalDecision,
+    serviceCompatibility,
+    hasAnalysis,
+  });
 
   return {
     ip: buildIpSummary(ipInfo, abuseIpDb),
-    trustScore: buildTrustScore(normalizedResult, hasAnalysis, finalDecision),
+    trustScore: buildTrustScore(
+      normalizedResult,
+      hasAnalysis,
+      finalDecision,
+      qualityReport,
+    ),
     riskSignals: hasAnalysis
       ? getRiskSignals(ipInfo, abuseIpDb, ipqs, cloudflare)
       : [],
@@ -1853,6 +1841,7 @@ export function buildAnalysisResult({
       ? buildRegionRiskLevel(serviceCompatibility, region)
       : "unknown",
     ipHistory: normalizedIpHistory,
+    qualityReport,
     networkIntegrity: buildNetworkIntegrity(ipInfo, cloudflare),
     endUserReport: buildEndUserReport({
       ipInfo,

@@ -1,12 +1,12 @@
 # IP Health
 
-Check IP trust, reputation risk, and service compatibility before logging in.
+Check IP reputation, network quality, and service compatibility before logging in.
 
 Live demo: [https://ip-health.vercel.app](https://ip-health.vercel.app)
 
 ## Features
 
-- Trust Score for a quick reputation read.
+- IP Health Score with Reputation, Network Quality, and Compatibility breakdowns.
 - Risk Summary with plain-language context.
 - Recommendation with Confidence based on available signals.
 - Service Compatibility guidance for popular platforms.
@@ -16,9 +16,9 @@ Live demo: [https://ip-health.vercel.app](https://ip-health.vercel.app)
 
 ## How it works
 
-IP Health combines network context, privacy indicators, abuse signals, and fraud signals into a readable IP reputation report. It highlights hosting, VPN, proxy, Tor, relay, ASN, ISP, usage type, and provider reputation data when available.
+IP Health combines network context, privacy indicators, abuse signals, IPQS signals, and connectivity probes into a readable IP quality report. It highlights hosting, VPN, proxy, Tor, relay, ASN, ISP, usage type, and provider reputation data when available.
 
-The Trust Score and recommendations are guidance, not guarantees. Service compatibility is estimated from reputation and infrastructure signals, with stricter handling for sensitive account, finance, crypto, and verification-heavy services.
+The IP Health Score blends Reputation (50%), Network Quality (30%), and Compatibility (20%). Recommendations are guidance, not guarantees. Service compatibility is estimated from connectivity, regional access, reputation, and infrastructure signals, with stricter handling for sensitive account, finance, crypto, and verification-heavy services.
 
 ## Tech stack
 

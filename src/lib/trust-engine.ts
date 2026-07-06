@@ -218,22 +218,22 @@ function getTrustScoreSummary(
   }
 
   if (score >= 90 && !hasMajorSignal) {
-    return `This IP has a trust score of ${score}/100, with no major reputation or abuse signals detected.`;
+    return `This IP has an IP quality score of ${score}/100, with no major reputation or abuse signals detected.`;
   }
 
   if (score >= 70 && signals.hosting) {
-    return `This IP has a trust score of ${score}/100, which suggests generally good reputation, but infrastructure signals still require caution.`;
+    return `This IP has generally good reputation, but infrastructure signals still require caution.`;
   }
 
   if (score >= 70) {
-    return `This IP has a trust score of ${score}/100, which suggests generally good reputation.`;
+    return `This IP has generally good reputation based on the available provider data.`;
   }
 
   if (score >= 40) {
-    return `This IP has a trust score of ${score}/100, which suggests moderate risk. Use caution with sensitive services.`;
+    return `This IP has moderate review signals. Use caution with sensitive services.`;
   }
 
-  return `This IP has a trust score of ${score}/100, which suggests elevated risk.`;
+  return `This IP has elevated review signals in the available provider data.`;
 }
 
 function getCompatibilitySignals(

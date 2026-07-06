@@ -67,7 +67,9 @@ export function normalizeIpqs(data: IpqsResponse | null): IpqsResponse | null {
 
   return {
     ...data,
+    status: data.status ?? "available",
     fraudScore: data.fraudScore ?? null,
+    country: data.country ?? null,
     vpn: data.vpn ?? null,
     proxy: data.proxy ?? null,
     tor: data.tor ?? null,

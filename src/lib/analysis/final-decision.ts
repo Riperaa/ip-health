@@ -433,6 +433,7 @@ export function createFinalDecisionV1({
     version: FINAL_DECISION_VERSION,
     rawSignals,
     computedMetrics,
+    externalSignals: decision.externalSignals,
     decision,
     display: buildPresentation(decision),
   } satisfies FinalDecisionV1;
@@ -447,6 +448,13 @@ function isFinalDecisionV1(value: unknown): value is FinalDecisionV1 {
     isObjectRecord(value) &&
     value.version === FINAL_DECISION_VERSION &&
     isObjectRecord(value.decision)
+  );
+}
+
+function hasFinalDecisionExternalSignals(value: FinalDecisionV1) {
+  return (
+    isObjectRecord(value.externalSignals) &&
+    isObjectRecord(value.externalSignals.ipqs)
   );
 }
 
@@ -500,6 +508,17 @@ function withRegionAvailabilityDefaults(
           ? regionAvailability.verification
           : "not_probed",
     },
+    externalSignals:
+      "externalSignals" in decision && isObjectRecord(decision.externalSignals)
+        ? {
+            ipqs: isObjectRecord(decision.externalSignals.ipqs)
+              ? (decision.externalSignals
+                  .ipqs as FinalDecisionV1["decision"]["externalSignals"]["ipqs"])
+              : { status: "unavailable" },
+          }
+        : {
+            ipqs: { status: "unavailable" },
+          },
   };
 }
 
@@ -509,7 +528,8 @@ export function normalizeFinalDecision(
   if (isFinalDecisionV1(finalDecision)) {
     const decision = withRegionAvailabilityDefaults(finalDecision.decision);
     const normalizedFinalDecision =
-      stableStringify(decision) === stableStringify(finalDecision.decision)
+      stableStringify(decision) === stableStringify(finalDecision.decision) &&
+      hasFinalDecisionExternalSignals(finalDecision)
         ? finalDecision
         : createFinalDecisionV1({
             rawSignals: finalDecision.rawSignals,

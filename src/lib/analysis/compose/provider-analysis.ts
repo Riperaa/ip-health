@@ -3,6 +3,7 @@ import type { ProviderAnalysisResult } from "@/lib/analysis/types";
 import { fetchAbuseIpDb } from "../fetch/abuse";
 import { fetchCloudflareTrace } from "../fetch/cloudflare";
 import { fetchDetectedIp, fetchIpifyPublicIp, fetchIpInfo } from "../fetch/ip";
+import { fetchIpqs } from "../fetch/ipqs";
 
 export async function detectPublicIp(): Promise<string> {
   const [detectedIp, cloudflare] = await Promise.all([
@@ -27,16 +28,17 @@ export async function fetchProviderAnalysis(
     throw new Error("Missing IP address.");
   }
 
-  const [ipInfo, abuseIpDb, cloudflare] = await Promise.all([
+  const [ipInfo, abuseIpDb, cloudflare, ipqs] = await Promise.all([
     fetchIpInfo(trimmedIpAddress),
     fetchAbuseIpDb(trimmedIpAddress),
     fetchCloudflareTrace(),
+    fetchIpqs(trimmedIpAddress),
   ]);
 
   return {
     ipInfo,
     abuseIpDb,
     cloudflare,
-    ipqs: null,
+    ipqs,
   };
 }

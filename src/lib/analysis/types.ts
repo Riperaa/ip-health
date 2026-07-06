@@ -125,6 +125,21 @@ export type PresentationContract = {
 
 export type FinalDecisionDisplay = PresentationContract;
 
+export type IpqsExternalSignal =
+  | {
+      status: "available";
+      fraud_score: number;
+      country: string;
+      vpn: boolean;
+      proxy: boolean;
+      tor: boolean;
+      bot_status: boolean;
+    }
+  | {
+      status: "unavailable";
+      error?: string;
+    };
+
 export type FinalDecisionV1 = {
   version: "1.0";
   rawSignals: {
@@ -138,6 +153,9 @@ export type FinalDecisionV1 = {
     trustProbability: number;
     regionAvailabilityProbability: number;
     serviceCompatibilityProbability: number;
+  };
+  externalSignals: {
+    ipqs: IpqsExternalSignal;
   };
   decision: {
     ip: string;
@@ -154,6 +172,9 @@ export type FinalDecisionV1 = {
     serviceCompatibility: {
       status: ServiceCompatibilityStatus;
       probability: number;
+    };
+    externalSignals: {
+      ipqs: IpqsExternalSignal;
     };
     signals: FinalDecisionSignal[];
   };

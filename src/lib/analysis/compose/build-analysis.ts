@@ -55,6 +55,7 @@ import type {
   FinalDecision,
   FinalDecisionRiskLevel,
   FinalDecisionSignal,
+  IpqsExternalSignal,
   IpHistoryRecord,
   IpInfoResponse,
   IpqsResponse,
@@ -292,6 +293,7 @@ function formatSignalList(signals: string[]) {
 function getScoreExplanationItems(
   ipInfo: IpInfoResponse,
   abuseIpDb: AbuseIpDbResponse | null,
+  ipqs: IpqsResponse | null,
   cloudflare: CloudflareTraceResponse | null,
   score: number,
 ) {
@@ -335,6 +337,14 @@ function getScoreExplanationItems(
     items.push(`Abuse history is elevated at ${abuseConfidence}% confidence.`);
   } else {
     items.push(`Abuse history is high at ${abuseConfidence}% confidence.`);
+  }
+
+  if (ipqs?.status === "unavailable") {
+    items.push(
+      "IPQS reputation data is unavailable, so analysis continued without it.",
+    );
+  } else if (ipqs?.fraudScore !== null && ipqs?.fraudScore !== undefined) {
+    items.push(`IPQS fraud score is ${ipqs.fraudScore}/100.`);
   }
 
   if (privacySignals.length === 0) {
@@ -387,6 +397,7 @@ function getScoreExplanationItems(
 function getRiskSignals(
   ipInfo: IpInfoResponse,
   abuseIpDb: AbuseIpDbResponse | null,
+  ipqs: IpqsResponse | null,
   cloudflare: CloudflareTraceResponse | null,
 ): RiskSignal[] {
   const privacy = ipInfo.privacy;
@@ -447,6 +458,16 @@ function getRiskSignals(
       label: "Abuse history",
       detail: `${formatAbuseConfidence(abuseIpDb)} confidence reported.`,
       tone: abuseConfidence >= 50 ? "risk" : "caution",
+    });
+  }
+
+  const ipqsFraudScore = getIpqsFraudScore(ipqs);
+
+  if (ipqsFraudScore !== null && ipqsFraudScore > 0) {
+    signals.push({
+      label: "IPQS fraud score",
+      detail: `IPQualityScore reports ${ipqsFraudScore}/100 fraud risk.`,
+      tone: ipqsFraudScore > IPQS_HIGH_RISK_FRAUD_SCORE ? "risk" : "caution",
     });
   }
 
@@ -543,6 +564,7 @@ const OPENAI_CONNECTIVITY_SERVICES = new Set(["chatgpt", "openai"]);
 const UNVERIFIED_REGION_PROBABILITY_CAP = 0.69;
 const UNVERIFIED_REGION_EXPLANATION =
   "Browser privacy and CORS restrictions may prevent full verification. When access cannot be strongly verified, IP Health shows Not Verified instead of Available.";
+const IPQS_HIGH_RISK_FRAUD_SCORE = 80;
 
 function normalizeServiceName(service: string) {
   return service.trim().toLowerCase();
@@ -633,6 +655,93 @@ function getServiceStatusFromProbability(
   }
 
   return "High Risk";
+}
+
+function getIpqsFraudScore(ipqs?: IpqsResponse | null) {
+  if (ipqs?.status === "unavailable") {
+    return null;
+  }
+
+  return ipqs?.fraudScore ?? null;
+}
+
+function getIpqsProbabilityCap(fraudScore: number | null) {
+  return fraudScore === null
+    ? null
+    : roundProbability((100 - Math.min(Math.max(fraudScore, 0), 100)) / 100);
+}
+
+function getServiceStatus({
+  probability,
+  ipqsFraudScore,
+}: {
+  probability: number;
+  ipqsFraudScore: number | null;
+}): ServiceCompatibilityStatus {
+  if (
+    ipqsFraudScore !== null &&
+    ipqsFraudScore > IPQS_HIGH_RISK_FRAUD_SCORE
+  ) {
+    return "High Risk";
+  }
+
+  return getServiceStatusFromProbability(probability);
+}
+
+function getRegionAvailabilityStatus({
+  currentStatus,
+  ipqsFraudScore,
+}: {
+  currentStatus: ReturnType<typeof inferRegionServiceCompatibility>["status"];
+  ipqsFraudScore: number | null;
+}) {
+  if (
+    currentStatus === "likely_available" &&
+    ipqsFraudScore !== null &&
+    ipqsFraudScore > IPQS_HIGH_RISK_FRAUD_SCORE
+  ) {
+    return "uncertain";
+  }
+
+  return currentStatus;
+}
+
+function getRegionAvailabilityExplanation({
+  currentExplanation,
+  ipqsFraudScore,
+}: {
+  currentExplanation: string;
+  ipqsFraudScore: number | null;
+}) {
+  if (
+    ipqsFraudScore !== null &&
+    ipqsFraudScore > IPQS_HIGH_RISK_FRAUD_SCORE
+  ) {
+    return `IPQS reports a high fraud score of ${ipqsFraudScore}, so service compatibility is downgraded despite internal region or ASN inference.`;
+  }
+
+  return currentExplanation;
+}
+
+function buildIpqsExternalSignal(
+  ipqs?: IpqsResponse | null,
+): IpqsExternalSignal {
+  if (!ipqs || ipqs.status === "unavailable") {
+    return {
+      status: "unavailable",
+      ...(ipqs?.error ? { error: ipqs.error } : {}),
+    };
+  }
+
+  return {
+    status: "available",
+    fraud_score: ipqs.fraudScore ?? 0,
+    country: ipqs.country ?? "",
+    vpn: ipqs.vpn ?? false,
+    proxy: ipqs.proxy ?? false,
+    tor: ipqs.tor ?? false,
+    bot_status: ipqs.bot ?? false,
+  };
 }
 
 function toScaledFinalDecisionSignal(
@@ -753,6 +862,10 @@ export function applyConnectivityFinalGate(
   const hasHardRestriction =
     finalDecision.decision.regionAvailability.status === "likely_blocked" ||
     finalDecision.decision.regionAvailability.restriction === "hard_region";
+  const ipqsSignal = finalDecision.decision.externalSignals.ipqs;
+  const hasHighIpqsFraudScore =
+    ipqsSignal.status === "available" &&
+    ipqsSignal.fraud_score > IPQS_HIGH_RISK_FRAUD_SCORE;
 
   if (verification === "probe_passed") {
     return finalDecision;
@@ -777,7 +890,7 @@ export function applyConnectivityFinalGate(
         ...finalDecision.decision.regionAvailability,
         status: hasHardRestriction ? "likely_blocked" : "uncertain",
         probability: regionAvailabilityProbability,
-        explanation: hasHardRestriction
+        explanation: hasHardRestriction || hasHighIpqsFraudScore
           ? finalDecision.decision.regionAvailability.explanation
           : UNVERIFIED_REGION_EXPLANATION,
         verification,
@@ -901,8 +1014,9 @@ function buildRegionInferenceInput({
       ipInfo.org,
     ),
     abuseConfidence: compatibilitySignals.abuseConfidence,
-    fraudScore: ipqs?.fraudScore ?? null,
-    recentAbuse: ipqs?.recentAbuse ?? null,
+    fraudScore: getIpqsFraudScore(ipqs),
+    recentAbuse:
+      ipqs?.status === "unavailable" ? null : (ipqs?.recentAbuse ?? null),
     hostingStatus: compatibilitySignals.hosting,
     vpnStatus: compatibilitySignals.vpn,
     proxyStatus: compatibilitySignals.proxy,
@@ -934,7 +1048,18 @@ function buildFinalDecision({
   historicalAccessConsistency: HistoricalAccessConsistency;
   connectivity: ConnectivityProbeResult;
 }): FinalDecision {
-  const trustScore = calculateTrustScore(ipInfo, abuseIpDb, ipqs, cloudflare);
+  const baseTrustScore = calculateTrustScore(
+    ipInfo,
+    abuseIpDb,
+    ipqs,
+    cloudflare,
+  );
+  const ipqsFraudScore = getIpqsFraudScore(ipqs);
+  const ipqsProbabilityCap = getIpqsProbabilityCap(ipqsFraudScore);
+  const trustScore =
+    ipqsProbabilityCap === null
+      ? baseTrustScore
+      : Math.min(baseTrustScore, Math.round(ipqsProbabilityCap * 100));
   const trustProbability = roundProbability(trustScore / 100);
   const regionInference = inferRegionServiceCompatibility(
     buildRegionInferenceInput({
@@ -947,14 +1072,28 @@ function buildFinalDecision({
       historicalAccessConsistency,
     }),
   );
-  const serviceProbability = trustProbability;
+  const regionAvailabilityProbability =
+    ipqsProbabilityCap === null
+      ? regionInference.probability
+      : roundProbability(
+          Math.min(regionInference.probability, ipqsProbabilityCap),
+        );
+  const serviceProbability =
+    ipqsProbabilityCap === null
+      ? trustProbability
+      : roundProbability(Math.min(trustProbability, ipqsProbabilityCap));
+  const ipqsSignal =
+    ipqsProbabilityCap === null
+      ? []
+      : [buildProbabilitySignal("ipqs_fraud_score", ipqsProbabilityCap, 0.75)];
   const signals = sortFinalDecisionSignals([
     buildProbabilitySignal("trust_score", trustProbability, 0.55),
     buildProbabilitySignal(
       "region_availability",
-      regionInference.probability,
+      regionAvailabilityProbability,
       0.45,
     ),
+    ...ipqsSignal,
     ...regionInference.signals.map((signal) =>
       toScaledFinalDecisionSignal(signal, 0.45),
     ),
@@ -970,7 +1109,7 @@ function buildFinalDecision({
     computedMetrics: {
       trustScore,
       trustProbability,
-      regionAvailabilityProbability: regionInference.probability,
+      regionAvailabilityProbability,
       serviceCompatibilityProbability: serviceProbability,
     },
     decision: {
@@ -979,15 +1118,27 @@ function buildFinalDecision({
       riskLevel: getFinalRiskLevel(trustScore),
       connectivity,
       regionAvailability: {
-        status: regionInference.status,
-        probability: regionInference.probability,
+        status: getRegionAvailabilityStatus({
+          currentStatus: regionInference.status,
+          ipqsFraudScore,
+        }),
+        probability: regionAvailabilityProbability,
         restriction: regionInference.restriction,
-        explanation: regionInference.explanation,
+        explanation: getRegionAvailabilityExplanation({
+          currentExplanation: regionInference.explanation,
+          ipqsFraudScore,
+        }),
         verification: getRegionAvailabilityVerification(service, connectivity),
       },
       serviceCompatibility: {
-        status: getServiceStatusFromProbability(serviceProbability),
+        status: getServiceStatus({
+          probability: serviceProbability,
+          ipqsFraudScore,
+        }),
         probability: serviceProbability,
+      },
+      externalSignals: {
+        ipqs: buildIpqsExternalSignal(ipqs),
       },
       signals,
     },
@@ -1177,7 +1328,17 @@ function buildIpHistoryRecord(
   fallbackIpAddress: string,
 ): IpHistoryRecord {
   const { ipInfo, abuseIpDb, ipqs, cloudflare } = result;
-  const trustScore = calculateTrustScore(ipInfo, abuseIpDb, ipqs, cloudflare);
+  const baseTrustScore = calculateTrustScore(
+    ipInfo,
+    abuseIpDb,
+    ipqs,
+    cloudflare,
+  );
+  const ipqsProbabilityCap = getIpqsProbabilityCap(getIpqsFraudScore(ipqs));
+  const trustScore =
+    ipqsProbabilityCap === null
+      ? baseTrustScore
+      : Math.min(baseTrustScore, Math.round(ipqsProbabilityCap * 100));
 
   return {
     ip: ipInfo.ip || fallbackIpAddress,
@@ -1288,6 +1449,7 @@ function buildTrustScore(
     explanationItems: getScoreExplanationItems(
       ipInfo,
       abuseIpDb,
+      ipqs,
       cloudflare,
       value,
     ),
@@ -1330,7 +1492,7 @@ export function buildAnalysisResult({
     ip: buildIpSummary(ipInfo, abuseIpDb),
     trustScore: buildTrustScore(normalizedResult, hasAnalysis, finalDecision),
     riskSignals: hasAnalysis
-      ? getRiskSignals(ipInfo, abuseIpDb, cloudflare)
+      ? getRiskSignals(ipInfo, abuseIpDb, ipqs, cloudflare)
       : [],
     finalDecision,
     serviceCompatibility,

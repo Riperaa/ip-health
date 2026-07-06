@@ -1,7 +1,12 @@
 import { ProviderLookupError } from "./errors";
+import {
+  lookupIpQualityScore,
+  type IpqsClientResult,
+} from "./ipqs/client";
 
 type IpqsResponse = {
   fraud_score?: unknown;
+  country?: unknown;
   vpn?: unknown;
   proxy?: unknown;
   tor?: unknown;
@@ -11,7 +16,9 @@ type IpqsResponse = {
 };
 
 export type ProviderResult = {
+  status?: "available" | "unavailable";
   fraudScore?: number | null;
+  country?: string | null;
   vpn?: boolean | null;
   proxy?: boolean | null;
   tor?: boolean | null;
@@ -21,17 +28,6 @@ export type ProviderResult = {
   raw?: unknown;
   error?: string;
 };
-
-const apiKey = process.env.IPQS_API_KEY;
-const timeoutMs = Number(process.env.IPQS_TIMEOUT_MS ?? 5000);
-
-function buildIpqsUrl(ip: string) {
-  const url = new URL(
-    `https://www.ipqualityscore.com/api/json/ip/${encodeURIComponent(apiKey ?? "")}/${encodeURIComponent(ip)}`,
-  );
-
-  return url;
-}
 
 function parseNumber(value: unknown) {
   if (typeof value === "number" && Number.isFinite(value)) {
@@ -72,7 +68,9 @@ function parseNullableBoolean(value: unknown) {
 
 function normalizeIpqsResponse(raw: IpqsResponse): ProviderResult {
   return {
+    status: "available",
     fraudScore: parseNumber(raw.fraud_score),
+    country: typeof raw.country === "string" ? raw.country : null,
     vpn: parseNullableBoolean(raw.vpn),
     proxy: parseNullableBoolean(raw.proxy),
     tor: parseNullableBoolean(raw.tor),
@@ -83,47 +81,48 @@ function normalizeIpqsResponse(raw: IpqsResponse): ProviderResult {
   };
 }
 
+function normalizeClientResult(result: IpqsClientResult): ProviderResult {
+  return {
+    status: "available",
+    fraudScore: result.fraud_score,
+    country: result.country || null,
+    vpn: result.vpn,
+    proxy: result.proxy,
+    tor: result.tor,
+    bot: result.bot_status,
+    activeVpn: null,
+    recentAbuse: null,
+    raw: result,
+  };
+}
+
+export function createUnavailableIpqsResult(error?: string): ProviderResult {
+  return {
+    status: "unavailable",
+    fraudScore: null,
+    country: null,
+    vpn: null,
+    proxy: null,
+    tor: null,
+    bot: null,
+    activeVpn: null,
+    recentAbuse: null,
+    error,
+  };
+}
+
 export async function lookup(ip: string): Promise<ProviderResult> {
-  if (!apiKey) {
-    throw new ProviderLookupError(
-      "IPQualityScore API key is not configured.",
-      500,
-    );
-  }
-
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
-
   try {
-    const response = await fetch(buildIpqsUrl(ip), {
-      headers: {
-        Accept: "application/json",
-      },
-      signal: controller.signal,
-    });
-
-    const raw = (await response.json()) as IpqsResponse;
-
-    if (!response.ok) {
-      throw new ProviderLookupError(
-        "IPQualityScore request failed.",
-        response.status,
-        raw,
-      );
-    }
-
-    return normalizeIpqsResponse(raw);
+    return normalizeClientResult(await lookupIpQualityScore(ip));
   } catch (error) {
     if (error instanceof ProviderLookupError) {
       throw error;
     }
 
-    if (error instanceof Error && error.name === "AbortError") {
-      throw new ProviderLookupError("IPQualityScore request timed out.", 504);
-    }
-
     throw new ProviderLookupError("Unable to fetch IPQualityScore data.", 502);
-  } finally {
-    clearTimeout(timeout);
   }
+}
+
+export function normalizeRawResponse(raw: IpqsResponse): ProviderResult {
+  return normalizeIpqsResponse(raw);
 }

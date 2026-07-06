@@ -18,21 +18,18 @@ type UsageRecommendation = {
 
 const verdictContent: Record<
   OverallVerdict,
-  { title: string; description: string; tone: StatusTone }
+  { description: string; tone: StatusTone }
 > = {
   Healthy: {
-    title: "This IP looks trustworthy",
-    description: "No major risk signals were detected.",
+    description: "No major reputation signals detected.",
     tone: "good",
   },
   "Use with Caution": {
-    title: "This IP has some risk signals",
-    description: "Some services may require additional verification.",
+    description: "Some signals may require verification.",
     tone: "caution",
   },
   Risky: {
-    title: "This IP may be high risk",
-    description: "This IP may trigger restrictions on sensitive services.",
+    description: "Sensitive services may restrict this IP.",
     tone: "risk",
   },
 };
@@ -40,41 +37,41 @@ const verdictContent: Record<
 const usageRecommendations: Record<OverallVerdict, UsageRecommendation[]> = {
   Healthy: [
     {
-      title: "Recommended for",
+      title: "Suitable Usage",
       tone: "good",
       items: ["Browsing", "Streaming", "Daily accounts"],
     },
     {
-      title: "Use caution for",
+      title: "May Need Verification",
       tone: "caution",
       items: ["New account registration", "Important verification"],
     },
   ],
   "Use with Caution": [
     {
-      title: "Recommended for",
+      title: "Suitable Usage",
       tone: "good",
       items: ["Browsing", "Streaming", "Low-risk services"],
     },
     {
-      title: "Use caution for",
+      title: "May Need Verification",
       tone: "caution",
       items: ["New account registration", "Important verification"],
     },
     {
       title: "Avoid",
       tone: "risk",
-      items: ["High-risk account operations"],
+      items: ["Sensitive account changes"],
     },
   ],
   Risky: [
     {
-      title: "Recommended for",
+      title: "Suitable Usage",
       tone: "caution",
       items: ["Basic browsing only"],
     },
     {
-      title: "Use caution for",
+      title: "May Fail Verification",
       tone: "risk",
       items: ["Streaming", "Existing account login"],
     },
@@ -84,7 +81,7 @@ const usageRecommendations: Record<OverallVerdict, UsageRecommendation[]> = {
       items: [
         "New account registration",
         "Payment verification",
-        "High-risk account operations",
+        "Sensitive account changes",
       ],
     },
   ],
@@ -94,20 +91,16 @@ function getVerdict(result: AnalysisResult): OverallVerdict | null {
   return result.finalDecision?.decision.overallVerdict ?? null;
 }
 
-function getSupportingStatusLabel(label: string) {
-  if (label === "Healthy") {
-    return "Evidence clear";
-  }
-
-  if (label === "Use with Caution") {
-    return "Review evidence";
-  }
-
-  if (label === "Risky") {
-    return "Risk evidence";
-  }
-
-  return label;
+function normalizePresentationText(value: string) {
+  return value
+    .replace(/\bfraud score\b/gi, "risk score")
+    .replace(/\bfraud risk\b/gi, "reputation risk")
+    .replace(/\bfraud\b/gi, "reputation")
+    .replace(/\bthreat\b/gi, "signal")
+    .replace(/\bUse with Caution\b/g, "Review evidence")
+    .replace(/\bHigh Risk\b/g, "Review evidence")
+    .replace(/\bRisky\b/g, "Risk evidence")
+    .replace(/\bHealthy\b/g, "Evidence clear");
 }
 
 function getRiskSignalExplanation(signal: {
@@ -126,8 +119,7 @@ function getRiskSignalExplanation(signal: {
   ) {
     return {
       title: "Datacenter IP detected",
-      whyItMatters:
-        "Some platforms reduce trust for cloud hosting IP ranges.",
+      whyItMatters: "Some platforms reduce trust for cloud hosting IP ranges.",
     };
   }
 
@@ -140,16 +132,14 @@ function getRiskSignalExplanation(signal: {
   ) {
     return {
       title: "VPN or proxy signal detected",
-      whyItMatters:
-        "Some services may request additional verification.",
+      whyItMatters: "Some services may request additional verification.",
     };
   }
 
   if (text.includes("fraud") || text.includes("abuse")) {
     return {
-      title: "High fraud risk signal",
-      whyItMatters:
-        "External risk intelligence detected suspicious indicators.",
+      title: "Reputation risk signal",
+      whyItMatters: "Provider reputation data reported elevated risk.",
     };
   }
 
@@ -198,11 +188,10 @@ function getRiskSignalCards(result: AnalysisResult) {
       ) {
         addCard({
           label: "Reputation",
-          detail: "Reputation scoring raised a risk signal.",
+          detail: "Reputation scoring raised a signal.",
           tone: "risk",
-          title: "High fraud risk signal",
-          whyItMatters:
-            "External risk intelligence detected suspicious indicators.",
+          title: "Reputation risk signal",
+          whyItMatters: "Provider reputation data reported elevated risk.",
         });
         return;
       }
@@ -337,7 +326,7 @@ function getNegativeScoreSignals(result: AnalysisResult) {
         signal.direction === "raises_risk",
     )
   ) {
-    negativeSignals.add("High fraud risk signal");
+    negativeSignals.add("Reputation risk signal");
   }
 
   if (
@@ -350,17 +339,7 @@ function getNegativeScoreSignals(result: AnalysisResult) {
         signal.direction === "raises_risk",
     )
   ) {
-    negativeSignals.add("Connectivity or regional restriction detected");
-  }
-
-  if (
-    finalDecisionSignals.some(
-      (signal) =>
-        signal.signalName === "trust_score" &&
-        signal.direction === "raises_risk",
-    )
-  ) {
-    negativeSignals.add("Lower trust score");
+    negativeSignals.add("Connectivity signal detected");
   }
 
   return Array.from(negativeSignals);
@@ -430,7 +409,7 @@ function IpHealthScoreCard({ result }: { result: AnalysisResult }) {
       <div className="grid gap-6 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
         <div className="min-w-0">
           <p className="text-xs font-semibold uppercase tracking-normal text-neutral-400">
-            Trust Score
+            IP Health Score
           </p>
           <p className="mt-3 flex items-end gap-1 text-7xl font-semibold leading-none text-neutral-950">
             {trustScoreDisplay}
@@ -438,12 +417,23 @@ function IpHealthScoreCard({ result }: { result: AnalysisResult }) {
               {trustScoreSuffix}
             </span>
           </p>
-          <h2 className="mt-3 text-2xl font-semibold leading-tight text-neutral-950">
-            {verdict ?? "Ready to analyze"}
-          </h2>
-          <p className="mt-2 max-w-xl text-sm leading-6 text-neutral-500">
-            {verdictDisplay?.description ?? summary}
-          </p>
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            {verdict && verdictDisplay ? (
+              <StatusBadge
+                tone={verdictDisplay.tone}
+                className="px-3 py-1.5 text-sm"
+              >
+                {verdict}
+              </StatusBadge>
+            ) : (
+              <StatusBadge tone="neutral" className="px-3 py-1.5 text-sm">
+                Ready to analyze
+              </StatusBadge>
+            )}
+            <span className="text-sm leading-6 text-neutral-500">
+              {verdictDisplay?.description ?? summary}
+            </span>
+          </div>
         </div>
 
         <div className="min-w-0 rounded-2xl border border-neutral-100 bg-neutral-50/70 p-4 sm:w-64">
@@ -486,125 +476,271 @@ function ReportField({ label, value }: { label: string; value: string }) {
   );
 }
 
-function IpReputationCard({ result }: { result: AnalysisResult }) {
+type EvidenceSignal = {
+  label: string;
+  tone: StatusTone;
+};
+
+function addEvidenceSignal(signals: EvidenceSignal[], signal: EvidenceSignal) {
+  if (signals.some((existingSignal) => existingSignal.label === signal.label)) {
+    return;
+  }
+
+  signals.push(signal);
+}
+
+function getEvidenceTone(label: string): StatusTone {
+  const normalizedLabel = label.toLowerCase();
+
+  if (
+    normalizedLabel.includes("datacenter") ||
+    normalizedLabel.includes("infrastructure") ||
+    normalizedLabel.includes("asn")
+  ) {
+    return "infrastructure";
+  }
+
+  if (
+    normalizedLabel.includes("reputation") ||
+    normalizedLabel.includes("abuse")
+  ) {
+    return "risk";
+  }
+
+  if (
+    normalizedLabel.includes("vpn") ||
+    normalizedLabel.includes("proxy") ||
+    normalizedLabel.includes("connectivity")
+  ) {
+    return "caution";
+  }
+
+  return "neutral";
+}
+
+function getReputationEvidence(result: AnalysisResult) {
+  const cleanSignals: EvidenceSignal[] = [];
+  const reviewSignals: EvidenceSignal[] = [];
+  const reputation = result.endUserReport.reputation;
+
+  getPositiveScoreSignals(result).forEach((signal) => {
+    addEvidenceSignal(cleanSignals, { label: signal, tone: "good" });
+  });
+
+  getRiskSignalCards(result).forEach((signal) => {
+    addEvidenceSignal(reviewSignals, {
+      label: signal.title,
+      tone: signal.tone,
+    });
+  });
+
+  getNegativeScoreSignals(result).forEach((signal) => {
+    addEvidenceSignal(reviewSignals, {
+      label: signal,
+      tone: getEvidenceTone(signal),
+    });
+  });
+
+  if (reputation.abuseSignals === "None detected") {
+    addEvidenceSignal(cleanSignals, {
+      label: "Clean abuse history",
+      tone: "good",
+    });
+  } else if (
+    reputation.abuseSignals !== "Pending" &&
+    reputation.abuseSignals !== "Not reported"
+  ) {
+    addEvidenceSignal(reviewSignals, {
+      label: `Abuse history: ${reputation.abuseSignals}`,
+      tone: "risk",
+    });
+  }
+
+  if (reputation.fraudRisk.startsWith("Low")) {
+    addEvidenceSignal(cleanSignals, {
+      label: `Low IPQS risk score ${reputation.fraudRisk.replace("Low ", "")}`,
+      tone: "good",
+    });
+  } else if (
+    reputation.fraudRisk !== "Pending" &&
+    reputation.fraudRisk !== "Unavailable" &&
+    reputation.fraudRisk !== "Not reported"
+  ) {
+    addEvidenceSignal(reviewSignals, {
+      label: `IPQS risk score: ${reputation.fraudRisk}`,
+      tone: reputation.fraudRisk.startsWith("High") ? "risk" : "caution",
+    });
+  }
+
+  if (cleanSignals.length === 0 && reviewSignals.length === 0) {
+    addEvidenceSignal(cleanSignals, {
+      label: "No major review signals detected",
+      tone: "good",
+    });
+  }
+
+  return { cleanSignals, reviewSignals };
+}
+
+function EvidenceList({
+  title,
+  signals,
+  emptyLabel,
+  marker,
+}: {
+  title: string;
+  signals: EvidenceSignal[];
+  emptyLabel: string;
+  marker: "clean" | "review";
+}) {
+  const visibleSignals =
+    signals.length > 0 ? signals : [{ label: emptyLabel, tone: "neutral" }];
+
+  return (
+    <div className="rounded-2xl border border-neutral-100 bg-neutral-50/60 p-4">
+      <p className="text-sm font-semibold text-neutral-950">{title}</p>
+      <ul className="mt-3 space-y-2">
+        {visibleSignals.map((signal) => (
+          <li key={signal.label} className="flex gap-2 text-sm leading-6">
+            <span
+              aria-hidden="true"
+              className={[
+                "font-semibold",
+                marker === "clean" ? "text-emerald-700" : "text-amber-700",
+              ].join(" ")}
+            >
+              {marker === "clean" ? "✓" : "⚠"}
+            </span>
+            <span className="text-neutral-700">
+              {normalizePresentationText(signal.label)}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function ReputationSection({ result }: { result: AnalysisResult }) {
   if (!result.finalDecision) {
     return null;
   }
 
   const reputation = result.endUserReport.reputation;
+  const { cleanSignals, reviewSignals } = getReputationEvidence(result);
 
   return (
     <section className="surface-card rounded-2xl border bg-white p-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <p className="text-sm font-semibold text-neutral-950">
-            IP Reputation
-          </p>
-          <p className="mt-1 text-sm leading-6 text-neutral-500">
-            A plain-language reputation view from existing fraud, abuse, and
-            trust signals.
-          </p>
-        </div>
-        <StatusBadge tone={reputation.tone} className="mt-1 sm:mt-0">
-          {reputation.status}
-        </StatusBadge>
+      <div>
+        <p className="text-sm font-semibold text-neutral-950">Reputation</p>
+        <p className="mt-1 text-sm leading-6 text-neutral-500">
+          Provider and history signals.
+        </p>
+      </div>
+
+      <div className="mt-4 grid gap-3 lg:grid-cols-2">
+        <EvidenceList
+          title="Clean Signals"
+          signals={cleanSignals}
+          emptyLabel="No clean signals confirmed"
+          marker="clean"
+        />
+        <EvidenceList
+          title="Review Signals"
+          signals={reviewSignals}
+          emptyLabel="No review signals detected"
+          marker="review"
+        />
       </div>
 
       <dl className="mt-4 grid gap-3 sm:grid-cols-3">
-        <ReportField label="Fraud Risk" value={reputation.fraudRisk} />
-        <ReportField label="Abuse Signals" value={reputation.abuseSignals} />
-        <ReportField
-          label="Reputation Confidence"
-          value={reputation.confidence}
-        />
+        <ReportField label="Risk Score" value={reputation.fraudRisk} />
+        <ReportField label="Abuse History" value={reputation.abuseSignals} />
+        <ReportField label="Confidence" value={reputation.confidence} />
       </dl>
     </section>
   );
 }
 
-function IpIdentityCard({ result }: { result: AnalysisResult }) {
+function getIpTypeDisplay(
+  identity: AnalysisResult["endUserReport"]["identity"],
+) {
+  if (identity.ipType === "Residential ISP") {
+    return {
+      icon: "🏠",
+      label: "Residential ISP",
+      detail: "Residential ISP detected. No datacenter or VPN signal.",
+    };
+  }
+
+  if (identity.ipType === "Datacenter") {
+    return {
+      icon: "🏢",
+      label: "Datacenter",
+      detail:
+        "Datacenter IP detected. Some platforms may require verification.",
+    };
+  }
+
+  if (identity.ipType === "VPN / Proxy") {
+    return {
+      icon: "🛡",
+      label: "VPN / Proxy",
+      detail:
+        "VPN / proxy signal detected. Some platforms may require verification.",
+    };
+  }
+
+  return {
+    icon: "",
+    label: "Unknown",
+    detail: identity.detail,
+  };
+}
+
+function IpIdentitySection({ result }: { result: AnalysisResult }) {
   if (!result.finalDecision) {
     return null;
   }
 
   const identity = result.endUserReport.identity;
-
-  return (
-    <section className="surface-card rounded-2xl border bg-white p-5">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-sm font-semibold text-neutral-950">
-            IP Identity
-          </p>
-          <p className="mt-3 text-2xl font-semibold leading-tight text-neutral-950">
-            {identity.ipType}
-          </p>
-          <p className="mt-2 text-sm leading-6 text-neutral-500">
-            {identity.detail}
-          </p>
-        </div>
-        <StatusBadge tone={identity.tone} variant="quiet">
-          IP Type
-        </StatusBadge>
-      </div>
-    </section>
-  );
-}
-
-function IpLocationCard({ result }: { result: AnalysisResult }) {
-  if (!result.finalDecision) {
-    return null;
-  }
-
   const location = result.endUserReport.location;
+  const ipType = getIpTypeDisplay(identity);
 
   return (
-    <section className="surface-card rounded-2xl border bg-white p-5">
-      <p className="text-sm font-semibold text-neutral-950">IP Location</p>
-      <p className="mt-1 text-sm leading-6 text-neutral-500">
-        This is the exit IP location, not a physical user location.
-      </p>
-
-      <dl className="mt-4 grid gap-3 sm:grid-cols-2">
-        <ReportField label="Country" value={location.country} />
-        <ReportField label="Region" value={location.region} />
-        <ReportField label="City" value={location.city} />
-        <ReportField label="ISP" value={location.isp} />
-        <ReportField label="Timezone" value={location.timezone} />
-      </dl>
-    </section>
-  );
-}
-
-function NetworkSharingCard({ result }: { result: AnalysisResult }) {
-  if (!result.finalDecision) {
-    return null;
-  }
-
-  const sharingRisk = result.endUserReport.sharingRisk;
-
-  return (
-    <section className="surface-card rounded-2xl border bg-white p-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+    <section className="surface-card rounded-2xl border bg-white p-5 sm:p-6">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.8fr)]">
         <div>
-          <p className="text-sm font-semibold text-neutral-950">
-            Network Sharing Risk
-          </p>
-          <p className="mt-3 text-2xl font-semibold leading-tight text-neutral-950">
-            {sharingRisk.level}
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-sm font-semibold text-neutral-950">
+              IP Identity
+            </p>
+            <StatusBadge tone={identity.tone} variant="quiet">
+              IP Type
+            </StatusBadge>
+          </div>
+          <p className="mt-4 flex items-center gap-3 text-3xl font-semibold leading-tight text-neutral-950">
+            {ipType.icon ? (
+              <span aria-hidden="true" className="text-2xl">
+                {ipType.icon}
+              </span>
+            ) : null}
+            <span>{ipType.label}</span>
           </p>
           <p className="mt-2 text-sm leading-6 text-neutral-500">
-            {sharingRisk.explanation}
+            {ipType.detail}
           </p>
         </div>
-        <StatusBadge tone={sharingRisk.tone} className="mt-1 sm:mt-0">
-          Indicator
-        </StatusBadge>
+
+        <div className="rounded-2xl border border-neutral-100 bg-neutral-50/70 p-4">
+          <p className="text-sm font-semibold text-neutral-950">Location</p>
+          <dl className="mt-4 grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
+            <ReportField label="Country" value={location.country} />
+            <ReportField label="City" value={location.city} />
+            <ReportField label="Region" value={location.region} />
+          </dl>
+        </div>
       </div>
-      <p className="mt-4 border-t border-neutral-100 pt-3 text-xs leading-5 text-neutral-400">
-        This is an infrastructure risk indicator only. It does not estimate an
-        exact number of users.
-      </p>
     </section>
   );
 }
@@ -619,11 +755,9 @@ function RecommendedUsageSection({ result }: { result: AnalysisResult }) {
   return (
     <section className="surface-card rounded-2xl border bg-white p-5">
       <div className="flex flex-col gap-1">
-        <p className="text-sm font-semibold text-neutral-950">
-          Recommendation
-        </p>
+        <p className="text-sm font-semibold text-neutral-950">Recommendation</p>
         <p className="text-sm leading-6 text-neutral-500">
-          What to use this IP for, based on the final verdict.
+          Suitable usage and places to avoid.
         </p>
       </div>
 
@@ -669,18 +803,22 @@ function NetworkIntegritySection({ result }: { result: AnalysisResult }) {
     <section className="surface-card rounded-2xl border bg-white p-5">
       <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
         <div>
-          <p className="text-sm font-semibold text-neutral-950">
-            Network Integrity
-          </p>
+          <p className="text-sm font-semibold text-neutral-950">Cloudflare</p>
           <p className="mt-1 text-sm leading-6 text-neutral-500">
-            Cloudflare view of this network path.
+            Trace, WARP, and consistency signals.
           </p>
         </div>
         <StatusBadge
-          tone={result.networkIntegrity.tone}
+          tone={
+            result.networkIntegrity.hasCloudflare
+              ? result.networkIntegrity.tone
+              : "neutral"
+          }
           className="mt-1 sm:mt-0"
         >
-          {result.networkIntegrity.label}
+          {result.networkIntegrity.hasCloudflare
+            ? "Trace available"
+            : "Unavailable"}
         </StatusBadge>
       </div>
 
@@ -694,10 +832,12 @@ function NetworkIntegritySection({ result }: { result: AnalysisResult }) {
               {item.label}
             </dt>
             <dd className="mt-2">
-              <StatusBadge tone={item.tone}>{item.value}</StatusBadge>
+              <StatusBadge tone={item.tone}>
+                {normalizePresentationText(item.value)}
+              </StatusBadge>
             </dd>
             <dd className="mt-2 text-sm leading-6 text-neutral-500">
-              {item.detail}
+              {normalizePresentationText(item.detail)}
             </dd>
           </div>
         ))}
@@ -713,423 +853,103 @@ function NetworkIntegritySection({ result }: { result: AnalysisResult }) {
   );
 }
 
-function getServiceAvailabilityTone(
-  finalAvailability: AnalysisResult["serviceCompatibility"][number]["services"][number]["finalAvailability"],
-) {
-  if (finalAvailability === "Verified") {
-    return "good";
+type ConnectivityProbe = NonNullable<AnalysisResult["connectivity"]>["google"];
+
+function getConnectivityStatusDisplay(status: ConnectivityProbe["status"]): {
+  label: string;
+  tone: StatusTone;
+} {
+  if (status === "verified_reachable") {
+    return { label: "Reachable", tone: "good" };
   }
 
-  if (finalAvailability === "Restricted") {
-    return "risk";
+  if (status === "unreachable") {
+    return { label: "Unreachable", tone: "risk" };
   }
 
-  return "neutral";
+  return { label: "Not verified", tone: "neutral" };
 }
 
-function shouldShowServiceAccessBadge(
-  finalAvailability: AnalysisResult["serviceCompatibility"][number]["services"][number]["finalAvailability"],
-) {
-  return finalAvailability !== "Not Verified";
+function getConnectivityMethodLabel(method: ConnectivityProbe["method"]) {
+  if (method === "cors-fetch") {
+    return "Direct browser check";
+  }
+
+  if (method === "image") {
+    return "Image probe";
+  }
+
+  return "Browser probe";
 }
 
-function shouldShowRegionalAvailabilityBadge(
-  badge: AnalysisResult["serviceCompatibility"][number]["services"][number]["finalDecision"]["display"]["regionAvailabilityBadge"],
-) {
-  return !badge.label.startsWith("Not Verified");
-}
+function TechnicalConnectivitySection({ result }: { result: AnalysisResult }) {
+  const connectivity =
+    result.connectivity ?? result.finalDecision?.decision.connectivity ?? null;
 
-function ServiceCompatibilitySection({ result }: { result: AnalysisResult }) {
-  const [isServiceCompatibilityVisible, setIsServiceCompatibilityVisible] =
-    useState(false);
-  const [expandedServiceCategories, setExpandedServiceCategories] = useState<
-    string[]
-  >([]);
-  const [expandedServiceKey, setExpandedServiceKey] = useState<string | null>(
-    null,
-  );
-  const hasServiceCompatibility = result.serviceCompatibility.length > 0;
-  const reportDisplay = result.finalDecision?.display;
-  const sectionTitle =
-    reportDisplay?.serviceCompatibility.sectionTitle ?? "Service Compatibility";
-  const emptyMessage =
-    reportDisplay?.serviceCompatibility.emptyMessage ??
-    "No service compatibility data available.";
-  const footnote =
-    reportDisplay?.serviceCompatibility.footnote ??
-    "This reflects both IP reputation and regional accessibility.";
-
-  return (
-    <DisclosureSection
-      title={sectionTitle}
-      isExpanded={isServiceCompatibilityVisible}
-      onToggle={() =>
-        setIsServiceCompatibilityVisible(
-          (currentVisibility) => !currentVisibility,
-        )
-      }
-      contentId="service-compatibility-content"
-    >
-      <div className="surface-card mt-3 overflow-hidden rounded-2xl border bg-white">
-        {hasServiceCompatibility && reportDisplay ? (
-          <div className="flex flex-col gap-3 border-b border-neutral-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-            <span className="inline-flex flex-wrap items-center gap-2">
-              <span className="text-xs font-semibold uppercase tracking-normal text-neutral-500">
-                IP Reputation
-              </span>
-              <StatusBadge
-                tone={reportDisplay.serviceCompatibilityBadge.tone}
-                variant="quiet"
-              >
-                {getSupportingStatusLabel(
-                  reportDisplay.serviceCompatibilityBadge.label,
-                )}
-              </StatusBadge>
-            </span>
-            <span className="inline-flex flex-wrap items-center gap-2">
-              <span className="text-xs font-semibold uppercase tracking-normal text-neutral-500">
-                Regional Availability
-              </span>
-              <StatusBadge
-                tone={reportDisplay.regionAvailabilityBadge.tone}
-                variant="quiet"
-              >
-                {getSupportingStatusLabel(
-                  reportDisplay.regionAvailabilityBadge.label,
-                )}
-              </StatusBadge>
-            </span>
-          </div>
-        ) : null}
-        <div className="divide-y divide-neutral-100">
-          {result.serviceCompatibility.map((category) => {
-            const isCategoryExpanded = expandedServiceCategories.includes(
-              category.category,
-            );
-            const categoryContentId = `service-compatibility-${category.category}`;
-
-            return (
-              <div key={category.category}>
-                <button
-                  type="button"
-                  aria-controls={categoryContentId}
-                  aria-expanded={isCategoryExpanded}
-                  onClick={() => {
-                    setExpandedServiceCategories((currentCategories) =>
-                      isCategoryExpanded
-                        ? currentCategories.filter(
-                            (currentCategory) =>
-                              currentCategory !== category.category,
-                          )
-                        : [...currentCategories, category.category],
-                    );
-
-                    if (isCategoryExpanded) {
-                      setExpandedServiceKey((currentServiceKey) =>
-                        currentServiceKey?.startsWith(`${category.category}:`)
-                          ? null
-                          : currentServiceKey,
-                      );
-                    }
-                  }}
-                  className="flex w-full flex-col gap-1 px-4 py-3 text-left transition hover:bg-neutral-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
-                >
-                  <span className="flex min-w-0 items-center gap-2">
-                    <span
-                      className="w-4 shrink-0 text-xs text-neutral-400"
-                      aria-hidden="true"
-                    >
-                      {isCategoryExpanded ? "v" : ">"}
-                    </span>
-                    <span className="min-w-0 text-xs font-semibold uppercase tracking-normal text-neutral-500">
-                      {category.category}
-                    </span>
-                  </span>
-                  <span className="pl-6 text-sm font-medium leading-5 text-neutral-600 sm:pl-0 sm:text-right">
-                    {category.summary}
-                  </span>
-                </button>
-                <ul
-                  id={categoryContentId}
-                  hidden={!isCategoryExpanded}
-                  className="space-y-1 border-t border-neutral-100 bg-neutral-50/50 px-3 py-3 sm:px-4"
-                >
-                  {category.services.map((service) => {
-                    const serviceKey = `${category.category}:${service.name}`;
-                    const isExpanded = expandedServiceKey === serviceKey;
-                    const serviceContentId = `service-compatibility-${serviceKey}`;
-                    const display = service.finalDecision.display;
-                    const showAccessBadge = shouldShowServiceAccessBadge(
-                      service.finalAvailability,
-                    );
-                    const showRegionalAvailabilityBadge =
-                      shouldShowRegionalAvailabilityBadge(
-                        display.regionAvailabilityBadge,
-                      );
-                    const showAccessProbeNote =
-                      !showAccessBadge && !showRegionalAvailabilityBadge;
-
-                    return (
-                      <li key={service.name} className="text-sm">
-                        <button
-                          type="button"
-                          aria-controls={serviceContentId}
-                          aria-expanded={isExpanded}
-                          onClick={() =>
-                            setExpandedServiceKey(
-                              isExpanded ? null : serviceKey,
-                            )
-                          }
-                          className="w-full rounded-xl bg-white px-3 py-2 text-left transition hover:bg-neutral-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950"
-                        >
-                          <span className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
-                            <span className="font-medium text-neutral-950">
-                              {service.name}
-                            </span>
-                            <span className="flex flex-wrap items-center gap-2">
-                              {showAccessBadge ? (
-                                <span className="inline-flex items-center gap-2">
-                                  <span className="text-[11px] font-semibold uppercase tracking-normal text-neutral-400">
-                                    Access
-                                  </span>
-                                  <StatusBadge
-                                    tone={getServiceAvailabilityTone(
-                                      service.finalAvailability,
-                                    )}
-                                    variant="quiet"
-                                  >
-                                    {service.finalAvailability}
-                                  </StatusBadge>
-                                </span>
-                              ) : null}
-                              <span className="inline-flex items-center gap-2">
-                                <span className="text-[11px] font-semibold uppercase tracking-normal text-neutral-400">
-                                  IP Reputation
-                                </span>
-                                <StatusBadge
-                                  tone={display.serviceCompatibilityBadge.tone}
-                                  variant="quiet"
-                                >
-                                  {getSupportingStatusLabel(
-                                    display.serviceCompatibilityBadge.label,
-                                  )}
-                                </StatusBadge>
-                              </span>
-                              {showRegionalAvailabilityBadge ? (
-                                <span className="inline-flex items-center gap-2">
-                                  <span className="text-[11px] font-semibold uppercase tracking-normal text-neutral-400">
-                                    Regional Availability
-                                  </span>
-                                  <StatusBadge
-                                    tone={display.regionAvailabilityBadge.tone}
-                                    variant="quiet"
-                                  >
-                                    {getSupportingStatusLabel(
-                                      display.regionAvailabilityBadge.label,
-                                    )}
-                                  </StatusBadge>
-                                </span>
-                              ) : null}
-                            </span>
-                          </span>
-                          <span
-                            hidden={!isExpanded || !showAccessProbeNote}
-                            className="mt-2 block text-[11px] leading-5 text-neutral-400"
-                          >
-                            Service access was not strongly verified by browser
-                            probe.
-                          </span>
-                          <span
-                            id={serviceContentId}
-                            hidden={!isExpanded}
-                            className="mt-2 block text-xs leading-5 text-neutral-500"
-                          >
-                            {display.summary}
-                          </span>
-                          <span
-                            hidden={!isExpanded}
-                            className="mt-2 block text-[11px] leading-5 text-neutral-500"
-                          >
-                            {display.serviceCompatibility.topSignalsLabel}{" "}
-                            {display.serviceCompatibility.topSignalsSummary}
-                          </span>
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
-            );
-          })}
-        </div>
-        <p
-          hidden={result.serviceCompatibility.length > 0}
-          className="px-4 py-3 text-sm text-neutral-500"
-        >
-          {emptyMessage}
+  if (!connectivity) {
+    return (
+      <section className="surface-card rounded-2xl border bg-white p-5">
+        <p className="text-sm font-semibold text-neutral-950">Connectivity</p>
+        <p className="mt-4 rounded-xl border border-neutral-100 bg-neutral-50 px-4 py-3 text-sm leading-6 text-neutral-500">
+          Connectivity probe data is unavailable.
         </p>
-        <p className="border-t border-neutral-100 px-4 py-3 text-sm leading-6 text-neutral-500">
-          {footnote}
-        </p>
-      </div>
-    </DisclosureSection>
-  );
-}
+      </section>
+    );
+  }
 
-function ScoreExplanationSection({ result }: { result: AnalysisResult }) {
-  const positiveSignals = getPositiveScoreSignals(result);
-  const negativeSignals = getNegativeScoreSignals(result);
-  const hasAnalysis = Boolean(result.finalDecision);
+  const probes = [
+    { label: "Google", result: connectivity.google },
+    { label: "YouTube", result: connectivity.youtube },
+    { label: "OpenAI", result: connectivity.openai },
+  ];
 
   return (
     <section className="surface-card rounded-2xl border bg-white p-5">
       <div className="flex flex-col gap-1">
-        <p className="text-sm font-semibold text-neutral-950">
-          Why this score
-        </p>
+        <p className="text-sm font-semibold text-neutral-950">Connectivity</p>
         <p className="text-sm leading-6 text-neutral-500">
-          {hasAnalysis
-            ? "A plain-language view of what helped or hurt this IP."
-            : "Run an analysis to see score signals."}
+          Browser reachability probes.
         </p>
       </div>
-      {hasAnalysis ? (
-        <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          <div className="rounded-2xl border border-emerald-100 bg-emerald-50/50 p-4">
-            <p className="text-sm font-semibold text-emerald-900">
-              Positive signals
-            </p>
-            <ul className="mt-3 space-y-2">
-              {positiveSignals.map((signal) => (
-                <li key={signal} className="flex gap-2 text-sm leading-6">
-                  <span
-                    aria-hidden="true"
-                    className="font-semibold text-emerald-700"
-                  >
-                    +
-                  </span>
-                  <span className="text-emerald-900">{signal}</span>
-                </li>
-              ))}
-              {positiveSignals.length === 0 ? (
-                <li className="text-sm leading-6 text-emerald-900">
-                  No strong positive signals found.
-                </li>
-              ) : null}
-            </ul>
-          </div>
 
-          <div className="rounded-2xl border border-red-100 bg-red-50/50 p-4">
-            <p className="text-sm font-semibold text-red-900">
-              Negative signals
-            </p>
-            <ul className="mt-3 space-y-2">
-              {negativeSignals.map((signal) => (
-                <li key={signal} className="flex gap-2 text-sm leading-6">
-                  <span
-                    aria-hidden="true"
-                    className="font-semibold text-red-700"
-                  >
-                    -
-                  </span>
-                  <span className="text-red-900">{signal}</span>
-                </li>
-              ))}
-              {negativeSignals.length === 0 ? (
-                <li className="text-sm leading-6 text-red-900">
-                  No major negative signals detected.
-                </li>
-              ) : null}
-            </ul>
-          </div>
-        </div>
-      ) : null}
-    </section>
-  );
-}
+      <dl className="mt-4 grid gap-3 sm:grid-cols-3">
+        {probes.map((probe) => {
+          const display = getConnectivityStatusDisplay(probe.result.status);
 
-function RiskSignalsSection({ result }: { result: AnalysisResult }) {
-  const [isRiskSignalsVisible, setIsRiskSignalsVisible] = useState(false);
-  const signalDisplay = result.finalDecision?.display.signals;
-  const signals = getRiskSignalCards(result);
-
-  return (
-    <DisclosureSection
-      title={signalDisplay?.sectionTitle ?? "Risk Signals"}
-      isExpanded={isRiskSignalsVisible}
-      onToggle={() =>
-        setIsRiskSignalsVisible((currentVisibility) => !currentVisibility)
-      }
-      contentId="risk-signals-content"
-    >
-      <div className="surface-card mt-3 rounded-2xl border bg-white p-5">
-        <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-          <p className="text-sm leading-6 text-neutral-500">
-            Plain-language risk signals found in this IP profile.
-          </p>
-          <StatusBadge
-            tone={
-              signals.some((signal) => signal.tone === "risk")
-                ? "risk"
-                : signals.length > 0
-                  ? "caution"
-                  : "good"
-            }
-            className="mt-1 sm:mt-0"
-          >
-            {signals.length > 0 ? `${signals.length} signals` : "Clear"}
-          </StatusBadge>
-        </div>
-
-        <ul
-          hidden={signals.length === 0}
-          className="mt-4 divide-y divide-neutral-100"
-        >
-          {signals.map((signal) => (
-            <li
-              key={`${signal.label}:${signal.detail}`}
-              className="py-3 first:pt-0 last:pb-0"
+          return (
+            <div
+              key={probe.label}
+              className="rounded-xl border border-neutral-100 bg-neutral-50/60 p-4"
             >
-              <div>
-                <p className="text-sm font-medium text-neutral-950">
-                  {signal.title}
-                </p>
-                <p className="mt-1 text-sm leading-6 text-neutral-500">
-                  Why it matters: {signal.whyItMatters}
-                </p>
-              </div>
-            </li>
-          ))}
-        </ul>
-        <p
-          hidden={signals.length > 0}
-          className="mt-4 rounded-xl border border-emerald-100 bg-emerald-50/60 px-4 py-3 text-sm leading-6 text-emerald-800"
-        >
-          No major risk signals detected.
-        </p>
-      </div>
-    </DisclosureSection>
+              <dt className="text-xs font-semibold uppercase tracking-normal text-neutral-400">
+                {probe.label}
+              </dt>
+              <dd className="mt-2">
+                <StatusBadge tone={display.tone}>{display.label}</StatusBadge>
+              </dd>
+              <dd className="mt-2 text-sm leading-6 text-neutral-500">
+                {getConnectivityMethodLabel(probe.result.method)}
+              </dd>
+            </div>
+          );
+        })}
+      </dl>
+    </section>
   );
 }
 
 function TechnicalIpFactsSection({ result }: { result: AnalysisResult }) {
   return (
     <section className="surface-card rounded-2xl border bg-white p-5">
-      <p className="text-sm font-semibold text-neutral-950">
-        Network Facts
-      </p>
+      <p className="text-sm font-semibold text-neutral-950">IPInfo & ASN</p>
       <p className="mt-1 text-sm leading-6 text-neutral-500">
-        Provider fields used as context for the user-facing report.
+        Network owner and location fields.
       </p>
 
       <dl className="mt-4 grid gap-3 sm:grid-cols-3">
         <ReportField label="IP Address" value={result.ip.address} />
         {result.ip.facts.map((fact) => (
-          <ReportField
-            key={fact.label}
-            label={fact.label}
-            value={fact.value}
-          />
+          <ReportField key={fact.label} label={fact.label} value={fact.value} />
         ))}
       </dl>
     </section>
@@ -1142,26 +962,24 @@ function TechnicalIpqsSection({ result }: { result: AnalysisResult }) {
   return (
     <section className="surface-card rounded-2xl border bg-white p-5">
       <div className="flex flex-col gap-1">
-        <p className="text-sm font-semibold text-neutral-950">
-          IPQualityScore Signals
-        </p>
+        <p className="text-sm font-semibold text-neutral-950">IPQS</p>
         <p className="text-sm leading-6 text-neutral-500">
-          Raw reputation fields kept for technical review.
+          Provider reputation fields.
         </p>
       </div>
 
       {ipqs?.status === "available" ? (
         <dl className="mt-4 grid gap-3 sm:grid-cols-3">
+          <ReportField label="Risk Score" value={`${ipqs.fraud_score}/100`} />
           <ReportField
-            label="Fraud Score"
-            value={`${ipqs.fraud_score}/100`}
+            label="Country"
+            value={ipqs.country || "Not identified"}
           />
-          <ReportField label="Country" value={ipqs.country || "Not identified"} />
           <ReportField label="VPN" value={ipqs.vpn ? "Yes" : "No"} />
           <ReportField label="Proxy" value={ipqs.proxy ? "Yes" : "No"} />
           <ReportField label="Tor" value={ipqs.tor ? "Yes" : "No"} />
           <ReportField
-            label="Bot Status"
+            label="Bot Signal"
             value={ipqs.bot_status ? "Yes" : "No"}
           />
         </dl>
@@ -1185,23 +1003,18 @@ function TechnicalDetailsSection({ result }: { result: AnalysisResult }) {
   return (
     <DisclosureSection
       title="Technical Details"
-      summary="ASN, Cloudflare, connectivity, IPQS, and risk signals"
+      summary="ASN, IPInfo, IPQS, connectivity, and Cloudflare"
       isExpanded={isTechnicalDetailsVisible}
       onToggle={() =>
-        setIsTechnicalDetailsVisible(
-          (currentVisibility) => !currentVisibility,
-        )
+        setIsTechnicalDetailsVisible((currentVisibility) => !currentVisibility)
       }
       contentId="technical-details-content"
     >
       <div className="mt-3 flex flex-col gap-4">
-        <IpReputationCard result={result} />
         <TechnicalIpFactsSection result={result} />
         <TechnicalIpqsSection result={result} />
-        <NetworkSharingCard result={result} />
+        <TechnicalConnectivitySection result={result} />
         <NetworkIntegritySection result={result} />
-        <ServiceCompatibilitySection result={result} />
-        <RiskSignalsSection result={result} />
       </div>
     </DisclosureSection>
   );
@@ -1211,11 +1024,8 @@ export function IpAnalyzer({ result }: { result: AnalysisResult }) {
   return (
     <div className="mt-6 flex w-full flex-col gap-4 text-left">
       <IpHealthScoreCard result={result} />
-      <ScoreExplanationSection result={result} />
-      <div className="grid gap-4 lg:grid-cols-2">
-        <IpIdentityCard result={result} />
-        <IpLocationCard result={result} />
-      </div>
+      <IpIdentitySection result={result} />
+      <ReputationSection result={result} />
       <RecommendedUsageSection result={result} />
       <TechnicalDetailsSection result={result} />
 

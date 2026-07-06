@@ -175,11 +175,17 @@ export type FinalDecisionCompatible = FinalDecision | LegacyFinalDecision;
 export type ServiceCompatibilityItem = {
   name: string;
   status: ServiceCompatibilityStatus;
+  finalAvailability: ServiceAvailabilityStatus;
   probability: number;
   tone: StatusTone;
   reason: string;
   finalDecision: FinalDecision;
 };
+
+export type ServiceAvailabilityStatus =
+  | "Available"
+  | "Uncertain"
+  | "Restricted";
 
 export type ServiceCompatibilityCategory = {
   category: string;

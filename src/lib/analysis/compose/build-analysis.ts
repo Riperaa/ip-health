@@ -61,6 +61,7 @@ import type {
   ResultFact,
   RiskLevel,
   RiskSignal,
+  ServiceAvailabilityStatus,
   ServiceCompatibilityStatus,
 } from "../types";
 import { fetchProviderAnalysis } from "./provider-analysis";
@@ -468,32 +469,6 @@ function getRiskSignals(
   return signals;
 }
 
-function getServiceCompatibilitySummary(
-  services: { status: ServiceCompatibilityStatus }[],
-) {
-  return (Array.isArray(services) ? services : []).reduce<
-    Record<ServiceCompatibilityStatus, number>
-  >(
-    (summary, service) => ({
-      ...summary,
-      [service.status]: summary[service.status] + 1,
-    }),
-    {
-      Good: 0,
-      "Use with Caution": 0,
-      "High Risk": 0,
-    },
-  );
-}
-
-function getServiceCompatibilitySummaryLabel(
-  services: { status: ServiceCompatibilityStatus }[],
-) {
-  const summary = getServiceCompatibilitySummary(services);
-
-  return `${summary.Good} Good - ${summary["Use with Caution"]} Caution - ${summary["High Risk"]} High Risk`;
-}
-
 const SERVICE_COMPATIBILITY_GROUPS = [
   {
     category: "GENERAL WEB",
@@ -689,6 +664,64 @@ function getConnectivityFailureExplanation(
   }
 
   return null;
+}
+
+function hasConnectivityFailure(finalDecision: FinalDecision) {
+  return Boolean(
+    getConnectivityFailureExplanation(
+      finalDecision.rawSignals.service,
+      finalDecision.decision.connectivity,
+    ),
+  );
+}
+
+function getFinalServiceAvailability(
+  finalDecision: FinalDecision,
+): ServiceAvailabilityStatus {
+  const { regionAvailability, serviceCompatibility } = finalDecision.decision;
+
+  if (
+    hasConnectivityFailure(finalDecision) ||
+    regionAvailability.status === "likely_blocked" ||
+    serviceCompatibility.status === "High Risk"
+  ) {
+    return "Restricted";
+  }
+
+  if (
+    regionAvailability.status === "uncertain" ||
+    serviceCompatibility.status === "Use with Caution"
+  ) {
+    return "Uncertain";
+  }
+
+  return "Available";
+}
+
+function getServiceAvailabilitySummary(
+  services: { finalAvailability: ServiceAvailabilityStatus }[],
+) {
+  return (Array.isArray(services) ? services : []).reduce<
+    Record<ServiceAvailabilityStatus, number>
+  >(
+    (summary, service) => ({
+      ...summary,
+      [service.finalAvailability]: summary[service.finalAvailability] + 1,
+    }),
+    {
+      Available: 0,
+      Uncertain: 0,
+      Restricted: 0,
+    },
+  );
+}
+
+function getServiceAvailabilitySummaryLabel(
+  services: { finalAvailability: ServiceAvailabilityStatus }[],
+) {
+  const summary = getServiceAvailabilitySummary(services);
+
+  return `${summary.Available} Available - ${summary.Uncertain} Uncertain - ${summary.Restricted} Restricted`;
 }
 
 function buildConnectivityFailureSignal(): FinalDecisionSignal {
@@ -994,10 +1027,12 @@ function buildServiceCompatibilityView(
         connectivity,
       });
       const status = finalDecision.decision.serviceCompatibility.status;
+      const finalAvailability = getFinalServiceAvailability(finalDecision);
 
       return {
         name: serviceName,
         status,
+        finalAvailability,
         probability: finalDecision.decision.serviceCompatibility.probability,
         tone: getServiceCompatibilityTone(status),
         reason: finalDecision.display.summary,
@@ -1006,7 +1041,7 @@ function buildServiceCompatibilityView(
     }),
   })).map((category) => ({
     ...category,
-    summary: getServiceCompatibilitySummaryLabel(category.services),
+    summary: getServiceAvailabilitySummaryLabel(category.services),
   }));
 }
 

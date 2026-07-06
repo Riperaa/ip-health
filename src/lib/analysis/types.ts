@@ -42,6 +42,10 @@ export type RecentCheck = {
 
 export type RiskLevel = "Low" | "Medium" | "High";
 export type FinalDecisionRiskLevel = "low" | "medium" | "high";
+export type RegionAvailabilityVerification =
+  | "probe_passed"
+  | "probe_failed"
+  | "not_probed";
 
 export type IpTypeBadge =
   | "Residential"
@@ -144,6 +148,7 @@ export type FinalDecisionV1 = {
       probability: number;
       restriction: RegionAvailabilityRestriction;
       explanation: string;
+      verification: RegionAvailabilityVerification;
     };
     serviceCompatibility: {
       status: ServiceCompatibilityStatus;
@@ -184,6 +189,7 @@ export type ServiceCompatibilityItem = {
 
 export type ServiceAvailabilityStatus =
   | "Available"
+  | "Not Verified"
   | "Uncertain"
   | "Restricted";
 

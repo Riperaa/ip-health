@@ -10,6 +10,7 @@ import type {
   PresentationBadge,
   PresentationContract,
   PresentationTextItem,
+  RegionAvailabilityVerification,
 } from "./types";
 
 export const FINAL_DECISION_VERSION = "1.0" as const;
@@ -24,6 +25,16 @@ const DEFAULT_CONNECTIVITY = {
 
 function isObjectRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === "object");
+}
+
+function isRegionAvailabilityVerification(
+  value: unknown,
+): value is RegionAvailabilityVerification {
+  return (
+    value === "probe_passed" ||
+    value === "probe_failed" ||
+    value === "not_probed"
+  );
 }
 
 function formatFinalDecisionProbability(probability: number) {
@@ -75,8 +86,19 @@ function getFinalDecisionServiceTone(
 function getFinalDecisionRegionLabel(
   regionAvailability: FinalDecisionDecision["regionAvailability"],
 ) {
-  if (regionAvailability.status === "likely_available") {
+  if (
+    regionAvailability.status === "likely_available" &&
+    regionAvailability.verification === "probe_passed"
+  ) {
     return "Available";
+  }
+
+  if (regionAvailability.status === "likely_blocked") {
+    return "Region Restricted";
+  }
+
+  if (regionAvailability.verification === "not_probed") {
+    return "Not Verified";
   }
 
   if (regionAvailability.status === "uncertain") {
@@ -87,13 +109,16 @@ function getFinalDecisionRegionLabel(
 }
 
 function getFinalDecisionRegionTone(
-  status: FinalDecisionDecision["regionAvailability"]["status"],
+  regionAvailability: FinalDecisionDecision["regionAvailability"],
 ): StatusTone {
-  if (status === "likely_available") {
+  if (
+    regionAvailability.status === "likely_available" &&
+    regionAvailability.verification === "probe_passed"
+  ) {
     return "good";
   }
 
-  if (status === "likely_blocked") {
+  if (regionAvailability.status === "likely_blocked") {
     return "risk";
   }
 
@@ -181,12 +206,15 @@ function getRegionAvailabilityBadge(
 ): PresentationBadge {
   const regionAvailability = decision.regionAvailability;
   const status = regionAvailability.status;
+  const isVerifiedAvailable =
+    status === "likely_available" &&
+    regionAvailability.verification === "probe_passed";
 
   return {
     label: `${getFinalDecisionRegionLabel(regionAvailability)} (${formatFinalDecisionProbability(regionAvailability.probability)})`,
-    tone: getFinalDecisionRegionTone(status),
+    tone: getFinalDecisionRegionTone(regionAvailability),
     severity:
-      status === "likely_available"
+      isVerifiedAvailable
         ? "positive"
         : status === "uncertain"
           ? "warning"
@@ -458,6 +486,11 @@ function withRegionAvailabilityDefaults(
       explanation: hasExplanation
         ? regionAvailability.explanation
         : "Regional availability is inferred from weighted regional signals.",
+      verification:
+        "verification" in regionAvailability &&
+        isRegionAvailabilityVerification(regionAvailability.verification)
+          ? regionAvailability.verification
+          : "not_probed",
     },
   };
 }

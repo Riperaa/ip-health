@@ -409,6 +409,8 @@ function IpHealthScoreCard({ result }: { result: AnalysisResult }) {
   const scoreDisplay = qualityReport.displayValue;
   const scoreSuffix = "/100";
   const summary = qualityReport.summary;
+  const dataQuality = qualityReport.dataQuality;
+  const assessment = qualityReport.assessment;
   const dimensions = [
     qualityReport.dimensions.reputation,
     qualityReport.dimensions.networkQuality,
@@ -431,14 +433,14 @@ function IpHealthScoreCard({ result }: { result: AnalysisResult }) {
           <div className="mt-4 flex flex-wrap items-center gap-3">
             {result.trustScore.hasAnalysis ? (
               <StatusBadge
-                tone={result.trustScore.riskTone}
+                tone={qualityReport.confidenceTone}
                 className="px-3 py-1.5 text-sm"
               >
-                {result.trustScore.riskLabel}
+                Confidence: {qualityReport.confidence}
               </StatusBadge>
             ) : (
               <StatusBadge tone="neutral" className="px-3 py-1.5 text-sm">
-                Ready to analyze
+                Confidence pending
               </StatusBadge>
             )}
             <span className="text-sm leading-6 text-neutral-500">
@@ -471,6 +473,36 @@ function IpHealthScoreCard({ result }: { result: AnalysisResult }) {
         </div>
       </div>
 
+      <div className="mt-6 grid gap-3 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+        <div className="rounded-2xl border border-neutral-100 bg-neutral-50/70 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-sm font-semibold text-neutral-950">
+              Data Quality
+            </p>
+            <StatusBadge tone={dataQuality.tone} variant="quiet">
+              {dataQuality.level}
+            </StatusBadge>
+          </div>
+          <p className="mt-3 text-sm leading-6 text-neutral-500">
+            {dataQuality.reason}
+          </p>
+        </div>
+
+        <div className="rounded-2xl border border-neutral-100 bg-neutral-50/70 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-sm font-semibold text-neutral-950">Assessment</p>
+            <StatusBadge tone={assessment.tone} variant="quiet">
+              {assessment.label}
+            </StatusBadge>
+          </div>
+          <ul className="mt-3 grid gap-2 text-sm leading-6 text-neutral-600 sm:grid-cols-3">
+            {assessment.items.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </div>
+      </div>
+
       <div className="mt-6 grid gap-3 lg:grid-cols-3">
         {dimensions.map((dimension) => (
           <div
@@ -489,6 +521,9 @@ function IpHealthScoreCard({ result }: { result: AnalysisResult }) {
                   </span>
                   <span>{dimension.label}</span>
                 </p>
+                <p className="mt-2 text-sm font-medium leading-6 text-neutral-800">
+                  {dimension.assessmentLabel}
+                </p>
                 <p className="mt-2 text-sm leading-6 text-neutral-500">
                   {dimension.summary}
                 </p>
@@ -500,6 +535,14 @@ function IpHealthScoreCard({ result }: { result: AnalysisResult }) {
             <p className="mt-3 text-xs leading-5 text-neutral-400">
               {dimension.detail}
             </p>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <StatusBadge tone={dimension.confidenceTone} variant="quiet">
+                Confidence: {dimension.confidence}
+              </StatusBadge>
+              <span className="text-xs leading-5 text-neutral-400">
+                {dimension.confidenceReason}
+              </span>
+            </div>
           </div>
         ))}
       </div>
@@ -671,6 +714,7 @@ function ReputationSection({ result }: { result: AnalysisResult }) {
   }
 
   const reputation = result.endUserReport.reputation;
+  const reputationDimension = result.qualityReport.dimensions.reputation;
   const { cleanSignals, reviewSignals } = getReputationEvidence(result);
 
   return (
@@ -700,7 +744,14 @@ function ReputationSection({ result }: { result: AnalysisResult }) {
       <dl className="mt-4 grid gap-3 sm:grid-cols-3">
         <ReportField label="Risk Score" value={reputation.fraudRisk} />
         <ReportField label="Abuse History" value={reputation.abuseSignals} />
-        <ReportField label="Confidence" value={reputation.confidence} />
+        <ReportField
+          label="Confidence"
+          value={reputationDimension.confidence}
+        />
+        <ReportField
+          label="Reason"
+          value={reputationDimension.confidenceReason}
+        />
       </dl>
     </section>
   );
@@ -1047,7 +1098,7 @@ function TechnicalDetailsSection({ result }: { result: AnalysisResult }) {
   return (
     <DisclosureSection
       title="Technical Details"
-      summary="ASN, IPInfo, IPQS, connectivity, and Cloudflare"
+      summary="Identity, reputation, ASN, IPInfo, IPQS, connectivity, and Cloudflare"
       isExpanded={isTechnicalDetailsVisible}
       onToggle={() =>
         setIsTechnicalDetailsVisible((currentVisibility) => !currentVisibility)
@@ -1055,6 +1106,8 @@ function TechnicalDetailsSection({ result }: { result: AnalysisResult }) {
       contentId="technical-details-content"
     >
       <div className="mt-3 flex flex-col gap-4">
+        <IpIdentitySection result={result} />
+        <ReputationSection result={result} />
         <TechnicalIpFactsSection result={result} />
         <TechnicalIpqsSection result={result} />
         <TechnicalConnectivitySection result={result} />
@@ -1068,8 +1121,6 @@ export function IpAnalyzer({ result }: { result: AnalysisResult }) {
   return (
     <div className="mt-6 flex w-full flex-col gap-4 text-left">
       <IpHealthScoreCard result={result} />
-      <IpIdentitySection result={result} />
-      <ReputationSection result={result} />
       <RecommendedUsageSection result={result} />
       <TechnicalDetailsSection result={result} />
 

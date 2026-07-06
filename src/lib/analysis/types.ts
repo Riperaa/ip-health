@@ -236,9 +236,9 @@ export type NetworkIntegrity = {
 };
 
 export type IpQualityScoreDimensionKey =
-  | "reputation"
-  | "networkQuality"
-  | "compatibility";
+  "reputation" | "networkQuality" | "compatibility";
+
+export type IpQualityConfidence = RecommendationConfidence | "Pending";
 
 export type IpQualityScoreDimension = {
   key: IpQualityScoreDimensionKey;
@@ -246,14 +246,34 @@ export type IpQualityScoreDimension = {
   icon: string;
   score: number | null;
   displayValue: string;
+  assessmentLabel: string;
   summary: string;
   detail: string;
   tone: StatusTone;
+  confidence: IpQualityConfidence;
+  confidenceReason: string;
+  confidenceTone: StatusTone;
+};
+
+export type IpQualityDataQuality = {
+  level: IpQualityConfidence;
+  tone: StatusTone;
+  reason: string;
+};
+
+export type IpQualityAssessment = {
+  label: string;
+  tone: StatusTone;
+  items: string[];
 };
 
 export type IpQualityReport = {
   overallScore: number | null;
   displayValue: string;
+  confidence: IpQualityConfidence;
+  confidenceTone: StatusTone;
+  dataQuality: IpQualityDataQuality;
+  assessment: IpQualityAssessment;
   summary: string;
   recommendationExplanation: string;
   weights: Record<IpQualityScoreDimensionKey, number>;

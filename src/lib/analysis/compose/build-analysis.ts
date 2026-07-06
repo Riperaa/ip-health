@@ -591,6 +591,7 @@ function getScoreExplanationItems(
     )}%), and Compatibility (${Math.round(
       qualityReport.weights.compatibility * 100,
     )}%).`,
+    `Confidence is ${qualityReport.confidence}. Data quality is ${qualityReport.dataQuality.level}: ${qualityReport.dataQuality.reason}`,
     `${qualityReport.dimensions.reputation.label}: ${qualityReport.dimensions.reputation.summary}.`,
     `${qualityReport.dimensions.networkQuality.label}: ${qualityReport.dimensions.networkQuality.summary}.`,
     `${qualityReport.dimensions.compatibility.label}: ${qualityReport.dimensions.compatibility.summary}.`,
@@ -916,34 +917,6 @@ function getServiceStatusFromProbability(
   }
 
   return "High Risk";
-}
-
-function getIpHealthScoreLabel(score: number) {
-  if (score >= 85) {
-    return "High Quality";
-  }
-
-  if (score >= 70) {
-    return "Good Quality";
-  }
-
-  if (score >= 40) {
-    return "Review Needed";
-  }
-
-  return "High Risk";
-}
-
-function getIpHealthScoreTone(score: number): StatusTone {
-  if (score >= 70) {
-    return "good";
-  }
-
-  if (score >= 40) {
-    return "caution";
-  }
-
-  return "risk";
 }
 
 function getIpqsFraudScore(ipqs?: IpqsResponse | null) {
@@ -1765,8 +1738,8 @@ function buildTrustScore(
   return {
     value,
     displayValue: String(value),
-    riskLabel: getIpHealthScoreLabel(value),
-    riskTone: getIpHealthScoreTone(value),
+    riskLabel: qualityReport.assessment.label,
+    riskTone: qualityReport.assessment.tone,
     recommendationLabel,
     recommendationTone: getRecommendationTone(recommendationLabel),
     summary: `${qualityReport.summary} Service compatibility probability is ${serviceProbability}%.`,

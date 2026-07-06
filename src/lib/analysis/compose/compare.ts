@@ -9,6 +9,7 @@ import {
   pickDetail,
 } from "../normalize/common";
 import { buildIpQualityReport } from "../scoring/ip-quality-report";
+import { assertValidIpv4Address } from "../validation";
 import type {
   AbuseIpDbResponse,
   ComparisonDisplayResult,
@@ -255,6 +256,9 @@ export async function compareIpAddresses(
   if (!trimmedIpA || !trimmedIpB) {
     throw new Error("Enter both IP addresses.");
   }
+
+  assertValidIpv4Address(trimmedIpA);
+  assertValidIpv4Address(trimmedIpB);
 
   const [nextIpA, nextIpB] = await Promise.all([
     fetchProviderAnalysis(trimmedIpA),

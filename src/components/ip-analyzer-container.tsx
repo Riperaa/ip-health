@@ -19,6 +19,10 @@ import {
   type AnalysisResult,
   type RecentCheck,
 } from "@/lib/analysis";
+import {
+  INVALID_IP_ADDRESS_MESSAGE,
+  isValidIpv4Address,
+} from "@/lib/analysis/validation";
 
 const checkBeforeCards = [
   {
@@ -65,8 +69,16 @@ export function IpAnalyzerContainer() {
     const trimmedIpAddress = nextIpAddress.trim();
 
     if (!trimmedIpAddress) {
-      setError("Unable to detect your IP. You can enter it manually.");
+      setError(INVALID_IP_ADDRESS_MESSAGE);
       setAnalysisErrorIp("");
+      setAnalysisResult(getEmptyAnalysisResult(trimmedIpAddress));
+      return;
+    }
+
+    if (!isValidIpv4Address(trimmedIpAddress)) {
+      setError(INVALID_IP_ADDRESS_MESSAGE);
+      setAnalysisErrorIp("");
+      setAnalysisResult(getEmptyAnalysisResult(trimmedIpAddress));
       return;
     }
 
@@ -146,7 +158,7 @@ export function IpAnalyzerContainer() {
             autoComplete="off"
             value={ipAddress}
             onChange={(event) => setIpAddress(event.target.value)}
-            placeholder="Enter an IPv4 or IPv6 address"
+            placeholder="Enter an IPv4 address"
             className="h-12 min-w-0 flex-1 rounded-full bg-transparent px-5 text-base text-neutral-950 outline-none placeholder:text-neutral-400"
           />
           <button

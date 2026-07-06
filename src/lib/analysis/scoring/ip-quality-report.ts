@@ -286,19 +286,32 @@ function getReputationConfidence(
   if (!hasAbuseIpDb && !hasIpqs) {
     return {
       confidence: "Low" as const,
-      confidenceReason: "Reputation providers were unavailable.",
+      confidenceReason: "Important reputation providers were unavailable.",
       maxScore: 70,
     };
   }
 
   return {
     confidence: "Medium" as const,
-    confidenceReason: "Some reputation providers were unavailable.",
+    confidenceReason: hasIpqs
+      ? "Abuse history data was unavailable."
+      : "IPQS reputation data was unavailable.",
     maxScore: hasIpqs ? 90 : 85,
   };
 }
 
-function getReputationAssessmentLabel(score: number) {
+function getReputationAssessmentLabel(
+  score: number,
+  confidence: Exclude<IpQualityConfidence, "Pending">,
+) {
+  if (confidence === "Low" && score >= 60) {
+    return "Insufficient Evidence";
+  }
+
+  if (confidence === "Medium" && score >= 85) {
+    return "Clean Signals, Limited Evidence";
+  }
+
   if (score >= 85) {
     return "Good Reputation";
   }
@@ -337,11 +350,27 @@ function buildReputationScore(
     (abuseConfidence ?? 0) >= 60 ||
     (fraudScore ?? 0) >= 80 ||
     ipqs?.recentAbuse === true;
+  const assessmentLabel = getReputationAssessmentLabel(
+    score,
+    providerConfidence.confidence,
+  );
+
+  if (providerConfidence.confidence === "Low") {
+    return {
+      score,
+      assessmentLabel,
+      summary: "Insufficient reputation evidence",
+      detail: providerConfidence.confidenceReason,
+      tone: "caution",
+      confidence: providerConfidence.confidence,
+      confidenceReason: providerConfidence.confidenceReason,
+    };
+  }
 
   if (hasStrongSignal) {
     return {
       score,
-      assessmentLabel: getReputationAssessmentLabel(score),
+      assessmentLabel,
       summary: "High reputation risk detected",
       detail: "Abuse history or IPQS reputation data raised a strong signal.",
       tone: getScoreTone(score),
@@ -353,7 +382,7 @@ function buildReputationScore(
   if (hasAbuseSignal || hasFraudSignal || ipqs?.bot === true) {
     return {
       score,
-      assessmentLabel: getReputationAssessmentLabel(score),
+      assessmentLabel,
       summary: "Some reputation signals found",
       detail: "Provider reputation data shows low to moderate review signals.",
       tone: getScoreTone(score),
@@ -365,10 +394,10 @@ function buildReputationScore(
   if (ipqs?.status === "unavailable") {
     return {
       score,
-      assessmentLabel: getReputationAssessmentLabel(score),
-      summary: "Clean reputation from available data",
+      assessmentLabel,
+      summary: "Clean reputation signals, limited confidence",
       detail:
-        "Some reputation providers were unavailable, so reputation uses the remaining provider data.",
+        "Clean reputation signals, but confidence is limited because IPQS data was unavailable.",
       tone: getScoreTone(score),
       confidence: providerConfidence.confidence,
       confidenceReason: providerConfidence.confidenceReason,
@@ -377,7 +406,7 @@ function buildReputationScore(
 
   return {
     score,
-    assessmentLabel: getReputationAssessmentLabel(score),
+    assessmentLabel,
     summary: "Clean IP history",
     detail: "No abuse history or high IPQS reputation risk was reported.",
     tone: getScoreTone(score),
@@ -407,12 +436,23 @@ function getNetworkQualityConfidence(ipInfo: IpInfoResponse) {
 
   return {
     confidence: "Low" as const,
-    confidenceReason: "IPInfo response unavailable.",
+    confidenceReason: "IPInfo network data was unavailable.",
     maxScore: 70,
   };
 }
 
-function getNetworkQualityAssessmentLabel(score: number) {
+function getNetworkQualityAssessmentLabel(
+  score: number,
+  confidence: Exclude<IpQualityConfidence, "Pending">,
+) {
+  if (confidence === "Low" && score >= 60) {
+    return "Insufficient Evidence";
+  }
+
+  if (confidence === "Medium" && score >= 85) {
+    return "Network Signals Limited";
+  }
+
   if (score >= 85) {
     return "Strong Network Quality";
   }
@@ -474,11 +514,15 @@ function buildNetworkQualityScore({
     100 - penalties.reduce((total, penalty) => total + penalty, 0),
   );
   const score = capScoreForEvidence(rawScore, providerConfidence.maxScore);
+  const assessmentLabel = getNetworkQualityAssessmentLabel(
+    score,
+    providerConfidence.confidence,
+  );
 
   if (hasTor) {
     return {
       score,
-      assessmentLabel: getNetworkQualityAssessmentLabel(score),
+      assessmentLabel,
       summary: "Tor network detected",
       detail: "Tor exit traffic is a shared network signal for many services.",
       tone: "risk",
@@ -490,7 +534,7 @@ function buildNetworkQualityScore({
   if (hasVpn || hasProxy || hasRelay || isCloudflareWarpOn(cloudflare)) {
     return {
       score,
-      assessmentLabel: getNetworkQualityAssessmentLabel(score),
+      assessmentLabel,
       summary: "VPN or proxy network detected",
       detail: "An anonymized, relayed, or shared network path was detected.",
       tone: score >= 60 ? "caution" : "risk",
@@ -502,7 +546,7 @@ function buildNetworkQualityScore({
   if (hasHosting) {
     return {
       score,
-      assessmentLabel: getNetworkQualityAssessmentLabel(score),
+      assessmentLabel,
       summary: "Datacenter network detected",
       detail:
         "This IP belongs to infrastructure commonly used by hosting providers.",
@@ -515,7 +559,7 @@ function buildNetworkQualityScore({
   if (hasConsumer) {
     return {
       score,
-      assessmentLabel: getNetworkQualityAssessmentLabel(score),
+      assessmentLabel,
       summary: "Residential ISP detected",
       detail:
         "Network ownership looks like a normal consumer ISP or mobile network.",
@@ -527,7 +571,7 @@ function buildNetworkQualityScore({
 
   return {
     score,
-    assessmentLabel: getNetworkQualityAssessmentLabel(score),
+    assessmentLabel,
     summary: "Network type not fully identified",
     detail:
       "Provider data did not clearly identify a residential or infrastructure network.",
@@ -633,7 +677,18 @@ function getRegionRestrictionPenalty(
   return Math.max(hasHardRestriction ? 30 : 0, servicePenalty);
 }
 
-function getCompatibilityAssessmentLabel(score: number) {
+function getCompatibilityAssessmentLabel(
+  score: number,
+  confidence: Exclude<IpQualityConfidence, "Pending">,
+) {
+  if (confidence === "Low" && score >= 60) {
+    return "Insufficient Evidence";
+  }
+
+  if (confidence === "Medium" && score >= 85) {
+    return "Compatibility Partially Verified";
+  }
+
   if (score >= 85) {
     return "Strong Compatibility";
   }
@@ -669,11 +724,15 @@ function buildCompatibilityScore({
     getConnectivityBaseScore(connectivity) - restrictionPenalty,
   );
   const score = capScoreForEvidence(rawScore, connectivityConfidence.maxScore);
+  const assessmentLabel = getCompatibilityAssessmentLabel(
+    score,
+    connectivityConfidence.confidence,
+  );
 
   if (restrictedServiceCount > 0 || restrictionPenalty >= 30) {
     return {
       score,
-      assessmentLabel: getCompatibilityAssessmentLabel(score),
+      assessmentLabel,
       summary: "Regional restriction detected",
       detail:
         "One or more service checks indicate regional or policy restrictions.",
@@ -686,7 +745,7 @@ function buildCompatibilityScore({
   if (counts.unreachable > 0) {
     return {
       score,
-      assessmentLabel: getCompatibilityAssessmentLabel(score),
+      assessmentLabel,
       summary: "Connectivity failure detected",
       detail: `${counts.unreachable} of ${counts.total} browser probes were unreachable.`,
       tone: getScoreTone(score),
@@ -698,7 +757,7 @@ function buildCompatibilityScore({
   if (counts.total === 0) {
     return {
       score,
-      assessmentLabel: getCompatibilityAssessmentLabel(score),
+      assessmentLabel,
       summary: "Connectivity not fully verified",
       detail:
         "No browser connectivity probe data is available for this report.",
@@ -711,7 +770,7 @@ function buildCompatibilityScore({
   if (counts.reachable === 0) {
     return {
       score,
-      assessmentLabel: getCompatibilityAssessmentLabel(score),
+      assessmentLabel,
       summary: "Connectivity not fully verified",
       detail:
         "Browser probes ran, but reachability could not be fully confirmed.",
@@ -724,7 +783,7 @@ function buildCompatibilityScore({
   if (counts.reachable === counts.total) {
     return {
       score,
-      assessmentLabel: getCompatibilityAssessmentLabel(score),
+      assessmentLabel,
       summary: "Connectivity verified",
       detail: "All tested service probes were reachable.",
       tone: "good",
@@ -735,7 +794,7 @@ function buildCompatibilityScore({
 
   return {
     score,
-    assessmentLabel: getCompatibilityAssessmentLabel(score),
+    assessmentLabel,
     summary: "Most tested services reachable",
     detail: `${counts.reachable} probes were verified reachable and ${counts.notVerified} could not be fully verified by the browser.`,
     tone: score >= 80 ? "good" : "caution",
@@ -814,31 +873,34 @@ function buildDataQuality({
   const connectivityConfidence = getConnectivityConfidence(connectivity);
 
   if (!isIpqsAvailable(ipqs)) {
-    reasons.push("IPQS response unavailable.");
+    reasons.push("IPQS reputation data was unavailable.");
   }
 
   if (ipInfoCoverage === "unavailable") {
-    reasons.push("IPInfo response unavailable.");
+    reasons.push("IPInfo network data was unavailable.");
   } else if (ipInfoCoverage === "partial") {
-    reasons.push("IPInfo ownership data is incomplete.");
+    reasons.push("IPInfo ownership data was incomplete.");
   }
 
   if (connectivityConfidence.confidence === "Low") {
     reasons.push("Connectivity probes were unavailable.");
   } else if (connectivityConfidence.confidence === "Medium") {
-    reasons.push("Connectivity probes were only partially verified.");
+    reasons.push("Connectivity probes were partially verified.");
   }
 
   const level: Exclude<IpQualityConfidence, "Pending"> =
     reasons.length === 0 ? "High" : reasons.length === 1 ? "Medium" : "Low";
+  const reason = joinReasons(reasons);
 
   return {
     level,
     tone: getConfidenceTone(level),
     reason:
-      reasons.length > 0
-        ? joinReasons(reasons)
-        : "IPQS, IPInfo, and connectivity probes were available.",
+      level === "High"
+        ? "IPQS, IPInfo, and connectivity probes were available."
+        : level === "Medium"
+          ? `Some data sources unavailable: ${reason}`
+          : `Important data sources were unavailable: ${reason}`,
   } satisfies IpQualityReport["dataQuality"];
 }
 
@@ -881,10 +943,34 @@ function buildOverallAssessment(
     } satisfies IpQualityReport["assessment"];
   }
 
+  if (confidence === "Low") {
+    return {
+      label: "Review Needed",
+      tone: "caution",
+      items: [
+        reputation.assessmentLabel,
+        network.assessmentLabel,
+        compatibility.assessmentLabel,
+      ],
+    } satisfies IpQualityReport["assessment"];
+  }
+
   if ((reputation.score ?? 0) >= 85 && hasManagedNetworkSignal(network)) {
     return {
       label: "Clean Reputation, Managed Network",
       tone: "infrastructure",
+      items: [
+        reputation.assessmentLabel,
+        network.assessmentLabel,
+        compatibility.assessmentLabel,
+      ],
+    } satisfies IpQualityReport["assessment"];
+  }
+
+  if (hasStrongScores && confidence === "Medium") {
+    return {
+      label: "Good Quality",
+      tone: "good",
       items: [
         reputation.assessmentLabel,
         network.assessmentLabel,
@@ -916,7 +1002,7 @@ function buildOverallAssessment(
   } satisfies IpQualityReport["assessment"];
 }
 
-function buildOverallSummary(dimensions: IpQualityReport["dimensions"]) {
+function buildBaseOverallSummary(dimensions: IpQualityReport["dimensions"]) {
   const reputation = dimensions.reputation;
   const network = dimensions.networkQuality;
   const compatibility = dimensions.compatibility;
@@ -942,6 +1028,23 @@ function buildOverallSummary(dimensions: IpQualityReport["dimensions"]) {
   }
 
   return `${reputation.summary}. ${network.summary}. ${compatibility.summary}.`;
+}
+
+function buildOverallSummary(
+  dimensions: IpQualityReport["dimensions"],
+  dataQuality: IpQualityReport["dataQuality"],
+) {
+  const baseSummary = buildBaseOverallSummary(dimensions);
+
+  if (dataQuality.level === "Low") {
+    return `Insufficient evidence for a high-confidence assessment. ${dataQuality.reason}`;
+  }
+
+  if (dataQuality.level === "Medium") {
+    return `${baseSummary} ${dataQuality.reason}`;
+  }
+
+  return baseSummary;
 }
 
 function buildOverallScore(dimensions: IpQualityReport["dimensions"]) {
@@ -1054,8 +1157,8 @@ export function buildIpQualityReport({
     confidenceTone: getConfidenceTone(confidence),
     dataQuality,
     assessment,
-    summary: buildOverallSummary(dimensions),
-    recommendationExplanation: buildOverallSummary(dimensions),
+    summary: buildOverallSummary(dimensions, dataQuality),
+    recommendationExplanation: buildOverallSummary(dimensions, dataQuality),
     weights: QUALITY_SCORE_WEIGHTS,
     dimensions,
   };

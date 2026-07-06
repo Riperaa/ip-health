@@ -4,6 +4,7 @@ import { fetchAbuseIpDb } from "../fetch/abuse";
 import { fetchCloudflareTrace } from "../fetch/cloudflare";
 import { fetchDetectedIp, fetchIpifyPublicIp, fetchIpInfo } from "../fetch/ip";
 import { fetchIpqs } from "../fetch/ipqs";
+import { assertValidIpv4Address } from "../validation";
 
 export async function detectPublicIp(): Promise<string> {
   const [detectedIp, cloudflare] = await Promise.all([
@@ -27,6 +28,8 @@ export async function fetchProviderAnalysis(
   if (!trimmedIpAddress) {
     throw new Error("Missing IP address.");
   }
+
+  assertValidIpv4Address(trimmedIpAddress);
 
   const [ipInfo, abuseIpDb, cloudflare, ipqs] = await Promise.all([
     fetchIpInfo(trimmedIpAddress),

@@ -49,6 +49,7 @@ import {
 } from "../normalize/storage";
 import { buildIpQualityReport } from "../scoring/ip-quality-report";
 import { calculateTrustScore } from "../scoring/trust-score";
+import { assertValidIpv4Address } from "../validation";
 import type {
   AbuseIpDbResponse,
   AnalysisResult,
@@ -591,7 +592,7 @@ function getScoreExplanationItems(
     )}%), and Compatibility (${Math.round(
       qualityReport.weights.compatibility * 100,
     )}%).`,
-    `Confidence is ${qualityReport.confidence}. Data quality is ${qualityReport.dataQuality.level}: ${qualityReport.dataQuality.reason}`,
+    `Confidence is ${qualityReport.confidence}. Evidence quality is ${qualityReport.dataQuality.level}: ${qualityReport.dataQuality.reason}`,
     `${qualityReport.dimensions.reputation.label}: ${qualityReport.dimensions.reputation.summary}.`,
     `${qualityReport.dimensions.networkQuality.label}: ${qualityReport.dimensions.networkQuality.summary}.`,
     `${qualityReport.dimensions.compatibility.label}: ${qualityReport.dimensions.compatibility.summary}.`,
@@ -1842,6 +1843,8 @@ export async function buildAnalysis(
   if (!trimmedIpAddress) {
     throw new Error("Missing IP address.");
   }
+
+  assertValidIpv4Address(trimmedIpAddress);
 
   const [providerResult, connectivity] = await Promise.all([
     fetchProviderAnalysis(trimmedIpAddress),

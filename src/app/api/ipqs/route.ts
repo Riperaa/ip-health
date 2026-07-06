@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { isValidIpv4Address } from "@/lib/analysis/validation";
 import { isProviderLookupError } from "@/lib/providers/errors";
 import { lookup } from "@/lib/providers/ipqs";
 
@@ -12,6 +13,10 @@ export async function GET(request: NextRequest) {
 
   if (!ip) {
     return errorResponse("Missing ip query parameter.", 400);
+  }
+
+  if (!isValidIpv4Address(ip)) {
+    return errorResponse("Invalid IP address", 400);
   }
 
   try {

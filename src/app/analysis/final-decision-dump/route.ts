@@ -8,6 +8,7 @@ import {
   FINAL_DECISION_VERSION,
   normalizeFinalDecision,
 } from "@/lib/analysis/final-decision";
+import { isValidIpv4Address } from "@/lib/analysis/validation";
 
 export async function GET(request: NextRequest) {
   const ip = request.nextUrl.searchParams.get("ip")?.trim();
@@ -19,6 +20,10 @@ export async function GET(request: NextRequest) {
       { error: "Missing ip query parameter." },
       { status: 400 },
     );
+  }
+
+  if (!isValidIpv4Address(ip)) {
+    return NextResponse.json({ error: "Invalid IP address" }, { status: 400 });
   }
 
   if (

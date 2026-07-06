@@ -15,6 +15,10 @@ import {
   type ComparisonVerdict,
   type IpComparisonResult,
 } from "@/lib/analysis";
+import {
+  INVALID_IP_ADDRESS_MESSAGE,
+  isValidIpv4Address,
+} from "@/lib/analysis/validation";
 
 function VerdictSummary({
   verdict,
@@ -134,6 +138,12 @@ export function IpCompare() {
 
     if (!trimmedIpA || !trimmedIpB) {
       setError("Enter both IP addresses.");
+      setResults(null);
+      return;
+    }
+
+    if (!isValidIpv4Address(trimmedIpA) || !isValidIpv4Address(trimmedIpB)) {
+      setError(INVALID_IP_ADDRESS_MESSAGE);
       setResults(null);
       return;
     }

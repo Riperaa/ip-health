@@ -16,9 +16,15 @@ type UsageRecommendation = {
   tone: StatusTone;
 };
 
+type VerdictDisplay = {
+  label: string;
+  description: string;
+  tone: StatusTone;
+};
+
 const verdictContent: Record<
   OverallVerdict,
-  { label: string; description: string; tone: StatusTone }
+  VerdictDisplay
 > = {
   Healthy: {
     label: "High quality IP",
@@ -92,6 +98,51 @@ const usageRecommendations: Record<OverallVerdict, UsageRecommendation[]> = {
 
 function getVerdict(result: AnalysisResult): OverallVerdict | null {
   return result.finalDecision?.decision.overallVerdict ?? null;
+}
+
+function getReliabilityCappedVerdict(
+  result: AnalysisResult,
+): OverallVerdict | null {
+  const verdict = getVerdict(result);
+
+  if (!verdict) {
+    return null;
+  }
+
+  if (result.qualityReport.dataQuality.level === "Low" && verdict === "Healthy") {
+    return "Use with Caution";
+  }
+
+  return verdict;
+}
+
+function getVerdictDisplay(result: AnalysisResult): VerdictDisplay | null {
+  const verdict = getVerdict(result);
+
+  if (!verdict) {
+    return null;
+  }
+
+  if (result.qualityReport.dataQuality.level === "Low") {
+    return {
+      label: "Review Needed",
+      description: "Insufficient evidence for a high-confidence verdict.",
+      tone: "caution" satisfies StatusTone,
+    };
+  }
+
+  if (
+    result.qualityReport.dataQuality.level === "Medium" &&
+    verdict === "Healthy"
+  ) {
+    return {
+      label: "Good Quality",
+      description: "Good available signals with some data sources unavailable.",
+      tone: "good" satisfies StatusTone,
+    };
+  }
+
+  return verdictContent[verdict];
 }
 
 function normalizePresentationText(value: string) {
@@ -403,8 +454,7 @@ export function DisclosureSection({
 }
 
 function IpHealthScoreCard({ result }: { result: AnalysisResult }) {
-  const verdict = getVerdict(result);
-  const verdictDisplay = verdict ? verdictContent[verdict] : null;
+  const verdictDisplay = getVerdictDisplay(result);
   const qualityReport = result.qualityReport;
   const scoreDisplay = qualityReport.displayValue;
   const scoreSuffix = "/100";
@@ -477,7 +527,7 @@ function IpHealthScoreCard({ result }: { result: AnalysisResult }) {
         <div className="rounded-2xl border border-neutral-100 bg-neutral-50/70 p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-sm font-semibold text-neutral-950">
-              Data Quality
+              Evidence Quality
             </p>
             <StatusBadge tone={dataQuality.tone} variant="quiet">
               {dataQuality.level}
@@ -841,7 +891,7 @@ function IpIdentitySection({ result }: { result: AnalysisResult }) {
 }
 
 function RecommendedUsageSection({ result }: { result: AnalysisResult }) {
-  const verdict = getVerdict(result);
+  const verdict = getReliabilityCappedVerdict(result);
 
   if (!verdict) {
     return null;

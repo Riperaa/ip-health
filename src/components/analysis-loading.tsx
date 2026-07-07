@@ -116,16 +116,16 @@ function WarningIcon() {
 function HeaderIcon({ isComplete }: { isComplete: boolean }) {
   if (isComplete) {
     return (
-      <span className="inline-flex size-14 items-center justify-center rounded-full bg-emerald-50 text-emerald-600 transition-all duration-300 ease-out motion-reduce:transition-none">
+      <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-600 transition-colors duration-300 ease-out motion-reduce:transition-none">
         <CheckIcon />
       </span>
     );
   }
 
   return (
-    <span className="relative inline-flex size-14 items-center justify-center text-neutral-950">
-      <span className="absolute size-14 rounded-full bg-neutral-100 opacity-80 animate-pulse motion-reduce:animate-none" />
-      <span className="relative inline-block size-10 animate-spin rounded-full border-2 border-neutral-950 border-r-transparent motion-reduce:animate-pulse" />
+    <span className="relative inline-flex size-9 shrink-0 items-center justify-center text-neutral-950">
+      <span className="absolute size-9 rounded-full bg-neutral-100 opacity-80 animate-pulse motion-reduce:animate-none" />
+      <span className="relative inline-block size-5 animate-spin rounded-full border-2 border-neutral-950 border-r-transparent motion-reduce:animate-none" />
     </span>
   );
 }
@@ -149,7 +149,7 @@ function StepIcon({ status }: { status: AnalysisProgressStepStatus }) {
 
   if (status === "running") {
     return (
-      <span className="inline-block size-5 shrink-0 animate-spin rounded-full border-2 border-neutral-950 border-r-transparent motion-reduce:animate-pulse" />
+      <span className="inline-block size-5 shrink-0 animate-spin rounded-full border-2 border-neutral-950 border-r-transparent motion-reduce:animate-none" />
     );
   }
 
@@ -160,17 +160,23 @@ function StepIcon({ status }: { status: AnalysisProgressStepStatus }) {
 
 export function LoadingStep({ label, status }: LoadingStepProps) {
   const isActive = status === "running";
+  const isCompleted = status === "completed";
+  const isError = status === "error";
 
   return (
     <li
-      className={`flex items-center gap-3 py-2 text-sm transition-all duration-300 ease-out motion-reduce:transform-none motion-reduce:transition-none ${
+      className={`flex min-w-0 items-center gap-2.5 py-1.5 text-sm transition-colors duration-300 ease-out motion-reduce:transition-none ${
         isActive
-          ? "translate-y-0 text-neutral-950"
-          : "translate-y-0 text-neutral-500"
+          ? "text-neutral-950"
+          : isCompleted
+            ? "text-neutral-700"
+            : isError
+              ? "text-red-700"
+              : "text-neutral-500"
       }`}
     >
       <StepIcon status={status} />
-      <span className={isActive ? "font-medium" : "font-normal"}>
+      <span className={`min-w-0 ${isActive ? "font-medium" : "font-normal"}`}>
         {label}
       </span>
     </li>
@@ -196,7 +202,7 @@ export function StatusMessage({ message }: StatusMessageProps) {
     <p
       aria-live="polite"
       role="status"
-      className="min-h-5 text-center text-sm font-medium text-neutral-500 transition-opacity duration-300 ease-out motion-reduce:transition-none"
+      className="min-h-5 text-sm font-medium text-neutral-500 transition-opacity duration-300 ease-out motion-reduce:transition-none"
     >
       {message}
     </p>
@@ -231,7 +237,7 @@ export function AnalysisLoading({
         ),
       );
   const statusMessage = isComplete
-    ? "Your report is ready."
+    ? "Analysis complete. Preparing your report..."
     : activeStep?.status ?? "Finishing analysis...";
 
   function getStepStatus(
@@ -249,22 +255,27 @@ export function AnalysisLoading({
   }
 
   return (
-    <div className="mx-auto w-full max-w-[520px] px-2 sm:px-0">
-      <div className="surface-card flex w-full flex-col items-center rounded-2xl border bg-white px-6 py-7 text-center transition-all duration-300 ease-out motion-reduce:transition-none sm:px-8">
-        <HeaderIcon isComplete={isComplete} />
+    <div className="w-full">
+      <div className="surface-card-soft w-full rounded-2xl border bg-white px-4 py-4 text-left transition-colors duration-300 ease-out motion-reduce:transition-none sm:px-5">
+        <div className="flex items-start gap-3">
+          <HeaderIcon isComplete={isComplete} />
 
-        <div className="mt-5">
-          <h2 className="text-xl font-semibold tracking-normal text-neutral-950">
-            {isComplete ? "\u2713 Analysis Complete" : "Analyzing your IP..."}
-          </h2>
-          <p className="mt-2 text-sm leading-6 text-neutral-500">
-            {isComplete
-              ? "Preparing your results."
-              : "This usually takes 2-5 seconds."}
-          </p>
+          <div className="min-w-0 flex-1">
+            <h2 className="text-base font-semibold tracking-normal text-neutral-950">
+              {isComplete ? "Analysis complete" : "Analyzing your IP..."}
+            </h2>
+            <p className="mt-1 text-sm leading-6 text-neutral-500">
+              Checking reputation and network identity.
+            </p>
+          </div>
         </div>
 
-        <ol className="mt-6 w-full text-left">
+        <div className="mt-4 space-y-2">
+          <ProgressBar value={progressValue} />
+          <StatusMessage message={statusMessage} />
+        </div>
+
+        <ol className="mt-3 grid gap-x-5 gap-y-0.5 sm:grid-cols-2">
           {ANALYSIS_LOADING_STEPS.map((step) => (
             <LoadingStep
               key={step.id}
@@ -273,11 +284,6 @@ export function AnalysisLoading({
             />
           ))}
         </ol>
-
-        <div className="mt-5 w-full space-y-3">
-          <ProgressBar value={progressValue} />
-          <StatusMessage message={statusMessage} />
-        </div>
       </div>
     </div>
   );

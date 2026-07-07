@@ -81,7 +81,7 @@ function LoadingSpinner() {
   return (
     <span
       aria-hidden="true"
-      className="inline-block size-4 animate-spin rounded-full border-2 border-current border-r-transparent"
+      className="inline-block size-4 animate-spin rounded-full border-2 border-current border-r-transparent motion-reduce:animate-none"
     />
   );
 }
@@ -100,8 +100,6 @@ export function IpAnalyzerContainer() {
   const [isDetecting, setIsDetecting] = useState(true);
   const [analysisLoadingState, setAnalysisLoadingState] =
     useState<AnalysisLoadingState>(initialAnalysisLoadingState);
-  const [isLoadingExiting, setIsLoadingExiting] = useState(false);
-  const [isResultVisible, setIsResultVisible] = useState(false);
   const isAnalysisInFlight = useRef(false);
 
   const analyzeAddress = useCallback(async (nextIpAddress: string) => {
@@ -133,8 +131,6 @@ export function IpAnalyzerContainer() {
     setAnalysisResult(getEmptyAnalysisResult(trimmedIpAddress));
     setAnalysisStarted(true);
     setIsAnalyzing(true);
-    setIsLoadingExiting(false);
-    setIsResultVisible(false);
     setAnalysisLoadingState(initialAnalysisLoadingState);
     trackAnalyticsEvent("analyze_started", {});
 
@@ -187,10 +183,7 @@ export function IpAnalyzerContainer() {
         success: true,
       });
       await wait(500);
-      setIsLoadingExiting(true);
-      await wait(300);
     } catch {
-      setIsLoadingExiting(false);
       setAnalysisResult(getEmptyAnalysisResult(trimmedIpAddress));
       setAnalysisErrorIp(trimmedIpAddress);
       trackAnalyticsEvent("analyze_completed", {
@@ -200,7 +193,6 @@ export function IpAnalyzerContainer() {
     } finally {
       isAnalysisInFlight.current = false;
       setIsAnalyzing(false);
-      setIsLoadingExiting(false);
     }
   }, []);
 
@@ -228,20 +220,6 @@ export function IpAnalyzerContainer() {
   useEffect(() => {
     setRecentChecks(loadRecentChecks());
   }, []);
-
-  useEffect(() => {
-    if (analysisStarted && !isAnalyzing && !analysisErrorIp) {
-      const animationFrame = window.requestAnimationFrame(() => {
-        setIsResultVisible(true);
-      });
-
-      return () => window.cancelAnimationFrame(animationFrame);
-    }
-
-    setIsResultVisible(false);
-
-    return undefined;
-  }, [analysisErrorIp, analysisStarted, isAnalyzing]);
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -315,42 +293,11 @@ export function IpAnalyzerContainer() {
       </form>
 
       {isAnalysisLoadingVisible ? (
-        <div
-          className={`fixed inset-0 z-20 flex items-center justify-center bg-white/85 px-5 py-8 transition-all duration-300 ease-out motion-reduce:transform-none motion-reduce:transition-none ${
-            isLoadingExiting
-              ? "scale-[0.99] opacity-0"
-              : "scale-100 opacity-100"
-          }`}
-        >
-          <AnalysisLoading
-            completedSteps={analysisLoadingState.completedSteps}
-            errorSteps={analysisLoadingState.errorSteps}
-            isComplete={analysisLoadingState.isComplete}
-          />
-        </div>
-      ) : null}
-
-      {!isAnalysisLoadingVisible ? (
-        <section className="w-full text-left">
-        <p className="text-sm font-semibold text-neutral-950">
-          Why check your IP?
-        </p>
-        <div className="mt-3 grid gap-3 sm:grid-cols-3">
-          {checkBeforeCards.map((card) => (
-            <div
-              key={card.title}
-              className="surface-card-soft rounded-2xl border bg-white p-4"
-            >
-              <h2 className="text-sm font-semibold text-neutral-950">
-                {card.title}
-              </h2>
-              <p className="mt-2 text-sm leading-6 text-neutral-500">
-                {card.description}
-              </p>
-            </div>
-          ))}
-        </div>
-        </section>
+        <AnalysisLoading
+          completedSteps={analysisLoadingState.completedSteps}
+          errorSteps={analysisLoadingState.errorSteps}
+          isComplete={analysisLoadingState.isComplete}
+        />
       ) : null}
 
       {analysisErrorIp ? (
@@ -372,6 +319,15 @@ export function IpAnalyzerContainer() {
         </div>
       ) : error ? (
         <p className="text-sm font-medium text-neutral-500">{error}</p>
+      ) : null}
+
+      {!isAnalysisLoadingVisible && analysisStarted && !analysisErrorIp ? (
+        <div className="w-full">
+          <IpAnalyzer result={analysisResult} />
+          {analysisResult.trustScore.hasAnalysis ? (
+            <ResultFeedback context={getAnalysisContext(analysisResult)} />
+          ) : null}
+        </div>
       ) : null}
 
       {analysisStarted && !isAnalysisLoadingVisible ? (
@@ -410,20 +366,26 @@ export function IpAnalyzerContainer() {
         </div>
       ) : null}
 
-      {!isAnalysisLoadingVisible && analysisStarted && !analysisErrorIp ? (
-        <div
-          className={`w-full transition-all duration-300 ease-out motion-reduce:transition-none ${
-            isResultVisible
-              ? "translate-y-0 opacity-100"
-              : "translate-y-2 opacity-0"
-          }`}
-        >
-          <IpAnalyzer result={analysisResult} />
-          {analysisResult.trustScore.hasAnalysis ? (
-            <ResultFeedback context={getAnalysisContext(analysisResult)} />
-          ) : null}
+      <section className="w-full text-left">
+        <p className="text-sm font-semibold text-neutral-950">
+          Why check your IP?
+        </p>
+        <div className="mt-3 grid gap-3 sm:grid-cols-3">
+          {checkBeforeCards.map((card) => (
+            <div
+              key={card.title}
+              className="surface-card-soft rounded-2xl border bg-white p-4"
+            >
+              <h2 className="text-sm font-semibold text-neutral-950">
+                {card.title}
+              </h2>
+              <p className="mt-2 text-sm leading-6 text-neutral-500">
+                {card.description}
+              </p>
+            </div>
+          ))}
         </div>
-      ) : null}
+      </section>
     </div>
   );
 }

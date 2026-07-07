@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { isValidIpv4Address } from "@/lib/analysis/validation";
-import { isProviderLookupError } from "@/lib/providers/errors";
-import { lookup } from "@/lib/providers/ipqs";
+import { createUnavailableIpqsResult, lookup } from "@/lib/providers/ipqs";
 
 function errorResponse(message: string, status: number) {
   return NextResponse.json({ error: message }, { status });
@@ -21,18 +20,9 @@ export async function GET(request: NextRequest) {
 
   try {
     return NextResponse.json(await lookup(ip));
-  } catch (error) {
-    if (isProviderLookupError(error)) {
-      if (error.raw !== undefined) {
-        return NextResponse.json(
-          { error: "Provider lookup failed.", raw: error.raw },
-          { status: error.status },
-        );
-      }
-
-      return errorResponse("Provider lookup failed.", error.status);
-    }
-
-    return errorResponse("Provider lookup failed.", 502);
+  } catch {
+    return NextResponse.json(
+      createUnavailableIpqsResult({ reason: "api_error" }),
+    );
   }
 }

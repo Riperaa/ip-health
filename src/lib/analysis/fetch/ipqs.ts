@@ -1,10 +1,28 @@
 import type { IpqsResponse } from "@/lib/analysis/types";
+import type {
+  IpqsDebugInfo,
+  IpqsUnavailableReason,
+} from "@/lib/providers/ipqs";
 
 import { normalizeIpqs } from "../normalize/providers";
 
-function createUnavailableIpqsResult(error: string): IpqsResponse {
+const USER_SAFE_UNAVAILABLE_ERROR = "IPQualityScore data is unavailable.";
+
+function createDebugInfo(): IpqsDebugInfo {
+  return {
+    requestExecuted: false,
+    responseStatusCode: null,
+    success: null,
+    message: null,
+  };
+}
+
+function createUnavailableIpqsResult(
+  reason: IpqsUnavailableReason,
+): IpqsResponse {
   return {
     status: "unavailable",
+    reason,
     fraudScore: null,
     country: null,
     vpn: null,
@@ -13,8 +31,17 @@ function createUnavailableIpqsResult(error: string): IpqsResponse {
     bot: null,
     activeVpn: null,
     recentAbuse: null,
-    error,
+    debug: createDebugInfo(),
+    error: USER_SAFE_UNAVAILABLE_ERROR,
   };
+}
+
+async function parseIpqsResponse(response: Response) {
+  try {
+    return (await response.json()) as IpqsResponse | null;
+  } catch {
+    return null;
+  }
 }
 
 export async function fetchIpqs(nextIpAddress: string) {
@@ -23,13 +50,17 @@ export async function fetchIpqs(nextIpAddress: string) {
 
   try {
     const response = await fetch(url);
+    const data = await parseIpqsResponse(response);
+    const normalizedIpqs = normalizeIpqs(data);
 
     if (!response.ok) {
-      return createUnavailableIpqsResult("Provider lookup failed.");
+      return normalizedIpqs?.status === "unavailable"
+        ? normalizedIpqs
+        : createUnavailableIpqsResult("api_error");
     }
 
-    return normalizeIpqs((await response.json()) as IpqsResponse | null);
+    return normalizedIpqs;
   } catch {
-    return createUnavailableIpqsResult("Provider lookup failed.");
+    return createUnavailableIpqsResult("network_error");
   }
 }

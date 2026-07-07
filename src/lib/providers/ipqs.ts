@@ -1,7 +1,10 @@
 import { ProviderLookupError } from "./errors";
 import {
+  IpqsLookupError,
   lookupIpQualityScore,
+  type IpqsDebugInfo,
   type IpqsClientResult,
+  type IpqsUnavailableReason,
 } from "./ipqs/client";
 
 type IpqsResponse = {
@@ -17,6 +20,7 @@ type IpqsResponse = {
 
 export type ProviderResult = {
   status?: "available" | "unavailable";
+  reason?: IpqsUnavailableReason;
   fraudScore?: number | null;
   country?: string | null;
   vpn?: boolean | null;
@@ -26,8 +30,13 @@ export type ProviderResult = {
   activeVpn?: boolean | null;
   recentAbuse?: boolean | null;
   raw?: unknown;
+  debug?: IpqsDebugInfo;
   error?: string;
 };
+
+export type { IpqsDebugInfo, IpqsUnavailableReason };
+
+const USER_SAFE_UNAVAILABLE_ERROR = "IPQualityScore data is unavailable.";
 
 function parseNumber(value: unknown) {
   if (typeof value === "number" && Number.isFinite(value)) {
@@ -92,13 +101,32 @@ function normalizeClientResult(result: IpqsClientResult): ProviderResult {
     bot: result.bot_status,
     activeVpn: null,
     recentAbuse: null,
-    raw: result,
+    raw: result.raw,
+    debug: result.debug,
   };
 }
 
-export function createUnavailableIpqsResult(error?: string): ProviderResult {
+function createDefaultDebug(): IpqsDebugInfo {
+  return {
+    requestExecuted: false,
+    responseStatusCode: null,
+    success: null,
+    message: null,
+  };
+}
+
+export function createUnavailableIpqsResult({
+  reason = "api_error",
+  debug = createDefaultDebug(),
+  error = USER_SAFE_UNAVAILABLE_ERROR,
+}: {
+  reason?: IpqsUnavailableReason;
+  debug?: IpqsDebugInfo;
+  error?: string;
+} = {}): ProviderResult {
   return {
     status: "unavailable",
+    reason,
     fraudScore: null,
     country: null,
     vpn: null,
@@ -107,6 +135,7 @@ export function createUnavailableIpqsResult(error?: string): ProviderResult {
     bot: null,
     activeVpn: null,
     recentAbuse: null,
+    debug,
     error,
   };
 }
@@ -115,11 +144,24 @@ export async function lookup(ip: string): Promise<ProviderResult> {
   try {
     return normalizeClientResult(await lookupIpQualityScore(ip));
   } catch (error) {
-    if (error instanceof ProviderLookupError) {
-      throw error;
+    if (error instanceof IpqsLookupError) {
+      return createUnavailableIpqsResult({
+        reason: error.reason,
+        debug: error.debug,
+      });
     }
 
-    throw new ProviderLookupError("Unable to fetch IPQualityScore data.", 502);
+    if (error instanceof ProviderLookupError) {
+      return createUnavailableIpqsResult({
+        reason: "api_error",
+        debug: createDefaultDebug(),
+      });
+    }
+
+    return createUnavailableIpqsResult({
+      reason: "network_error",
+      debug: createDefaultDebug(),
+    });
   }
 }
 

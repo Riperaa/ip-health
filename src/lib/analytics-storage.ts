@@ -65,10 +65,14 @@ export type AnalyticsSummary = {
   totalEvents: number;
   analyzeStartedCount: number;
   analyzeCompletedCount: number;
+  todayAnalyzeCompletedCount: number;
+  lastSevenDaysAnalyzeCompletedCount: number;
   analyzeCompletionRate: number | null;
   compareStartedCount: number;
   helpfulFeedbackCount: number;
   notHelpfulFeedbackCount: number;
+  feedbackVoteCount: number;
+  negativeFeedbackCount: number;
   feedbackHelpfulRate: number | null;
   eventsByDay: AnalyticsDayBucket[];
   analyzeCompletedByCountry: AnalyticsCountBucket[];
@@ -360,10 +364,14 @@ function buildEmptySummary(referenceDate = new Date()): AnalyticsSummary {
     totalEvents: 0,
     analyzeStartedCount: 0,
     analyzeCompletedCount: 0,
+    todayAnalyzeCompletedCount: 0,
+    lastSevenDaysAnalyzeCompletedCount: 0,
     analyzeCompletionRate: null,
     compareStartedCount: 0,
     helpfulFeedbackCount: 0,
     notHelpfulFeedbackCount: 0,
+    feedbackVoteCount: 0,
+    negativeFeedbackCount: 0,
     feedbackHelpfulRate: null,
     eventsByDay: buildLastSevenDayKeys(referenceDate).map((date) => ({
       date,
@@ -459,6 +467,8 @@ export async function getAnalyticsSummary(): Promise<AnalyticsSummary> {
   const lastSevenDayCounts = new Map(
     summary.eventsByDay.map((day) => [day.date, day.count]),
   );
+  const lastSevenDayKeys = new Set(summary.eventsByDay.map((day) => day.date));
+  const todayKey = summary.eventsByDay[summary.eventsByDay.length - 1]?.date;
   const completedByCountry = new Map<string, number>();
   const completedByNetworkIdentityCategory = new Map<string, number>();
   const completedByEvidenceQuality = new Map<string, number>();
@@ -506,6 +516,15 @@ export async function getAnalyticsSummary(): Promise<AnalyticsSummary> {
     }
 
     summary.analyzeCompletedCount += 1;
+
+    if (dayKey === todayKey) {
+      summary.todayAnalyzeCompletedCount += 1;
+    }
+
+    if (lastSevenDayKeys.has(dayKey)) {
+      summary.lastSevenDaysAnalyzeCompletedCount += 1;
+    }
+
     incrementBucket(completedByCountry, row.country_code);
     incrementBucket(
       completedByNetworkIdentityCategory,
@@ -522,6 +541,9 @@ export async function getAnalyticsSummary(): Promise<AnalyticsSummary> {
     summary.helpfulFeedbackCount,
     summary.helpfulFeedbackCount + summary.notHelpfulFeedbackCount,
   );
+  summary.feedbackVoteCount =
+    summary.helpfulFeedbackCount + summary.notHelpfulFeedbackCount;
+  summary.negativeFeedbackCount = summary.notHelpfulFeedbackCount;
   summary.eventsByDay = summary.eventsByDay.map((day) => ({
     ...day,
     count: lastSevenDayCounts.get(day.date) ?? 0,

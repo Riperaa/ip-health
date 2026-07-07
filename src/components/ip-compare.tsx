@@ -65,6 +65,11 @@ function ResultCard({
           ? result.networkIdentity
           : `${result.networkIdentity} · ${result.identityProvider}`,
     },
+    {
+      label: "Sharing Risk",
+      value: result.sharingRisk.level,
+      tone: result.sharingRisk.tone,
+    },
     { label: "Usage Type", value: result.usageType },
     { label: "Abuse Confidence", value: result.abuseConfidence },
     { label: "Country", value: result.country },
@@ -98,6 +103,7 @@ function ResultCard({
           const isUsageType =
             row.label === "Usage Type" || row.label === "Network Identity";
           const isTrustScore = row.label === "IP Health Score";
+          const isSharingRisk = row.label === "Sharing Risk";
 
           return (
             <div
@@ -120,6 +126,10 @@ function ResultCard({
                   </StatusBadge>
                 ) : isTrustScore ? (
                   <StatusBadge tone={trustTone}>{row.value}</StatusBadge>
+                ) : isSharingRisk ? (
+                  <StatusBadge tone={row.tone ?? "neutral"}>
+                    {row.value}
+                  </StatusBadge>
                 ) : (
                   row.value
                 )}

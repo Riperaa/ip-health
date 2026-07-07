@@ -49,6 +49,7 @@ import {
 } from "../normalize/storage";
 import { classifyNetworkIdentity } from "../network-identity";
 import { buildIpQualityReport } from "../scoring/ip-quality-report";
+import { buildNetworkSharingRisk } from "../sharing-risk";
 import { calculateTrustScore } from "../scoring/trust-score";
 import { assertValidIpv4Address } from "../validation";
 import type {
@@ -173,88 +174,6 @@ function formatLocation(ipInfo: IpInfoResponse) {
   return locationParts.length > 0 ? locationParts.join(", ") : "Not identified";
 }
 
-function normalizeReportText(value?: string | null) {
-  return value?.trim().toLowerCase() ?? "";
-}
-
-function hasIpqsVpnProxySignal(ipqs?: IpqsResponse | null) {
-  return Boolean(
-    ipqs?.vpn === true ||
-      ipqs?.activeVpn === true ||
-      ipqs?.proxy === true ||
-      ipqs?.tor === true,
-  );
-}
-
-function hasScamalyticsVpnProxySignal(
-  scamalytics?: ScamalyticsResponse | null,
-) {
-  return Boolean(
-    scamalytics?.vpn === true ||
-      scamalytics?.proxy === true ||
-      scamalytics?.tor === true,
-  );
-}
-
-function hasIpApiIsVpnProxySignal(ipApiIs?: IpApiIsResponse | null) {
-  return Boolean(
-    ipApiIs?.vpn === true ||
-      ipApiIs?.proxy === true ||
-      ipApiIs?.tor === true,
-  );
-}
-
-function hasPrivacyVpnProxySignal(privacy?: IpInfoResponse["privacy"]) {
-  return Boolean(
-    privacy?.vpn === true ||
-      privacy?.proxy === true ||
-      privacy?.tor === true ||
-      privacy?.relay === true,
-  );
-}
-
-function hasNetworkTypeSignal(
-  ipInfo: IpInfoResponse,
-  keywords: string[],
-) {
-  const values = [
-    ipInfo.asn?.type,
-    ipInfo.company?.type,
-    ipInfo.asn?.name,
-    ipInfo.company?.name,
-    ipInfo.org,
-  ];
-
-  return values.some((value) => {
-    const normalizedValue = normalizeReportText(value);
-
-    return keywords.some((keyword) => normalizedValue.includes(keyword));
-  });
-}
-
-function hasProviderInfrastructureSignal(
-  ipInfo: IpInfoResponse,
-  abuseIpDb?: AbuseIpDbResponse | null,
-  cloudflare?: CloudflareTraceResponse | null,
-  ipApiIs?: IpApiIsResponse | null,
-) {
-  return (
-    hasNativeInfrastructureSignal(ipInfo, abuseIpDb) ||
-    hasCloudflareColoSignal(ipInfo, cloudflare) ||
-    ipApiIs?.datacenter === true ||
-    ipApiIs?.hosting === true ||
-    hasNetworkTypeSignal(ipInfo, [
-      "hosting",
-      "host",
-      "data center",
-      "datacenter",
-      "cloud",
-      "infrastructure",
-      "server",
-    ])
-  );
-}
-
 function getReputationStatus(
   finalDecision: FinalDecision | null,
 ): EndUserReport["reputation"] {
@@ -351,60 +270,6 @@ function formatAbuseSignals(abuseIpDb?: AbuseIpDbResponse | null) {
   return `Severe (${abuseConfidence}%)`;
 }
 
-function getNetworkSharingRisk(
-  ipInfo: IpInfoResponse,
-  abuseIpDb: AbuseIpDbResponse | null,
-  ipqs: IpqsResponse | null,
-  cloudflare: CloudflareTraceResponse | null,
-  scamalytics: ScamalyticsResponse | null,
-  ipApiIs: IpApiIsResponse | null,
-  identity: EndUserReport["identity"],
-): EndUserReport["sharingRisk"] {
-  const parsedOrg = parseOrg(ipInfo.org);
-  const hasAsn = hasDetail(pickDetail(ipInfo.asn?.asn, parsedOrg.asn));
-  const hasVpnProxy =
-    hasPrivacyVpnProxySignal(ipInfo.privacy) ||
-    hasIpqsVpnProxySignal(ipqs) ||
-    hasScamalyticsVpnProxySignal(scamalytics) ||
-    hasIpApiIsVpnProxySignal(ipApiIs);
-  const hasInfrastructure = hasProviderInfrastructureSignal(
-    ipInfo,
-    abuseIpDb,
-    cloudflare,
-    ipApiIs,
-  );
-
-  if (hasVpnProxy || hasInfrastructure) {
-    return {
-      level: "High",
-      tone: "risk",
-      explanation: "This IP belongs to highly shared infrastructure.",
-    };
-  }
-
-  if (hasAsn && identity.ipType !== "Residential ISP") {
-    return {
-      level: "Medium",
-      tone: "caution",
-      explanation: "This IP may be shared by multiple users.",
-    };
-  }
-
-  if (!hasAsn && identity.ipType === "Unknown") {
-    return {
-      level: "Unknown",
-      tone: "neutral",
-      explanation: "There is not enough network ownership data to estimate sharing risk.",
-    };
-  }
-
-  return {
-    level: "Low",
-    tone: "good",
-    explanation: "This IP appears to have low shared infrastructure signals.",
-  };
-}
-
 function buildEndUserReport({
   ipInfo,
   abuseIpDb,
@@ -465,7 +330,7 @@ function buildEndUserReport({
       timezone: formatDetail(ipInfoPresentation.timezone),
     },
     sharingRisk: hasAnalysis
-      ? getNetworkSharingRisk(
+      ? buildNetworkSharingRisk({
           ipInfo,
           abuseIpDb,
           ipqs,
@@ -473,11 +338,14 @@ function buildEndUserReport({
           scamalytics,
           ipApiIs,
           identity,
-        )
+        })
       : {
           level: "Unknown",
+          label: "Unknown",
           tone: "neutral" satisfies StatusTone,
           explanation: "Run an analysis to estimate network sharing risk.",
+          reason: "Run an analysis to estimate network sharing risk.",
+          evidence: ["Analysis not run"],
         },
   };
 }

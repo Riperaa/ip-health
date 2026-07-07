@@ -417,8 +417,11 @@ export type EndUserReport = {
   };
   sharingRisk: {
     level: "Low" | "Medium" | "High" | "Unknown";
+    label: string;
     tone: StatusTone;
     explanation: string;
+    reason: string;
+    evidence: string[];
   };
 };
 
@@ -460,6 +463,7 @@ export type ComparisonDisplayResult = {
   confidence: RecommendationConfidence;
   networkIdentity: string;
   identityProvider: string;
+  sharingRisk: EndUserReport["sharingRisk"];
   usageType: string;
   abuseConfidence: string;
   abuseConfidenceValue: number | null;

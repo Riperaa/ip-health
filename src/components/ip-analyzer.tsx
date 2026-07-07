@@ -935,6 +935,56 @@ function IpIdentitySection({ result }: { result: AnalysisResult }) {
   );
 }
 
+function SharingRiskSection({ result }: { result: AnalysisResult }) {
+  if (!result.finalDecision) {
+    return null;
+  }
+
+  const sharingRisk = result.endUserReport.sharingRisk;
+  const evidence =
+    sharingRisk.evidence.length > 0
+      ? sharingRisk.evidence
+      : ["No sharing evidence available"];
+
+  return (
+    <section className="surface-card rounded-2xl border bg-white p-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-sm font-semibold text-neutral-950">
+            <span aria-hidden="true">🌐 </span>
+            Sharing Risk
+          </p>
+          <p className="mt-2 text-sm leading-6 text-neutral-500">
+            {sharingRisk.reason}
+          </p>
+        </div>
+        <StatusBadge tone={sharingRisk.tone} className="shrink-0">
+          {sharingRisk.label}
+        </StatusBadge>
+      </div>
+
+      <div className="mt-4 rounded-2xl border border-neutral-100 bg-neutral-50/60 p-4">
+        <p className="text-xs font-semibold uppercase tracking-normal text-neutral-400">
+          Evidence
+        </p>
+        <ul className="mt-3 space-y-2">
+          {evidence.map((item) => (
+            <li key={item} className="flex gap-2 text-sm leading-6">
+              <span
+                aria-hidden="true"
+                className="mt-2.5 size-1.5 shrink-0 rounded-full bg-neutral-400"
+              />
+              <span className="text-neutral-700">
+                {normalizePresentationText(item)}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
+  );
+}
+
 function RecommendedUsageSection({ result }: { result: AnalysisResult }) {
   const verdict = getReliabilityCappedVerdict(result);
 
@@ -1325,6 +1375,9 @@ export function IpAnalyzer({ result }: { result: AnalysisResult }) {
   return (
     <div className="mt-6 flex w-full flex-col gap-4 text-left">
       <IpHealthScoreCard result={result} />
+      <IpIdentitySection result={result} />
+      <SharingRiskSection result={result} />
+      <ReputationSection result={result} />
       <RecommendedUsageSection result={result} />
       <TechnicalDetailsSection result={result} />
 

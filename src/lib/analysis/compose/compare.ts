@@ -10,6 +10,7 @@ import {
 } from "../normalize/common";
 import { buildIpQualityReport } from "../scoring/ip-quality-report";
 import { classifyNetworkIdentity } from "../network-identity";
+import { buildNetworkSharingRisk } from "../sharing-risk";
 import { assertValidIpv4Address } from "../validation";
 import type {
   AbuseIpDbResponse,
@@ -169,6 +170,15 @@ function getDisplayResult(
     cloudflare,
     ipApiIs,
   });
+  const sharingRisk = buildNetworkSharingRisk({
+    ipInfo,
+    abuseIpDb,
+    ipqs,
+    cloudflare,
+    scamalytics,
+    ipApiIs,
+    identity,
+  });
 
   return {
     input: result.input,
@@ -185,6 +195,7 @@ function getDisplayResult(
     ),
     networkIdentity: identity.networkIdentity,
     identityProvider: identity.provider,
+    sharingRisk,
     usageType: formatUsageType(abuseIpDb?.usageType, ipInfo.privacy),
     abuseConfidence: formatAbuseConfidence(abuseIpDb),
     abuseConfidenceValue: getAbuseConfidenceValue(abuseIpDb),

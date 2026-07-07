@@ -2,45 +2,22 @@ import { NextResponse } from "next/server";
 
 import {
   getAnalyticsSupabaseEnvStatus,
-  storeAnalyticsEvent,
+  insertAnalyticsEvent,
+  isAllowedAnalyticsEventName,
+  isAllowedCountryCode,
+  isAllowedEvidenceQuality,
+  isAllowedFeedbackReason,
+  isAllowedNetworkIdentityCategory,
   type AnalyticsEventRecord,
+  type AnalyticsEventName,
+  type AnalyticsEvidenceQuality,
+  type AnalyticsNetworkIdentityCategory,
 } from "@/lib/analytics-storage";
 
-const allowedEventNames = [
-  "analyze_started",
-  "analyze_completed",
-  "compare_started",
-  "feedback_helpful",
-  "feedback_not_helpful",
-] as const;
-
-const allowedNetworkIdentityCategories = [
-  "Residential ISP",
-  "Mobile Network",
-  "Enterprise Network",
-  "Public Infrastructure",
-  "Cloud Provider",
-  "Datacenter",
-  "VPN / Proxy",
-  "Tor Exit",
-  "Unknown",
-] as const;
-
-const allowedEvidenceQualities = ["High", "Medium", "Low", "Pending"] as const;
-
-const allowedFeedbackReasons = [
-  "Wrong IP type",
-  "Wrong location",
-  "Score not convincing",
-  "Missing information",
-  "Other",
-] as const;
-
-type AllowedEventName = (typeof allowedEventNames)[number];
 type AnalysisContext = {
-  networkIdentityCategory: string;
+  networkIdentityCategory: AnalyticsNetworkIdentityCategory;
   countryCode: string;
-  evidenceQuality: string;
+  evidenceQuality: AnalyticsEvidenceQuality;
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -52,20 +29,6 @@ function hasOnlyKeys(
   allowedKeys: readonly string[],
 ) {
   return Object.keys(value).every((key) => allowedKeys.includes(key));
-}
-
-function isAllowedValue<T extends readonly string[]>(
-  value: unknown,
-  allowedValues: T,
-): value is T[number] {
-  return typeof value === "string" && allowedValues.includes(value);
-}
-
-function isAllowedCountryCode(value: unknown) {
-  return (
-    typeof value === "string" &&
-    (value === "Unknown" || /^[A-Z]{2}$/.test(value))
-  );
 }
 
 function isAllowedTimestamp(value: unknown) {
@@ -80,12 +43,9 @@ function isAllowedAnalysisContext(
   payload: Record<string, unknown>,
 ): payload is AnalysisContext {
   return (
-    isAllowedValue(
-      payload.networkIdentityCategory,
-      allowedNetworkIdentityCategories,
-    ) &&
+    isAllowedNetworkIdentityCategory(payload.networkIdentityCategory) &&
     isAllowedCountryCode(payload.countryCode) &&
-    isAllowedValue(payload.evidenceQuality, allowedEvidenceQualities)
+    isAllowedEvidenceQuality(payload.evidenceQuality)
   );
 }
 
@@ -95,14 +55,14 @@ function buildAnalyticsRecord(body: unknown): AnalyticsEventRecord | null {
   }
 
   if (
-    !isAllowedValue(body.name, allowedEventNames) ||
+    !isAllowedAnalyticsEventName(body.name) ||
     !isAllowedTimestamp(body.timestamp) ||
     !isRecord(body.payload)
   ) {
     return null;
   }
 
-  const eventName: AllowedEventName = body.name;
+  const eventName: AnalyticsEventName = body.name;
 
   if (eventName === "analyze_started" || eventName === "compare_started") {
     if (!hasOnlyKeys(body.payload, [])) {
@@ -177,7 +137,7 @@ function buildAnalyticsRecord(body: unknown): AnalyticsEventRecord | null {
       "reason",
     ]) ||
     !isAllowedAnalysisContext(body.payload) ||
-    !isAllowedValue(reason, allowedFeedbackReasons)
+    !isAllowedFeedbackReason(reason)
   ) {
     return null;
   }
@@ -232,7 +192,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    await storeAnalyticsEvent(record);
+    await insertAnalyticsEvent(record);
   } catch (error) {
     console.error("[analytics] Supabase insert failed", error);
     logAnalyticsResponse(202);

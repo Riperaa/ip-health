@@ -2,7 +2,20 @@ import Link from "next/link";
 
 import { FooterLinks } from "@/components/footer-links";
 
-const repositoryUrl = "https://github.com/Riperaa/ip-health";
+const supportOptions = [
+  {
+    name: "WeChat Pay",
+    status: "Coming soon",
+  },
+  {
+    name: "Alipay",
+    status: "Coming soon",
+  },
+  {
+    name: "International support",
+    status: "Planned",
+  },
+];
 
 export default function SponsorPage() {
   return (
@@ -20,61 +33,36 @@ export default function SponsorPage() {
             Support IP Health
           </h1>
           <p className="mx-auto mt-5 max-w-xl text-pretty text-base leading-7 text-neutral-500 sm:text-lg">
-            IP Health is free to use. If it helped you evaluate an IP, consider
-            supporting development.
+            Support options are being prepared.
+            <br />
+            WeChat Pay and Alipay will be available soon.
           </p>
 
           <div className="surface-card mx-auto mt-10 w-full max-w-xl rounded-[28px] border bg-white p-5 text-left sm:p-6">
-            <div className="rounded-2xl border border-neutral-100 bg-neutral-50/70 p-5">
+            <div className="rounded-2xl border border-neutral-100 bg-neutral-50/70 p-5 text-center">
               <h2 className="text-xl font-semibold text-neutral-950">
-                Support IP Health
+                Support options are being prepared.
               </h2>
               <p className="mt-3 text-sm leading-6 text-neutral-500">
-                IP Health is free to use.
-                <br />
-                If it helped you evaluate an IP, consider supporting
-                development.
+                WeChat Pay and Alipay will be available soon.
               </p>
             </div>
 
-            <div className="mt-4 grid gap-3 sm:grid-cols-2">
-              <div className="rounded-2xl border border-neutral-100 p-4">
-                <h3 className="text-sm font-semibold text-neutral-950">
-                  GitHub
-                </h3>
-                <p className="mt-2 text-sm leading-6 text-neutral-500">
-                  Star the project or contribute improvements.
-                </p>
-                <a
-                  href={repositoryUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="mt-4 inline-flex h-10 items-center justify-center rounded-full bg-neutral-950 px-5 text-sm font-semibold text-white shadow-sm shadow-neutral-950/20 transition hover:bg-neutral-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950"
+            <div className="mt-4 grid gap-3 sm:grid-cols-3">
+              {supportOptions.map((option) => (
+                <div
+                  key={option.name}
+                  className="rounded-2xl border border-neutral-100 p-4 text-center"
                 >
-                  Open GitHub
-                </a>
-              </div>
-
-              <div className="rounded-2xl border border-neutral-100 p-4">
-                <h3 className="text-sm font-semibold text-neutral-950">
-                  PayPal
-                </h3>
-                <p className="mt-2 text-sm leading-6 text-neutral-500">
-                  Direct sponsorship is being prepared.
-                </p>
-                <button
-                  type="button"
-                  disabled
-                  className="mt-4 h-10 cursor-not-allowed rounded-full bg-neutral-100 px-5 text-sm font-semibold text-neutral-400 ring-1 ring-neutral-200"
-                >
-                  Coming Soon
-                </button>
-              </div>
+                  <h3 className="text-sm font-semibold text-neutral-950">
+                    {option.name}
+                  </h3>
+                  <p className="mt-2 text-sm leading-6 text-neutral-500">
+                    {option.status}
+                  </p>
+                </div>
+              ))}
             </div>
-
-            <p className="mt-5 text-center text-sm leading-6 text-neutral-400">
-              Your support helps cover API and hosting costs.
-            </p>
           </div>
         </div>
       </section>

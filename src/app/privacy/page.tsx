@@ -12,6 +12,13 @@ export default function PrivacyPage() {
         IP Health does not have an account system.
       </p>
       <p>
+        Product analytics, when configured, use category-level events such as
+        analysis started, analysis completed, compare started, evidence quality,
+        country code, network identity category, and feedback reason. Analytics
+        payloads do not include searched IP addresses, API keys, or personal
+        identifiers.
+      </p>
+      <p>
         IP Health does not sell personal data and does not use tracking cookies.
       </p>
     </InfoPage>

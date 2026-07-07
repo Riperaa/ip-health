@@ -311,6 +311,7 @@ export type EndUserReport = {
     tone: StatusTone;
   };
   location: {
+    countryCode: string;
     country: string;
     region: string;
     city: string;

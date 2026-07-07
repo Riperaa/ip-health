@@ -10,6 +10,7 @@ import {
 } from "react";
 
 import { DisclosureSection, IpAnalyzer } from "@/components/ip-analyzer";
+import { ResultFeedback } from "@/components/result-feedback";
 import {
   buildAnalysis,
   detectPublicIp as detectCurrentPublicIp,
@@ -23,6 +24,10 @@ import {
   INVALID_IP_ADDRESS_MESSAGE,
   isValidIpv4Address,
 } from "@/lib/analysis/validation";
+import {
+  getAnalysisContext,
+  trackAnalyticsEvent,
+} from "@/lib/analytics";
 
 const checkBeforeCards = [
   {
@@ -91,15 +96,24 @@ export function IpAnalyzerContainer() {
     setAnalysisResult(getEmptyAnalysisResult(trimmedIpAddress));
     setAnalysisStarted(true);
     setIsAnalyzing(true);
+    trackAnalyticsEvent("analyze_started", {});
 
     try {
       const nextAnalysisResult = await buildAnalysis(trimmedIpAddress);
 
       setAnalysisResult(nextAnalysisResult);
       setRecentChecks(saveRecentCheck(trimmedIpAddress));
+      trackAnalyticsEvent("analyze_completed", {
+        ...getAnalysisContext(nextAnalysisResult),
+        success: true,
+      });
     } catch {
       setAnalysisResult(getEmptyAnalysisResult(trimmedIpAddress));
       setAnalysisErrorIp(trimmedIpAddress);
+      trackAnalyticsEvent("analyze_completed", {
+        ...getAnalysisContext(null),
+        success: false,
+      });
     } finally {
       isAnalysisInFlight.current = false;
       setIsAnalyzing(false);
@@ -284,7 +298,12 @@ export function IpAnalyzerContainer() {
           <span>Analyzing IP...</span>
         </div>
       ) : analysisStarted && !analysisErrorIp ? (
-        <IpAnalyzer result={analysisResult} />
+        <>
+          <IpAnalyzer result={analysisResult} />
+          {analysisResult.trustScore.hasAnalysis ? (
+            <ResultFeedback context={getAnalysisContext(analysisResult)} />
+          ) : null}
+        </>
       ) : null}
     </div>
   );

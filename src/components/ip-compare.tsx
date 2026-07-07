@@ -19,6 +19,7 @@ import {
   INVALID_IP_ADDRESS_MESSAGE,
   isValidIpv4Address,
 } from "@/lib/analysis/validation";
+import { trackAnalyticsEvent } from "@/lib/analytics";
 
 function VerdictSummary({
   verdict,
@@ -158,6 +159,7 @@ export function IpCompare() {
 
     setError("");
     setIsComparing(true);
+    trackAnalyticsEvent("compare_started", {});
 
     try {
       setResults(await compareIpAddresses(trimmedIpA, trimmedIpB));

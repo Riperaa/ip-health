@@ -416,6 +416,7 @@ function buildEndUserReport({
     },
     identity,
     location: {
+      countryCode: formatDetail(ipInfo.country),
       country: formatDetail(pickDetail(ipInfo.country_name, ipInfo.country)),
       region: formatDetail(ipInfo.region),
       city: formatDetail(ipInfo.city),

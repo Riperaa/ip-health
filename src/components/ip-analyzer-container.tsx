@@ -57,6 +57,7 @@ export function IpAnalyzerContainer() {
   );
   const [recentChecks, setRecentChecks] = useState<RecentCheck[]>([]);
   const [isRecentChecksVisible, setIsRecentChecksVisible] = useState(false);
+  const [analysisStarted, setAnalysisStarted] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isDetecting, setIsDetecting] = useState(true);
   const isAnalysisInFlight = useRef(false);
@@ -72,6 +73,7 @@ export function IpAnalyzerContainer() {
       setError(INVALID_IP_ADDRESS_MESSAGE);
       setAnalysisErrorIp("");
       setAnalysisResult(getEmptyAnalysisResult(trimmedIpAddress));
+      setAnalysisStarted(false);
       return;
     }
 
@@ -79,6 +81,7 @@ export function IpAnalyzerContainer() {
       setError(INVALID_IP_ADDRESS_MESSAGE);
       setAnalysisErrorIp("");
       setAnalysisResult(getEmptyAnalysisResult(trimmedIpAddress));
+      setAnalysisStarted(false);
       return;
     }
 
@@ -86,6 +89,7 @@ export function IpAnalyzerContainer() {
     setError("");
     setAnalysisErrorIp("");
     setAnalysisResult(getEmptyAnalysisResult(trimmedIpAddress));
+    setAnalysisStarted(true);
     setIsAnalyzing(true);
 
     try {
@@ -105,6 +109,7 @@ export function IpAnalyzerContainer() {
   const handleDetectPublicIp = useCallback(async () => {
     setError("");
     setAnalysisErrorIp("");
+    setAnalysisStarted(false);
     setIsDetecting(true);
 
     try {
@@ -169,7 +174,7 @@ export function IpAnalyzerContainer() {
             {isAnalyzing ? (
               <>
                 <LoadingSpinner />
-                <span>Analyzing...</span>
+                <span>Analyzing IP...</span>
               </>
             ) : (
               "Analyze"
@@ -237,39 +242,50 @@ export function IpAnalyzerContainer() {
         <p className="text-sm font-medium text-neutral-500">{error}</p>
       ) : null}
 
-      <div className="w-full text-left">
-        <DisclosureSection
-          title="Recent Checks"
-          summary="Saved in this browser only"
-          isExpanded={isRecentChecksVisible}
-          onToggle={() =>
-            setIsRecentChecksVisible((currentVisibility) => !currentVisibility)
-          }
-          contentId="recent-checks-content"
-        >
-          {recentChecks.length > 0 ? (
-            <div className="mt-3 flex flex-wrap gap-2">
-              {recentChecks.map((recentCheck) => (
-                <button
-                  key={recentCheck.ip}
-                  type="button"
-                  onClick={() => handleRecentCheckClick(recentCheck.ip)}
-                  disabled={isAnalyzing}
-                  className="rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-neutral-600 shadow-sm shadow-neutral-950/[0.02] transition hover:border-neutral-300 hover:bg-neutral-50 hover:text-neutral-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {recentCheck.ip}
-                </button>
-              ))}
-            </div>
-          ) : (
-            <p className="mt-3 text-sm text-neutral-400">
-              No recent checks yet.
-            </p>
-          )}
-        </DisclosureSection>
-      </div>
+      {analysisStarted ? (
+        <div className="w-full text-left">
+          <DisclosureSection
+            title="Recent Checks"
+            summary="Saved in this browser only"
+            isExpanded={isRecentChecksVisible}
+            onToggle={() =>
+              setIsRecentChecksVisible(
+                (currentVisibility) => !currentVisibility,
+              )
+            }
+            contentId="recent-checks-content"
+          >
+            {recentChecks.length > 0 ? (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {recentChecks.map((recentCheck) => (
+                  <button
+                    key={recentCheck.ip}
+                    type="button"
+                    onClick={() => handleRecentCheckClick(recentCheck.ip)}
+                    disabled={isAnalyzing}
+                    className="rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-neutral-600 shadow-sm shadow-neutral-950/[0.02] transition hover:border-neutral-300 hover:bg-neutral-50 hover:text-neutral-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {recentCheck.ip}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-3 text-sm text-neutral-400">
+                No recent checks yet.
+              </p>
+            )}
+          </DisclosureSection>
+        </div>
+      ) : null}
 
-      <IpAnalyzer result={analysisResult} />
+      {analysisStarted && isAnalyzing ? (
+        <div className="surface-card flex w-full items-center justify-center gap-3 rounded-2xl border bg-white p-6 text-sm font-semibold text-neutral-600">
+          <LoadingSpinner />
+          <span>Analyzing IP...</span>
+        </div>
+      ) : analysisStarted && !analysisErrorIp ? (
+        <IpAnalyzer result={analysisResult} />
+      ) : null}
     </div>
   );
 }

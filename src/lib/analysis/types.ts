@@ -38,6 +38,34 @@ export type ProviderAnalysisResult = {
   ipqs: IpqsResponse | null;
 };
 
+export type AnalysisProgressStepId =
+  | "detect_ip"
+  | "ipinfo"
+  | "abuseipdb"
+  | "cloudflare"
+  | "ipqs"
+  | "trust_score"
+  | "report";
+
+export type AnalysisProgressStepStatus =
+  | "waiting"
+  | "running"
+  | "completed"
+  | "error";
+
+export type AnalysisProgressEvent = {
+  step: AnalysisProgressStepId;
+  status: Exclude<AnalysisProgressStepStatus, "waiting">;
+};
+
+export type AnalysisProgressHandler = (
+  event: AnalysisProgressEvent,
+) => void;
+
+export type AnalysisProgressOptions = {
+  onProgress?: AnalysisProgressHandler;
+};
+
 export type RecentCheck = {
   ip: string;
   timestamp: number;

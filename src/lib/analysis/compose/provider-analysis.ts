@@ -1,4 +1,8 @@
-import type { ProviderAnalysisResult } from "@/lib/analysis/types";
+import type {
+  AnalysisProgressOptions,
+  AnalysisProgressStepId,
+  ProviderAnalysisResult,
+} from "@/lib/analysis/types";
 
 import { fetchAbuseIpDb } from "../fetch/abuse";
 import { fetchCloudflareTrace } from "../fetch/cloudflare";
@@ -20,8 +24,27 @@ export async function detectPublicIp(): Promise<string> {
   return fetchIpifyPublicIp();
 }
 
+async function trackProviderRequest<T>(
+  step: AnalysisProgressStepId,
+  request: Promise<T>,
+  options?: AnalysisProgressOptions,
+): Promise<T> {
+  options?.onProgress?.({ step, status: "running" });
+
+  try {
+    const result = await request;
+    options?.onProgress?.({ step, status: "completed" });
+
+    return result;
+  } catch (error) {
+    options?.onProgress?.({ step, status: "error" });
+    throw error;
+  }
+}
+
 export async function fetchProviderAnalysis(
   nextIpAddress: string,
+  options?: AnalysisProgressOptions,
 ): Promise<ProviderAnalysisResult> {
   const trimmedIpAddress = nextIpAddress.trim();
 
@@ -32,10 +55,14 @@ export async function fetchProviderAnalysis(
   assertValidIpv4Address(trimmedIpAddress);
 
   const [ipInfo, abuseIpDb, cloudflare, ipqs] = await Promise.all([
-    fetchIpInfo(trimmedIpAddress),
-    fetchAbuseIpDb(trimmedIpAddress),
-    fetchCloudflareTrace(),
-    fetchIpqs(trimmedIpAddress),
+    trackProviderRequest("ipinfo", fetchIpInfo(trimmedIpAddress), options),
+    trackProviderRequest(
+      "abuseipdb",
+      fetchAbuseIpDb(trimmedIpAddress),
+      options,
+    ),
+    trackProviderRequest("cloudflare", fetchCloudflareTrace(), options),
+    trackProviderRequest("ipqs", fetchIpqs(trimmedIpAddress), options),
   ]);
 
   return {

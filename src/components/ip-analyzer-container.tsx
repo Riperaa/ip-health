@@ -9,6 +9,10 @@ import {
   type FormEvent,
 } from "react";
 
+import {
+  ANALYSIS_LOADING_STEPS,
+  AnalysisLoading,
+} from "@/components/analysis-loading";
 import { DisclosureSection, IpAnalyzer } from "@/components/ip-analyzer";
 import { ResultFeedback } from "@/components/result-feedback";
 import {
@@ -18,6 +22,8 @@ import {
   loadRecentChecks,
   saveRecentCheck,
   type AnalysisResult,
+  type AnalysisProgressEvent,
+  type AnalysisProgressStepId,
   type RecentCheck,
 } from "@/lib/analysis";
 import {
@@ -44,6 +50,33 @@ const checkBeforeCards = [
   },
 ];
 
+const analysisLoadingStepIds = ANALYSIS_LOADING_STEPS.map((step) => step.id);
+
+type AnalysisLoadingState = {
+  completedSteps: AnalysisProgressStepId[];
+  errorSteps: AnalysisProgressStepId[];
+  isComplete: boolean;
+};
+
+const initialAnalysisLoadingState: AnalysisLoadingState = {
+  completedSteps: [],
+  errorSteps: [],
+  isComplete: false,
+};
+
+function wait(milliseconds: number) {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, milliseconds);
+  });
+}
+
+function addUniqueStep(
+  steps: readonly AnalysisProgressStepId[],
+  step: AnalysisProgressStepId,
+) {
+  return steps.includes(step) ? [...steps] : [...steps, step];
+}
+
 function LoadingSpinner() {
   return (
     <span
@@ -65,6 +98,10 @@ export function IpAnalyzerContainer() {
   const [analysisStarted, setAnalysisStarted] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isDetecting, setIsDetecting] = useState(true);
+  const [analysisLoadingState, setAnalysisLoadingState] =
+    useState<AnalysisLoadingState>(initialAnalysisLoadingState);
+  const [isLoadingExiting, setIsLoadingExiting] = useState(false);
+  const [isResultVisible, setIsResultVisible] = useState(false);
   const isAnalysisInFlight = useRef(false);
 
   const analyzeAddress = useCallback(async (nextIpAddress: string) => {
@@ -96,18 +133,64 @@ export function IpAnalyzerContainer() {
     setAnalysisResult(getEmptyAnalysisResult(trimmedIpAddress));
     setAnalysisStarted(true);
     setIsAnalyzing(true);
+    setIsLoadingExiting(false);
+    setIsResultVisible(false);
+    setAnalysisLoadingState(initialAnalysisLoadingState);
     trackAnalyticsEvent("analyze_started", {});
 
+    function handleProgress(event: AnalysisProgressEvent) {
+      setAnalysisLoadingState((currentState) => {
+        if (event.status === "running") {
+          return {
+            ...currentState,
+            isComplete: false,
+          };
+        }
+
+        if (event.status === "completed") {
+          return {
+            completedSteps: addUniqueStep(
+              currentState.completedSteps,
+              event.step,
+            ),
+            errorSteps: currentState.errorSteps.filter(
+              (step) => step !== event.step,
+            ),
+            isComplete: false,
+          };
+        }
+
+        return {
+          completedSteps: currentState.completedSteps.filter(
+            (step) => step !== event.step,
+          ),
+          errorSteps: addUniqueStep(currentState.errorSteps, event.step),
+          isComplete: false,
+        };
+      });
+    }
+
     try {
-      const nextAnalysisResult = await buildAnalysis(trimmedIpAddress);
+      const nextAnalysisResult = await buildAnalysis(trimmedIpAddress, {
+        onProgress: handleProgress,
+      });
 
       setAnalysisResult(nextAnalysisResult);
       setRecentChecks(saveRecentCheck(trimmedIpAddress));
+      setAnalysisLoadingState({
+        completedSteps: analysisLoadingStepIds,
+        errorSteps: [],
+        isComplete: true,
+      });
       trackAnalyticsEvent("analyze_completed", {
         ...getAnalysisContext(nextAnalysisResult),
         success: true,
       });
+      await wait(500);
+      setIsLoadingExiting(true);
+      await wait(300);
     } catch {
+      setIsLoadingExiting(false);
       setAnalysisResult(getEmptyAnalysisResult(trimmedIpAddress));
       setAnalysisErrorIp(trimmedIpAddress);
       trackAnalyticsEvent("analyze_completed", {
@@ -117,6 +200,7 @@ export function IpAnalyzerContainer() {
     } finally {
       isAnalysisInFlight.current = false;
       setIsAnalyzing(false);
+      setIsLoadingExiting(false);
     }
   }, []);
 
@@ -145,6 +229,20 @@ export function IpAnalyzerContainer() {
     setRecentChecks(loadRecentChecks());
   }, []);
 
+  useEffect(() => {
+    if (analysisStarted && !isAnalyzing && !analysisErrorIp) {
+      const animationFrame = window.requestAnimationFrame(() => {
+        setIsResultVisible(true);
+      });
+
+      return () => window.cancelAnimationFrame(animationFrame);
+    }
+
+    setIsResultVisible(false);
+
+    return undefined;
+  }, [analysisErrorIp, analysisStarted, isAnalyzing]);
+
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     void analyzeAddress(ipAddress);
@@ -158,6 +256,8 @@ export function IpAnalyzerContainer() {
   function handleRetry() {
     void analyzeAddress(analysisErrorIp || ipAddress);
   }
+
+  const isAnalysisLoadingVisible = analysisStarted && isAnalyzing;
 
   return (
     <div className="mx-auto mt-8 flex w-full max-w-3xl flex-col items-center gap-4">
@@ -214,7 +314,24 @@ export function IpAnalyzerContainer() {
         </div>
       </form>
 
-      <section className="w-full text-left">
+      {isAnalysisLoadingVisible ? (
+        <div
+          className={`fixed inset-0 z-20 flex items-center justify-center bg-white/85 px-5 py-8 transition-all duration-300 ease-out motion-reduce:transform-none motion-reduce:transition-none ${
+            isLoadingExiting
+              ? "scale-[0.99] opacity-0"
+              : "scale-100 opacity-100"
+          }`}
+        >
+          <AnalysisLoading
+            completedSteps={analysisLoadingState.completedSteps}
+            errorSteps={analysisLoadingState.errorSteps}
+            isComplete={analysisLoadingState.isComplete}
+          />
+        </div>
+      ) : null}
+
+      {!isAnalysisLoadingVisible ? (
+        <section className="w-full text-left">
         <p className="text-sm font-semibold text-neutral-950">
           Why check your IP?
         </p>
@@ -233,7 +350,8 @@ export function IpAnalyzerContainer() {
             </div>
           ))}
         </div>
-      </section>
+        </section>
+      ) : null}
 
       {analysisErrorIp ? (
         <div className="w-full rounded-2xl border border-red-100 bg-red-50 p-4 text-left">
@@ -256,7 +374,7 @@ export function IpAnalyzerContainer() {
         <p className="text-sm font-medium text-neutral-500">{error}</p>
       ) : null}
 
-      {analysisStarted ? (
+      {analysisStarted && !isAnalysisLoadingVisible ? (
         <div className="w-full text-left">
           <DisclosureSection
             title="Recent Checks"
@@ -292,18 +410,19 @@ export function IpAnalyzerContainer() {
         </div>
       ) : null}
 
-      {analysisStarted && isAnalyzing ? (
-        <div className="surface-card flex w-full items-center justify-center gap-3 rounded-2xl border bg-white p-6 text-sm font-semibold text-neutral-600">
-          <LoadingSpinner />
-          <span>Analyzing IP...</span>
-        </div>
-      ) : analysisStarted && !analysisErrorIp ? (
-        <>
+      {!isAnalysisLoadingVisible && analysisStarted && !analysisErrorIp ? (
+        <div
+          className={`w-full transition-all duration-300 ease-out motion-reduce:transition-none ${
+            isResultVisible
+              ? "translate-y-0 opacity-100"
+              : "translate-y-2 opacity-0"
+          }`}
+        >
           <IpAnalyzer result={analysisResult} />
           {analysisResult.trustScore.hasAnalysis ? (
             <ResultFeedback context={getAnalysisContext(analysisResult)} />
           ) : null}
-        </>
+        </div>
       ) : null}
     </div>
   );

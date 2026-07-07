@@ -53,6 +53,7 @@ import { calculateTrustScore } from "../scoring/trust-score";
 import { assertValidIpv4Address } from "../validation";
 import type {
   AbuseIpDbResponse,
+  AnalysisProgressOptions,
   AnalysisResult,
   CloudflareTraceResponse,
   EndUserReport,
@@ -1798,6 +1799,7 @@ export function getEmptyAnalysisResult(fallbackIpAddress = ""): AnalysisResult {
 
 export async function buildAnalysis(
   ipAddress: string,
+  options?: AnalysisProgressOptions,
 ): Promise<AnalysisResult> {
   const trimmedIpAddress = ipAddress.trim();
 
@@ -1806,23 +1808,32 @@ export async function buildAnalysis(
   }
 
   assertValidIpv4Address(trimmedIpAddress);
+  options?.onProgress?.({ step: "detect_ip", status: "running" });
+  options?.onProgress?.({ step: "detect_ip", status: "completed" });
 
   const [providerResult, connectivity] = await Promise.all([
-    fetchProviderAnalysis(trimmedIpAddress),
+    fetchProviderAnalysis(trimmedIpAddress, options),
     probeConnectivity(),
   ]);
+  options?.onProgress?.({ step: "trust_score", status: "running" });
   const storedIpHistory = loadIpHistory();
   const historyRecord = buildIpHistoryRecord(providerResult, trimmedIpAddress);
   const nextIpHistory = getNextIpHistory(storedIpHistory, historyRecord);
 
   persistIpHistory(nextIpHistory);
+  options?.onProgress?.({ step: "trust_score", status: "completed" });
+  options?.onProgress?.({ step: "report", status: "running" });
 
-  return buildAnalysisResult({
+  const result = buildAnalysisResult({
     providerResult,
     ipHistory: getHistoryForIp(nextIpHistory, historyRecord.ip),
     fallbackIpAddress: trimmedIpAddress,
     connectivity,
   });
+
+  options?.onProgress?.({ step: "report", status: "completed" });
+
+  return result;
 }
 
 export async function analyzeIpAddress(

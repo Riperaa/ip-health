@@ -1350,7 +1350,7 @@ function TechnicalDetailsSection({ result }: { result: AnalysisResult }) {
   return (
     <DisclosureSection
       title="Technical Details"
-      summary="Network identity, reputation, ASN, IPInfo, IPQS, Scamalytics, ipapi.is, connectivity, and Cloudflare"
+      summary="ASN, IPInfo, IPQS, Scamalytics, ipapi.is, connectivity, and Cloudflare"
       isExpanded={isTechnicalDetailsVisible}
       onToggle={() =>
         setIsTechnicalDetailsVisible((currentVisibility) => !currentVisibility)
@@ -1358,8 +1358,6 @@ function TechnicalDetailsSection({ result }: { result: AnalysisResult }) {
       contentId="technical-details-content"
     >
       <div className="mt-3 flex flex-col gap-4">
-        <IpIdentitySection result={result} />
-        <ReputationSection result={result} />
         <TechnicalIpFactsSection result={result} />
         <TechnicalIpqsSection result={result} />
         <TechnicalScamalyticsSection result={result} />

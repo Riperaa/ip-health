@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import {
+  getAnalyticsSupabaseEnvStatus,
   storeAnalyticsEvent,
   type AnalyticsEventRecord,
 } from "@/lib/analytics-storage";
@@ -191,12 +192,27 @@ function buildAnalyticsRecord(body: unknown): AnalyticsEventRecord | null {
   };
 }
 
+function logAnalyticsResponse(status: number) {
+  console.info("[analytics] returning response", { status });
+}
+
 export async function POST(request: Request) {
   let body: unknown;
 
+  console.info("[analytics] request received", {
+    method: request.method,
+    path: "/api/analytics",
+  });
+  console.info("[analytics] Supabase environment variables", {
+    ...getAnalyticsSupabaseEnvStatus(),
+  });
+
   try {
     body = await request.json();
-  } catch {
+  } catch (error) {
+    console.error("[analytics] invalid request body", error);
+    logAnalyticsResponse(400);
+
     return NextResponse.json(
       { error: "Invalid analytics event" },
       { status: 400 },
@@ -206,6 +222,9 @@ export async function POST(request: Request) {
   const record = buildAnalyticsRecord(body);
 
   if (!record) {
+    console.error("[analytics] invalid analytics event payload");
+    logAnalyticsResponse(400);
+
     return NextResponse.json(
       { error: "Invalid analytics event" },
       { status: 400 },
@@ -214,9 +233,17 @@ export async function POST(request: Request) {
 
   try {
     await storeAnalyticsEvent(record);
-  } catch {
+  } catch (error) {
+    console.error("[analytics] Supabase insert failed", error);
+    logAnalyticsResponse(202);
+
     return NextResponse.json({ ok: true }, { status: 202 });
   }
+
+  console.info("[analytics] Supabase insert succeeded", {
+    eventName: record.event_name,
+  });
+  logAnalyticsResponse(202);
 
   return NextResponse.json({ ok: true }, { status: 202 });
 }

@@ -14,20 +14,40 @@ export type AnalyticsEventRecord = {
   feedback_reason: string | null;
 };
 
-let supabaseClient: SupabaseClient | null | undefined;
+export type AnalyticsSupabaseEnvStatus = {
+  SUPABASE_URL: boolean;
+  SUPABASE_SERVICE_ROLE_KEY: boolean;
+};
+
+export class AnalyticsSupabaseConfigurationError extends Error {
+  readonly envStatus: AnalyticsSupabaseEnvStatus;
+
+  constructor(envStatus: AnalyticsSupabaseEnvStatus) {
+    super("Supabase analytics environment variables are missing");
+    this.name = "AnalyticsSupabaseConfigurationError";
+    this.envStatus = envStatus;
+  }
+}
+
+let supabaseClient: SupabaseClient | undefined;
+
+export function getAnalyticsSupabaseEnvStatus(): AnalyticsSupabaseEnvStatus {
+  return {
+    SUPABASE_URL: Boolean(process.env.SUPABASE_URL),
+    SUPABASE_SERVICE_ROLE_KEY: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
+  };
+}
 
 function getSupabaseClient() {
-  if (supabaseClient !== undefined) {
+  if (supabaseClient) {
     return supabaseClient;
   }
 
-  const supabaseUrl =
-    process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseUrl = process.env.SUPABASE_URL;
   const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!supabaseUrl || !supabaseServiceRoleKey) {
-    supabaseClient = null;
-    return supabaseClient;
+    return null;
   }
 
   supabaseClient = createClient(supabaseUrl, supabaseServiceRoleKey, {
@@ -44,7 +64,9 @@ export async function storeAnalyticsEvent(record: AnalyticsEventRecord) {
   const client = getSupabaseClient();
 
   if (!client) {
-    return;
+    throw new AnalyticsSupabaseConfigurationError(
+      getAnalyticsSupabaseEnvStatus(),
+    );
   }
 
   const { error } = await client.from("analytics_events").insert(record);

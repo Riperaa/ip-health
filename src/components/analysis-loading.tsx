@@ -40,6 +40,11 @@ export const ANALYSIS_LOADING_STEPS = [
     status: "Checking IPQualityScore...",
   },
   {
+    id: "scamalytics",
+    label: "Querying Scamalytics",
+    status: "Checking Scamalytics...",
+  },
+  {
     id: "trust_score",
     label: "Calculating Trust Score",
     status: "Calculating reputation...",

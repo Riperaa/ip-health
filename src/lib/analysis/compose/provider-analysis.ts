@@ -8,6 +8,7 @@ import { fetchAbuseIpDb } from "../fetch/abuse";
 import { fetchCloudflareTrace } from "../fetch/cloudflare";
 import { fetchDetectedIp, fetchIpifyPublicIp, fetchIpInfo } from "../fetch/ip";
 import { fetchIpqs } from "../fetch/ipqs";
+import { fetchScamalytics } from "../fetch/scamalytics";
 import { assertValidIpv4Address } from "../validation";
 
 export async function detectPublicIp(): Promise<string> {
@@ -54,7 +55,7 @@ export async function fetchProviderAnalysis(
 
   assertValidIpv4Address(trimmedIpAddress);
 
-  const [ipInfo, abuseIpDb, cloudflare, ipqs] = await Promise.all([
+  const [ipInfo, abuseIpDb, cloudflare, ipqs, scamalytics] = await Promise.all([
     trackProviderRequest("ipinfo", fetchIpInfo(trimmedIpAddress), options),
     trackProviderRequest(
       "abuseipdb",
@@ -63,6 +64,11 @@ export async function fetchProviderAnalysis(
     ),
     trackProviderRequest("cloudflare", fetchCloudflareTrace(), options),
     trackProviderRequest("ipqs", fetchIpqs(trimmedIpAddress), options),
+    trackProviderRequest(
+      "scamalytics",
+      fetchScamalytics(trimmedIpAddress),
+      options,
+    ),
   ]);
 
   return {
@@ -70,5 +76,6 @@ export async function fetchProviderAnalysis(
     abuseIpDb,
     cloudflare,
     ipqs,
+    scamalytics,
   };
 }

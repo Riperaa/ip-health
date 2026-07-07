@@ -72,6 +72,8 @@ import type {
   ResultFact,
   RiskSignal,
   RegionAvailabilityVerification,
+  ScamalyticsExternalSignal,
+  ScamalyticsResponse,
   ServiceAvailabilityStatus,
   ServiceCompatibilityStatus,
 } from "../types";
@@ -182,9 +184,17 @@ function hasIpqsVpnProxySignal(ipqs?: IpqsResponse | null) {
   );
 }
 
-function hasPrivacyVpnProxySignal(
-  privacy?: IpInfoResponse["privacy"],
+function hasScamalyticsVpnProxySignal(
+  scamalytics?: ScamalyticsResponse | null,
 ) {
+  return Boolean(
+    scamalytics?.vpn === true ||
+      scamalytics?.proxy === true ||
+      scamalytics?.tor === true,
+  );
+}
+
+function hasPrivacyVpnProxySignal(privacy?: IpInfoResponse["privacy"]) {
   return Boolean(
     privacy?.vpn === true ||
       privacy?.proxy === true ||
@@ -333,12 +343,15 @@ function getNetworkSharingRisk(
   abuseIpDb: AbuseIpDbResponse | null,
   ipqs: IpqsResponse | null,
   cloudflare: CloudflareTraceResponse | null,
+  scamalytics: ScamalyticsResponse | null,
   identity: EndUserReport["identity"],
 ): EndUserReport["sharingRisk"] {
   const parsedOrg = parseOrg(ipInfo.org);
   const hasAsn = hasDetail(pickDetail(ipInfo.asn?.asn, parsedOrg.asn));
   const hasVpnProxy =
-    hasPrivacyVpnProxySignal(ipInfo.privacy) || hasIpqsVpnProxySignal(ipqs);
+    hasPrivacyVpnProxySignal(ipInfo.privacy) ||
+    hasIpqsVpnProxySignal(ipqs) ||
+    hasScamalyticsVpnProxySignal(scamalytics);
   const hasInfrastructure = hasProviderInfrastructureSignal(
     ipInfo,
     abuseIpDb,
@@ -380,6 +393,7 @@ function buildEndUserReport({
   ipInfo,
   abuseIpDb,
   ipqs,
+  scamalytics,
   cloudflare,
   finalDecision,
   hasAnalysis,
@@ -387,6 +401,7 @@ function buildEndUserReport({
   ipInfo: IpInfoResponse;
   abuseIpDb: AbuseIpDbResponse | null;
   ipqs: IpqsResponse | null;
+  scamalytics: ScamalyticsResponse | null;
   cloudflare: CloudflareTraceResponse | null;
   finalDecision: FinalDecision | null;
   hasAnalysis: boolean;
@@ -412,7 +427,13 @@ function buildEndUserReport({
       fraudRisk: hasAnalysis ? formatFraudRisk(ipqs) : "Pending",
       abuseSignals: hasAnalysis ? formatAbuseSignals(abuseIpDb) : "Pending",
       confidence: hasAnalysis
-        ? buildRecommendationConfidence(ipInfo, abuseIpDb, ipqs, cloudflare)
+        ? buildRecommendationConfidence(
+            ipInfo,
+            abuseIpDb,
+            ipqs,
+            cloudflare,
+            scamalytics,
+          )
         : "Pending",
     },
     identity,
@@ -425,7 +446,14 @@ function buildEndUserReport({
       timezone: formatDetail(ipInfoPresentation.timezone),
     },
     sharingRisk: hasAnalysis
-      ? getNetworkSharingRisk(ipInfo, abuseIpDb, ipqs, cloudflare, identity)
+      ? getNetworkSharingRisk(
+          ipInfo,
+          abuseIpDb,
+          ipqs,
+          cloudflare,
+          scamalytics,
+          identity,
+        )
       : {
           level: "Unknown",
           tone: "neutral" satisfies StatusTone,
@@ -533,6 +561,7 @@ function getScoreExplanationItems(
   ipInfo: IpInfoResponse,
   abuseIpDb: AbuseIpDbResponse | null,
   ipqs: IpqsResponse | null,
+  scamalytics: ScamalyticsResponse | null,
   cloudflare: CloudflareTraceResponse | null,
   qualityReport: IpQualityReport,
 ) {
@@ -578,6 +607,17 @@ function getScoreExplanationItems(
     );
   } else if (ipqs?.fraudScore !== null && ipqs?.fraudScore !== undefined) {
     items.push(`IPQS fraud score is ${ipqs.fraudScore}/100.`);
+  }
+
+  if (scamalytics?.status === "unavailable") {
+    items.push(
+      "Scamalytics reputation data is unavailable, so analysis continued without it.",
+    );
+  } else if (
+    scamalytics?.score !== null &&
+    scamalytics?.score !== undefined
+  ) {
+    items.push(`Scamalytics risk score is ${scamalytics.score}/100.`);
   }
 
   if (privacySignals.length === 0) {
@@ -631,6 +671,7 @@ function getRiskSignals(
   ipInfo: IpInfoResponse,
   abuseIpDb: AbuseIpDbResponse | null,
   ipqs: IpqsResponse | null,
+  scamalytics: ScamalyticsResponse | null,
   cloudflare: CloudflareTraceResponse | null,
 ): RiskSignal[] {
   const privacy = ipInfo.privacy;
@@ -702,6 +743,19 @@ function getRiskSignals(
       detail: `IPQualityScore reports ${ipqsFraudScore}/100 fraud risk.`,
       tone:
         ipqsFraudScore >= IPQS_STRONG_RISK_FRAUD_SCORE ? "risk" : "caution",
+    });
+  }
+
+  const scamalyticsScore = getScamalyticsScore(scamalytics);
+
+  if (scamalyticsScore !== null && scamalyticsScore > 0) {
+    signals.push({
+      label: "Scamalytics risk score",
+      detail: `Scamalytics reports ${scamalyticsScore}/100 reputation risk.`,
+      tone:
+        scamalyticsScore >= SCAMALYTICS_STRONG_RISK_SCORE
+          ? "risk"
+          : "caution",
     });
   }
 
@@ -802,6 +856,8 @@ const IPQS_CAUTION_FRAUD_SCORE = 80;
 const IPQS_STRONG_RISK_FRAUD_SCORE = 90;
 const IPQS_STRONG_RISK_TRUST_CAP = 35;
 const IPQS_CAUTION_TRUST_CAP = 79;
+const SCAMALYTICS_CAUTION_SCORE = 75;
+const SCAMALYTICS_STRONG_RISK_SCORE = 90;
 
 function normalizeServiceName(service: string) {
   return service.trim().toLowerCase();
@@ -890,6 +946,26 @@ function getIpqsFraudScore(ipqs?: IpqsResponse | null) {
   return ipqs?.fraudScore ?? null;
 }
 
+function getScamalyticsScore(scamalytics?: ScamalyticsResponse | null) {
+  if (scamalytics?.status === "unavailable") {
+    return null;
+  }
+
+  return scamalytics?.score ?? null;
+}
+
+function getStrongestReputationScore(
+  ipqs?: IpqsResponse | null,
+  scamalytics?: ScamalyticsResponse | null,
+) {
+  const scores = [
+    getIpqsFraudScore(ipqs),
+    getScamalyticsScore(scamalytics),
+  ].filter((score): score is number => score !== null);
+
+  return scores.length === 0 ? null : Math.max(...scores);
+}
+
 function getIpqsRiskProbability(fraudScore: number | null) {
   if (fraudScore === null || fraudScore < IPQS_CAUTION_FRAUD_SCORE) {
     return null;
@@ -898,15 +974,21 @@ function getIpqsRiskProbability(fraudScore: number | null) {
   return roundProbability((100 - Math.min(Math.max(fraudScore, 0), 100)) / 100);
 }
 
-function applyIpqsDecisionTrustPolicy(
+function applyReputationDecisionTrustPolicy(
   trustScore: number,
-  fraudScore: number | null,
+  reputationScore: number | null,
 ) {
-  if (fraudScore !== null && fraudScore >= IPQS_STRONG_RISK_FRAUD_SCORE) {
+  if (
+    reputationScore !== null &&
+    reputationScore >= SCAMALYTICS_STRONG_RISK_SCORE
+  ) {
     return Math.min(trustScore, IPQS_STRONG_RISK_TRUST_CAP);
   }
 
-  if (fraudScore !== null && fraudScore >= IPQS_CAUTION_FRAUD_SCORE) {
+  if (
+    reputationScore !== null &&
+    reputationScore >= SCAMALYTICS_CAUTION_SCORE
+  ) {
     return Math.min(trustScore, IPQS_CAUTION_TRUST_CAP);
   }
 
@@ -916,16 +998,16 @@ function applyIpqsDecisionTrustPolicy(
 function getOverallVerdict({
   trustScore,
   hasHardRestriction,
-  ipqsFraudScore,
+  reputationRiskScore,
 }: {
   trustScore: number;
   hasHardRestriction: boolean;
-  ipqsFraudScore: number | null;
+  reputationRiskScore: number | null;
 }): OverallVerdict {
   if (
     trustScore < 40 ||
-    (ipqsFraudScore !== null &&
-      ipqsFraudScore >= IPQS_STRONG_RISK_FRAUD_SCORE)
+    (reputationRiskScore !== null &&
+      reputationRiskScore >= SCAMALYTICS_STRONG_RISK_SCORE)
   ) {
     return "Risky";
   }
@@ -939,14 +1021,14 @@ function getOverallVerdict({
 
 function getServiceStatus({
   probability,
-  ipqsFraudScore,
+  reputationRiskScore,
 }: {
   probability: number;
-  ipqsFraudScore: number | null;
+  reputationRiskScore: number | null;
 }): ServiceCompatibilityStatus {
   if (
-    ipqsFraudScore !== null &&
-    ipqsFraudScore >= IPQS_STRONG_RISK_FRAUD_SCORE
+    reputationRiskScore !== null &&
+    reputationRiskScore >= SCAMALYTICS_STRONG_RISK_SCORE
   ) {
     return "High Risk";
   }
@@ -972,6 +1054,28 @@ function buildIpqsExternalSignal(
     proxy: ipqs.proxy ?? false,
     tor: ipqs.tor ?? false,
     bot_status: ipqs.bot ?? false,
+  };
+}
+
+function buildScamalyticsExternalSignal(
+  scamalytics?: ScamalyticsResponse | null,
+): ScamalyticsExternalSignal {
+  if (!scamalytics || scamalytics.status === "unavailable") {
+    return {
+      status: "unavailable",
+      ...(scamalytics?.error ? { error: scamalytics.error } : {}),
+    };
+  }
+
+  return {
+    status: "available",
+    score: scamalytics.score ?? 0,
+    risk: scamalytics.risk ?? "",
+    country: scamalytics.country ?? "",
+    proxy: scamalytics.proxy ?? false,
+    vpn: scamalytics.vpn ?? false,
+    tor: scamalytics.tor ?? false,
+    server: scamalytics.server ?? false,
   };
 }
 
@@ -1096,6 +1200,16 @@ export function applyConnectivityFinalGate(
     finalDecision.decision.regionAvailability.status === "likely_blocked" ||
     finalDecision.decision.regionAvailability.restriction === "hard_region";
   const ipqsSignal = finalDecision.decision.externalSignals.ipqs;
+  const scamalyticsSignal =
+    finalDecision.decision.externalSignals.scamalytics;
+  const reputationRiskScores = [
+    ipqsSignal.status === "available" ? ipqsSignal.fraud_score : null,
+    scamalyticsSignal.status === "available" ? scamalyticsSignal.score : null,
+  ].filter((score): score is number => score !== null);
+  const reputationRiskScore =
+    reputationRiskScores.length === 0
+      ? null
+      : Math.max(...reputationRiskScores);
 
   if (verification === "probe_failed") {
     return createFinalDecisionV1({
@@ -1110,8 +1224,7 @@ export function applyConnectivityFinalGate(
         overallVerdict: getOverallVerdict({
           trustScore: finalDecision.decision.trustScore,
           hasHardRestriction: false,
-          ipqsFraudScore:
-            ipqsSignal.status === "available" ? ipqsSignal.fraud_score : null,
+          reputationRiskScore,
         }),
         regionAvailability: {
           ...finalDecision.decision.regionAvailability,
@@ -1246,6 +1359,7 @@ function buildRegionInferenceInput({
   ipInfo,
   abuseIpDb,
   ipqs,
+  scamalytics,
   cloudflare,
   historicalAccessConsistency,
 }: {
@@ -1254,6 +1368,7 @@ function buildRegionInferenceInput({
   ipInfo: IpInfoResponse;
   abuseIpDb: AbuseIpDbResponse | null;
   ipqs: IpqsResponse | null;
+  scamalytics: ScamalyticsResponse | null;
   cloudflare: CloudflareTraceResponse | null;
   historicalAccessConsistency: HistoricalAccessConsistency;
 }): RegionServiceInferenceInput {
@@ -1262,6 +1377,7 @@ function buildRegionInferenceInput({
     abuseIpDb,
     ipqs,
     cloudflare,
+    scamalytics,
   );
 
   return {
@@ -1276,7 +1392,7 @@ function buildRegionInferenceInput({
       ipInfo.org,
     ),
     abuseConfidence: compatibilitySignals.abuseConfidence,
-    fraudScore: getIpqsFraudScore(ipqs),
+    fraudScore: getStrongestReputationScore(ipqs, scamalytics),
     recentAbuse:
       ipqs?.status === "unavailable" ? null : (ipqs?.recentAbuse ?? null),
     hostingStatus: compatibilitySignals.hosting,
@@ -1297,6 +1413,7 @@ function buildFinalDecision({
   ipInfo,
   abuseIpDb,
   ipqs,
+  scamalytics,
   cloudflare,
   historicalAccessConsistency,
   connectivity,
@@ -1306,6 +1423,7 @@ function buildFinalDecision({
   ipInfo: IpInfoResponse;
   abuseIpDb: AbuseIpDbResponse | null;
   ipqs: IpqsResponse | null;
+  scamalytics: ScamalyticsResponse | null;
   cloudflare: CloudflareTraceResponse | null;
   historicalAccessConsistency: HistoricalAccessConsistency;
   connectivity: ConnectivityProbeResult;
@@ -1315,11 +1433,13 @@ function buildFinalDecision({
     abuseIpDb,
     ipqs,
     cloudflare,
+    scamalytics,
   );
   const ipqsFraudScore = getIpqsFraudScore(ipqs);
-  const trustScore = applyIpqsDecisionTrustPolicy(
+  const reputationRiskScore = getStrongestReputationScore(ipqs, scamalytics);
+  const trustScore = applyReputationDecisionTrustPolicy(
     baseTrustScore,
-    ipqsFraudScore,
+    reputationRiskScore,
   );
   const trustProbability = roundProbability(trustScore / 100);
   const regionInference = inferRegionServiceCompatibility(
@@ -1329,6 +1449,7 @@ function buildFinalDecision({
       ipInfo,
       abuseIpDb,
       ipqs,
+      scamalytics,
       cloudflare,
       historicalAccessConsistency,
     }),
@@ -1336,6 +1457,9 @@ function buildFinalDecision({
   const regionAvailabilityProbability = regionInference.probability;
   const serviceProbability = trustProbability;
   const ipqsRiskProbability = getIpqsRiskProbability(ipqsFraudScore);
+  const scamalyticsRiskProbability = getIpqsRiskProbability(
+    getScamalyticsScore(scamalytics),
+  );
   const ipqsSignal =
     ipqsRiskProbability === null
       ? []
@@ -1343,6 +1467,16 @@ function buildFinalDecision({
           buildProbabilitySignal(
             "ipqs_fraud_score",
             ipqsRiskProbability,
+            0.75,
+          ),
+        ];
+  const scamalyticsSignal =
+    scamalyticsRiskProbability === null
+      ? []
+      : [
+          buildProbabilitySignal(
+            "scamalytics_risk_score",
+            scamalyticsRiskProbability,
             0.75,
           ),
         ];
@@ -1357,6 +1491,7 @@ function buildFinalDecision({
       0.45,
     ),
     ...ipqsSignal,
+    ...scamalyticsSignal,
     ...regionInference.signals.map((signal) =>
       toScaledFinalDecisionSignal(signal, 0.45),
     ),
@@ -1381,7 +1516,7 @@ function buildFinalDecision({
       overallVerdict: getOverallVerdict({
         trustScore,
         hasHardRestriction,
-        ipqsFraudScore,
+        reputationRiskScore,
       }),
       riskLevel: getFinalRiskLevel(trustScore),
       connectivity,
@@ -1395,12 +1530,13 @@ function buildFinalDecision({
       serviceCompatibility: {
         status: getServiceStatus({
           probability: serviceProbability,
-          ipqsFraudScore,
+          reputationRiskScore,
         }),
         probability: serviceProbability,
       },
       externalSignals: {
         ipqs: buildIpqsExternalSignal(ipqs),
+        scamalytics: buildScamalyticsExternalSignal(scamalytics),
       },
       signals,
     },
@@ -1413,6 +1549,7 @@ function buildServiceCompatibilityView(
   ipInfo: IpInfoResponse,
   abuseIpDb: AbuseIpDbResponse | null,
   ipqs: IpqsResponse | null,
+  scamalytics: ScamalyticsResponse | null,
   cloudflare: CloudflareTraceResponse | null,
   ipHistory: IpHistoryRecord[],
   connectivity: ConnectivityProbeResult,
@@ -1429,6 +1566,7 @@ function buildServiceCompatibilityView(
         ipInfo,
         abuseIpDb,
         ipqs,
+        scamalytics,
         cloudflare,
         historicalAccessConsistency,
         connectivity,
@@ -1589,16 +1727,17 @@ function buildIpHistoryRecord(
   result: ProviderAnalysisResult,
   fallbackIpAddress: string,
 ): IpHistoryRecord {
-  const { ipInfo, abuseIpDb, ipqs, cloudflare } = result;
+  const { ipInfo, abuseIpDb, ipqs, scamalytics, cloudflare } = result;
   const baseTrustScore = calculateTrustScore(
     ipInfo,
     abuseIpDb,
     ipqs,
     cloudflare,
+    scamalytics,
   );
-  const trustScore = applyIpqsDecisionTrustPolicy(
+  const trustScore = applyReputationDecisionTrustPolicy(
     baseTrustScore,
-    getIpqsFraudScore(ipqs),
+    getStrongestReputationScore(ipqs, scamalytics),
   );
 
   return {
@@ -1616,6 +1755,7 @@ function buildIpHistoryRecord(
       abuseIpDb,
       ipqs,
       cloudflare,
+      scamalytics,
     ),
     abuseConfidence: abuseIpDb?.abuseConfidence ?? null,
     usageType: formatUsageType(abuseIpDb?.usageType, ipInfo.privacy),
@@ -1663,7 +1803,7 @@ function buildTrustScore(
   finalDecision: FinalDecision | null,
   qualityReport: IpQualityReport,
 ): AnalysisResult["trustScore"] {
-  const { ipInfo, abuseIpDb, ipqs, cloudflare } = providerResult;
+  const { ipInfo, abuseIpDb, ipqs, scamalytics, cloudflare } = providerResult;
 
   if (!hasAnalysis) {
     return {
@@ -1687,7 +1827,7 @@ function buildTrustScore(
   const value =
     qualityReport.overallScore ??
     normalizedFinalDecision?.decision.trustScore ??
-    calculateTrustScore(ipInfo, abuseIpDb, ipqs, cloudflare);
+    calculateTrustScore(ipInfo, abuseIpDb, ipqs, cloudflare, scamalytics);
   const serviceStatus =
     normalizedFinalDecision?.decision.serviceCompatibility.status ??
     getServiceStatusFromProbability(value / 100);
@@ -1711,6 +1851,7 @@ function buildTrustScore(
       ipInfo,
       abuseIpDb,
       ipqs,
+      scamalytics,
       cloudflare,
       qualityReport,
     ),
@@ -1734,13 +1875,15 @@ export function buildAnalysisResult({
     providerResult,
     fallbackIpAddress,
   );
-  const { ipInfo, abuseIpDb, ipqs, cloudflare } = normalizedResult;
+  const { ipInfo, abuseIpDb, ipqs, scamalytics, cloudflare } =
+    normalizedResult;
   const normalizedIpHistory = normalizeIpHistory(ipHistory);
   const serviceCompatibility = hasAnalysis
     ? buildServiceCompatibilityView(
         ipInfo,
         abuseIpDb,
         ipqs,
+        scamalytics,
         cloudflare,
         normalizedIpHistory,
         connectivity ?? DEFAULT_CONNECTIVITY,
@@ -1752,6 +1895,7 @@ export function buildAnalysisResult({
     ipInfo,
     abuseIpDb,
     ipqs,
+    scamalytics,
     cloudflare,
     connectivity,
     finalDecision,
@@ -1768,7 +1912,7 @@ export function buildAnalysisResult({
       qualityReport,
     ),
     riskSignals: hasAnalysis
-      ? getRiskSignals(ipInfo, abuseIpDb, ipqs, cloudflare)
+      ? getRiskSignals(ipInfo, abuseIpDb, ipqs, scamalytics, cloudflare)
       : [],
     finalDecision,
     serviceCompatibility,
@@ -1783,6 +1927,7 @@ export function buildAnalysisResult({
       ipInfo,
       abuseIpDb,
       ipqs,
+      scamalytics,
       cloudflare,
       finalDecision,
       hasAnalysis,

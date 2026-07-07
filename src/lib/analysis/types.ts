@@ -19,12 +19,18 @@ import type { ProviderResult as AbuseIpDbResponse } from "@/lib/providers/abusei
 import type { ProviderResult as CloudflareTraceResponse } from "@/lib/providers/cloudflare";
 import type { ProviderResult as IpInfoResponse } from "@/lib/providers/ipinfo";
 import type { ProviderResult as IpqsResponse } from "@/lib/providers/ipqs";
+import type {
+  ProviderResult as ScamalyticsResponse,
+  ScamalyticsUnavailableReason,
+} from "@/lib/providers/scamalytics";
 
 export type {
   AbuseIpDbResponse,
   CloudflareTraceResponse,
   IpInfoResponse,
   IpqsResponse,
+  ScamalyticsResponse,
+  ScamalyticsUnavailableReason,
   Recommendation,
   RecommendationConfidence,
   RecommendationLabel,
@@ -36,6 +42,7 @@ export type ProviderAnalysisResult = {
   abuseIpDb: AbuseIpDbResponse | null;
   cloudflare: CloudflareTraceResponse | null;
   ipqs: IpqsResponse | null;
+  scamalytics: ScamalyticsResponse | null;
 };
 
 export type AnalysisProgressStepId =
@@ -44,6 +51,7 @@ export type AnalysisProgressStepId =
   | "abuseipdb"
   | "cloudflare"
   | "ipqs"
+  | "scamalytics"
   | "trust_score"
   | "report";
 
@@ -182,6 +190,22 @@ export type IpqsExternalSignal =
       error?: string;
     };
 
+export type ScamalyticsExternalSignal =
+  | {
+      status: "available";
+      score: number;
+      risk: string;
+      country: string;
+      proxy: boolean;
+      vpn: boolean;
+      tor: boolean;
+      server: boolean;
+    }
+  | {
+      status: "unavailable";
+      error?: string;
+    };
+
 export type FinalDecisionV1 = {
   version: "1.0";
   rawSignals: {
@@ -198,6 +222,7 @@ export type FinalDecisionV1 = {
   };
   externalSignals: {
     ipqs: IpqsExternalSignal;
+    scamalytics: ScamalyticsExternalSignal;
   };
   decision: {
     ip: string;
@@ -218,6 +243,7 @@ export type FinalDecisionV1 = {
     };
     externalSignals: {
       ipqs: IpqsExternalSignal;
+      scamalytics: ScamalyticsExternalSignal;
     };
     signals: FinalDecisionSignal[];
   };

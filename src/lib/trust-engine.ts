@@ -2,12 +2,14 @@ import type { ProviderResult as AbuseIpDbResponse } from "./providers/abuseipdb"
 import type { ProviderResult as CloudflareTraceResponse } from "./providers/cloudflare";
 import type { ProviderResult as IpInfoResponse } from "./providers/ipinfo";
 import type { ProviderResult as IpqsResponse } from "./providers/ipqs";
+import type { ProviderResult as ScamalyticsResponse } from "./providers/scamalytics";
 import { calculateTrustScore } from "@/lib/analysis/scoring/trust-score";
 
 export type { ProviderResult as AbuseIpDbResponse } from "./providers/abuseipdb";
 export type { ProviderResult as CloudflareTraceResponse } from "./providers/cloudflare";
 export type { ProviderResult as IpInfoResponse } from "./providers/ipinfo";
 export type { ProviderResult as IpqsResponse } from "./providers/ipqs";
+export type { ProviderResult as ScamalyticsResponse } from "./providers/scamalytics";
 export { calculateTrustScore } from "@/lib/analysis/scoring/trust-score";
 
 export type ServiceCompatibilityStatus =
@@ -241,6 +243,7 @@ function getCompatibilitySignals(
   abuseIpDb?: AbuseIpDbResponse | null,
   ipqs?: IpqsResponse | null,
   cloudflare?: CloudflareTraceResponse | null,
+  scamalytics?: ScamalyticsResponse | null,
 ) {
   const privacy = ipInfo.privacy;
   const hasCloudflareInfrastructure = hasCloudflareColoSignal(
@@ -249,7 +252,13 @@ function getCompatibilitySignals(
   );
 
   return {
-    score: calculateTrustScore(ipInfo, abuseIpDb, ipqs, cloudflare),
+    score: calculateTrustScore(
+      ipInfo,
+      abuseIpDb,
+      ipqs,
+      cloudflare,
+      scamalytics,
+    ),
     abuseConfidence: abuseIpDb?.abuseConfidence ?? null,
     hosting:
       privacy?.hosting === true ||
@@ -259,9 +268,16 @@ function getCompatibilitySignals(
       privacy?.vpn === true ||
       ipqs?.vpn === true ||
       ipqs?.activeVpn === true ||
+      scamalytics?.vpn === true ||
       isCloudflareWarpOn(cloudflare),
-    proxy: privacy?.proxy === true || ipqs?.proxy === true,
-    tor: privacy?.tor === true || ipqs?.tor === true,
+    proxy:
+      privacy?.proxy === true ||
+      ipqs?.proxy === true ||
+      scamalytics?.proxy === true,
+    tor:
+      privacy?.tor === true ||
+      ipqs?.tor === true ||
+      scamalytics?.tor === true,
     relay: privacy?.relay === true,
     traceMismatch: hasCloudflareTraceMismatch(ipInfo, cloudflare),
   };
@@ -272,8 +288,15 @@ export function buildServiceCompatibilitySignals(
   abuseIpDb?: AbuseIpDbResponse | null,
   ipqs?: IpqsResponse | null,
   cloudflare?: CloudflareTraceResponse | null,
+  scamalytics?: ScamalyticsResponse | null,
 ): ServiceCompatibilityReasonSignals {
-  const signals = getCompatibilitySignals(ipInfo, abuseIpDb, ipqs, cloudflare);
+  const signals = getCompatibilitySignals(
+    ipInfo,
+    abuseIpDb,
+    ipqs,
+    cloudflare,
+    scamalytics,
+  );
 
   return {
     ...signals,
@@ -735,12 +758,15 @@ export function buildRecommendationConfidence(
   abuseIpDb?: AbuseIpDbResponse | null,
   ipqs?: IpqsResponse | null,
   cloudflare?: CloudflareTraceResponse | null,
+  scamalytics?: ScamalyticsResponse | null,
 ): RecommendationConfidence {
   const { hasAsn, hasIspOrOrg } = getIpInfoSignals(ipInfo);
   const hasAbuseIpDb = Boolean(abuseIpDb);
   const hasAbuseConfidence = (abuseIpDb?.abuseConfidence ?? null) !== null;
   const hasUsage = hasUsageType(abuseIpDb?.usageType);
   const hasPrivacy = Boolean(ipInfo.privacy);
+  const hasScamalytics =
+    Boolean(scamalytics) && scamalytics?.status !== "unavailable";
   const hasConflicts = hasConflictingSignals(
     ipInfo,
     abuseIpDb,
@@ -754,6 +780,7 @@ export function buildRecommendationConfidence(
     hasAsn ? 1 : -1,
     hasIspOrOrg ? 1 : -1,
     hasPrivacy ? 1 : -1,
+    hasScamalytics ? 1 : 0,
     hasConflicts ? -2 : 0,
   ].reduce((total, value) => total + value, 0);
 

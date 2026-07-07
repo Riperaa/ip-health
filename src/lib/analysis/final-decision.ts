@@ -54,13 +54,16 @@ function isOverallVerdict(value: unknown): value is OverallVerdict {
 function getOverallVerdict({
   trustScore,
   hasHardRestriction,
-  ipqsFraudScore,
+  reputationRiskScore,
 }: {
   trustScore: number;
   hasHardRestriction: boolean;
-  ipqsFraudScore: number | null;
+  reputationRiskScore: number | null;
 }): OverallVerdict {
-  if (trustScore < 40 || (ipqsFraudScore !== null && ipqsFraudScore >= 90)) {
+  if (
+    trustScore < 40 ||
+    (reputationRiskScore !== null && reputationRiskScore >= 90)
+  ) {
     return "Risky";
   }
 
@@ -483,7 +486,8 @@ function isFinalDecisionV1(value: unknown): value is FinalDecisionV1 {
 function hasFinalDecisionExternalSignals(value: FinalDecisionV1) {
   return (
     isObjectRecord(value.externalSignals) &&
-    isObjectRecord(value.externalSignals.ipqs)
+    isObjectRecord(value.externalSignals.ipqs) &&
+    isObjectRecord(value.externalSignals.scamalytics)
   );
 }
 
@@ -527,24 +531,37 @@ function withRegionAvailabilityDefaults(
             ? (decision.externalSignals
                 .ipqs as FinalDecisionV1["decision"]["externalSignals"]["ipqs"])
             : { status: "unavailable" },
+          scamalytics: isObjectRecord(decision.externalSignals.scamalytics)
+            ? (decision.externalSignals
+                .scamalytics as FinalDecisionV1["decision"]["externalSignals"]["scamalytics"])
+            : { status: "unavailable" },
         }
       : {
           ipqs: { status: "unavailable" },
+          scamalytics: { status: "unavailable" },
         };
   const hasHardRestriction =
     normalizedRegionAvailability.status === "likely_blocked" ||
     normalizedRegionAvailability.restriction === "hard_region";
-  const ipqsFraudScore =
+  const reputationRiskScores = [
     externalSignals.ipqs.status === "available"
       ? externalSignals.ipqs.fraud_score
-      : null;
+      : null,
+    externalSignals.scamalytics.status === "available"
+      ? externalSignals.scamalytics.score
+      : null,
+  ].filter((score): score is number => score !== null);
+  const reputationRiskScore =
+    reputationRiskScores.length === 0
+      ? null
+      : Math.max(...reputationRiskScores);
   const overallVerdict =
     "overallVerdict" in decision && isOverallVerdict(decision.overallVerdict)
       ? decision.overallVerdict
       : getOverallVerdict({
           trustScore: decision.trustScore,
           hasHardRestriction,
-          ipqsFraudScore,
+          reputationRiskScore,
         });
 
   return {

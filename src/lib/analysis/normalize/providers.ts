@@ -4,6 +4,7 @@ import type {
   IpInfoResponse,
   IpqsResponse,
   ProviderAnalysisResult,
+  ScamalyticsResponse,
 } from "@/lib/analysis/types";
 
 export const EMPTY_IP_INFO: IpInfoResponse = {
@@ -79,6 +80,27 @@ export function normalizeIpqs(data: IpqsResponse | null): IpqsResponse | null {
   };
 }
 
+export function normalizeScamalytics(
+  data: ScamalyticsResponse | null,
+): ScamalyticsResponse | null {
+  if (!data) {
+    return null;
+  }
+
+  return {
+    ...data,
+    status: data.status ?? "available",
+    score: data.score ?? null,
+    risk: data.risk ?? null,
+    country: data.country ?? null,
+    isp: data.isp ?? null,
+    proxy: data.proxy ?? null,
+    vpn: data.vpn ?? null,
+    tor: data.tor ?? null,
+    server: data.server ?? null,
+  };
+}
+
 export function normalizeProviderAnalysisResult(
   result: ProviderAnalysisResult | null,
   fallbackIpAddress: string,
@@ -90,5 +112,6 @@ export function normalizeProviderAnalysisResult(
     abuseIpDb: normalizeAbuseIpDb(result?.abuseIpDb ?? null),
     cloudflare: normalizeCloudflareTrace(result?.cloudflare ?? null),
     ipqs: normalizeIpqs(result?.ipqs ?? null),
+    scamalytics: normalizeScamalytics(result?.scamalytics ?? null),
   };
 }

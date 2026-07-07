@@ -3,6 +3,7 @@ import type {
   CloudflareTraceResponse,
   IpInfoResponse,
   IpqsResponse,
+  ScamalyticsResponse,
 } from "@/lib/analysis/types";
 
 import { parseOrg } from "../normalize/common";
@@ -88,6 +89,23 @@ function getIpqsPenalties(ipqs?: IpqsResponse | null) {
   ];
 }
 
+function getScamalyticsPenalties(scamalytics?: ScamalyticsResponse | null) {
+  if (!scamalytics || scamalytics.status === "unavailable") {
+    return [];
+  }
+
+  const score = scamalytics.score ?? null;
+
+  return [
+    score !== null && score >= 85 ? 30 : 0,
+    score !== null && score >= 60 && score < 85 ? 20 : 0,
+    scamalytics.vpn === true ? 20 : 0,
+    scamalytics.proxy === true ? 20 : 0,
+    scamalytics.tor === true ? 35 : 0,
+    scamalytics.server === true ? 15 : 0,
+  ];
+}
+
 function getCloudflarePenalties(
   ipInfo: IpInfoResponse,
   cloudflare?: CloudflareTraceResponse | null,
@@ -119,6 +137,7 @@ export function calculateTrustScore(
   abuseIpDb?: AbuseIpDbResponse | null,
   ipqs?: IpqsResponse | null,
   cloudflare?: CloudflareTraceResponse | null,
+  scamalytics?: ScamalyticsResponse | null,
 ) {
   const { hasAsn, hasIspOrOrg } = getIpInfoSignals(ipInfo);
   const privacy = ipInfo.privacy;
@@ -132,6 +151,7 @@ export function calculateTrustScore(
     hasIspOrOrg ? 0 : 5,
     ...getAbuseIpDbPenalties(abuseIpDb),
     ...getIpqsPenalties(ipqs),
+    ...getScamalyticsPenalties(scamalytics),
     ...getCloudflarePenalties(ipInfo, cloudflare),
   ];
 

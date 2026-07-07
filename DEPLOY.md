@@ -23,9 +23,13 @@ Set these variables in the Vercel project settings before deploying.
 | `ABUSEIPDB_API_KEY` | Yes | Server-side AbuseIPDB API key for `/api/abuseipdb`. |
 | `IPINFO_TOKEN` | Optional | Server-side IPinfo token for `/api/ipinfo`. If missing, the app can use the fallback provider after IPinfo rate limits. |
 | `IPQS_API_KEY` | Optional / currently disabled | Server-side IPQualityScore API key for `/api/ipqs`. Leave unset while IPQS is disabled; the client skips IPQS results when the route is unavailable. |
+| `SCAMALYTICS_API_KEY` | Optional | Server-side Scamalytics API key for `/api/scamalytics`. Used as the second reputation provider when configured. |
+| `SCAMALYTICS_API_URL` | Optional | Full Scamalytics-compatible URL template. Supports `{ip}` and `{key}` placeholders and overrides `SCAMALYTICS_BASE_URL`. |
+| `SCAMALYTICS_BASE_URL` | Optional | Scamalytics API base URL. Defaults to `https://api12.scamalytics.com/v3`. |
 | `ABUSEIPDB_TIMEOUT_MS` | Optional | Timeout for AbuseIPDB requests. Defaults to `5000`. |
 | `ABUSEIPDB_MAX_AGE_DAYS` | Optional | AbuseIPDB report lookback window. Defaults to `90`. |
 | `IPQS_TIMEOUT_MS` | Optional | Timeout for IPQualityScore requests. Defaults to `5000`. |
+| `SCAMALYTICS_TIMEOUT_MS` | Optional | Timeout for Scamalytics requests. Defaults to `5000`. |
 
 Do not configure `NEXT_PUBLIC_IPINFO_TOKEN` for production unless a public browser-readable token is intentional. Prefer `IPINFO_TOKEN`.
 Keep `.env.local` local only. It is already covered by `.gitignore` and must not be committed.
@@ -45,6 +49,7 @@ The production build should include these dynamic API routes:
 - `/api/ipinfo`
 - `/api/abuseipdb`
 - `/api/ipqs` (available only when IPQS is enabled with `IPQS_API_KEY`)
+- `/api/scamalytics` (available only when Scamalytics is configured)
 - `/sponsor`
 
 ## Deploy
@@ -95,3 +100,26 @@ When `IPQS_API_KEY` is configured, the response should include:
 Actual values will vary by IP address and provider data.
 
 When IPQS is disabled, this route returns a configuration error and the app continues with the other providers.
+
+You can also check the Scamalytics route directly:
+
+```text
+https://your-domain.example/api/scamalytics?ip=1.1.1.1
+```
+
+When Scamalytics is configured, the response should include:
+
+```json
+{
+  "status": "available",
+  "score": 0,
+  "risk": "low",
+  "proxy": false,
+  "vpn": false,
+  "tor": false,
+  "server": false,
+  "raw": {}
+}
+```
+
+When Scamalytics is unavailable or not configured, the app shows that status separately from IPQS and continues with the remaining providers.

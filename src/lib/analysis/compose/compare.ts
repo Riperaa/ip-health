@@ -133,11 +133,12 @@ function buildScoreRecommendation(score: number): Recommendation {
 function getDisplayResult(
   result: CompareProviderResult,
 ): ComparisonDisplayResult {
-  const { ipInfo, abuseIpDb, ipqs, cloudflare } = result;
+  const { ipInfo, abuseIpDb, ipqs, scamalytics, cloudflare } = result;
   const qualityReport = buildIpQualityReport({
     ipInfo,
     abuseIpDb,
     ipqs,
+    scamalytics,
     cloudflare,
     connectivity: null,
     finalDecision: null,

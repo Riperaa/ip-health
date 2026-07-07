@@ -462,6 +462,31 @@ function IpHealthScoreCard({ result }: { result: AnalysisResult }) {
   const summary = qualityReport.summary;
   const dataQuality = qualityReport.dataQuality;
   const assessment = qualityReport.assessment;
+  const externalSignals = result.finalDecision?.decision.externalSignals;
+  const providerStatuses = [
+    {
+      label: "IPQS",
+      value:
+        externalSignals?.ipqs.status === "available"
+          ? "available"
+          : "unavailable",
+      tone:
+        externalSignals?.ipqs.status === "available"
+          ? ("good" as const)
+          : ("caution" as const),
+    },
+    {
+      label: "Scamalytics",
+      value:
+        externalSignals?.scamalytics.status === "available"
+          ? "available"
+          : "unavailable",
+      tone:
+        externalSignals?.scamalytics.status === "available"
+          ? ("good" as const)
+          : ("caution" as const),
+    },
+  ];
   const dimensions = [
     qualityReport.dimensions.reputation,
     qualityReport.dimensions.networkQuality,
@@ -537,6 +562,19 @@ function IpHealthScoreCard({ result }: { result: AnalysisResult }) {
           <p className="mt-3 text-sm leading-6 text-neutral-500">
             {dataQuality.reason}
           </p>
+          {result.trustScore.hasAnalysis ? (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {providerStatuses.map((provider) => (
+                <StatusBadge
+                  key={provider.label}
+                  tone={provider.tone}
+                  variant="quiet"
+                >
+                  {provider.label} {provider.value}
+                </StatusBadge>
+              ))}
+            </div>
+          ) : null}
         </div>
 
         <div className="rounded-2xl border border-neutral-100 bg-neutral-50/70 p-4">
@@ -1133,6 +1171,50 @@ function TechnicalIpqsSection({ result }: { result: AnalysisResult }) {
   );
 }
 
+function TechnicalScamalyticsSection({ result }: { result: AnalysisResult }) {
+  const scamalytics =
+    result.finalDecision?.decision.externalSignals.scamalytics;
+
+  return (
+    <section className="surface-card rounded-2xl border bg-white p-5">
+      <div className="flex flex-col gap-1">
+        <p className="text-sm font-semibold text-neutral-950">Scamalytics</p>
+        <p className="text-sm leading-6 text-neutral-500">
+          Secondary reputation provider fields.
+        </p>
+      </div>
+
+      {scamalytics?.status === "available" ? (
+        <dl className="mt-4 grid gap-3 sm:grid-cols-3">
+          <ReportField label="Risk Score" value={`${scamalytics.score}/100`} />
+          <ReportField
+            label="Risk Level"
+            value={scamalytics.risk || "Not reported"}
+          />
+          <ReportField
+            label="Country"
+            value={scamalytics.country || "Not identified"}
+          />
+          <ReportField label="VPN" value={scamalytics.vpn ? "Yes" : "No"} />
+          <ReportField
+            label="Proxy"
+            value={scamalytics.proxy ? "Yes" : "No"}
+          />
+          <ReportField label="Tor" value={scamalytics.tor ? "Yes" : "No"} />
+          <ReportField
+            label="Server"
+            value={scamalytics.server ? "Yes" : "No"}
+          />
+        </dl>
+      ) : (
+        <p className="mt-4 rounded-xl border border-neutral-100 bg-neutral-50 px-4 py-3 text-sm leading-6 text-neutral-500">
+          {scamalytics?.error ?? "Scamalytics data is unavailable."}
+        </p>
+      )}
+    </section>
+  );
+}
+
 function TechnicalDetailsSection({ result }: { result: AnalysisResult }) {
   const [isTechnicalDetailsVisible, setIsTechnicalDetailsVisible] =
     useState(false);
@@ -1144,7 +1226,7 @@ function TechnicalDetailsSection({ result }: { result: AnalysisResult }) {
   return (
     <DisclosureSection
       title="Technical Details"
-      summary="Network identity, reputation, ASN, IPInfo, IPQS, connectivity, and Cloudflare"
+      summary="Network identity, reputation, ASN, IPInfo, IPQS, Scamalytics, connectivity, and Cloudflare"
       isExpanded={isTechnicalDetailsVisible}
       onToggle={() =>
         setIsTechnicalDetailsVisible((currentVisibility) => !currentVisibility)
@@ -1156,6 +1238,7 @@ function TechnicalDetailsSection({ result }: { result: AnalysisResult }) {
         <ReputationSection result={result} />
         <TechnicalIpFactsSection result={result} />
         <TechnicalIpqsSection result={result} />
+        <TechnicalScamalyticsSection result={result} />
         <TechnicalConnectivitySection result={result} />
         <NetworkIntegritySection result={result} />
       </div>

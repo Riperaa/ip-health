@@ -94,11 +94,16 @@ export function normalizeScamalytics(
     score: data.score ?? null,
     risk: data.risk ?? null,
     country: data.country ?? null,
+    countryCode: data.countryCode ?? null,
     isp: data.isp ?? null,
+    asn: data.asn ?? null,
     proxy: data.proxy ?? null,
     vpn: data.vpn ?? null,
     tor: data.tor ?? null,
     server: data.server ?? null,
+    datacenter: data.datacenter ?? null,
+    abuseSignals: data.abuseSignals ?? [],
+    blacklistSignals: data.blacklistSignals ?? [],
   };
 }
 

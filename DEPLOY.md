@@ -23,9 +23,8 @@ Set these variables in the Vercel project settings before deploying.
 | `ABUSEIPDB_API_KEY` | Yes | Server-side AbuseIPDB API key for `/api/abuseipdb`. |
 | `IPINFO_TOKEN` | Optional | Server-side IPinfo token for `/api/ipinfo`. If missing, the app can use the fallback provider after IPinfo rate limits. |
 | `IPQS_API_KEY` | Optional / currently disabled | Server-side IPQualityScore API key for `/api/ipqs`. Leave unset while IPQS is disabled; the client skips IPQS results when the route is unavailable. |
-| `SCAMALYTICS_API_KEY` | Optional | Server-side Scamalytics API key for `/api/scamalytics`. Used as the second reputation provider when configured. |
-| `SCAMALYTICS_API_URL` | Optional | Full Scamalytics-compatible URL template. Supports `{ip}` and `{key}` placeholders and overrides `SCAMALYTICS_BASE_URL`. |
-| `SCAMALYTICS_BASE_URL` | Optional | Scamalytics API base URL. Defaults to `https://api12.scamalytics.com/v3`. |
+| `SCAMALYTICS_USER` | Optional | Server-side Scamalytics account user for `/api/scamalytics`. Required with `SCAMALYTICS_API_KEY` before Scamalytics requests are made. |
+| `SCAMALYTICS_API_KEY` | Optional | Server-side Scamalytics API key for `/api/scamalytics`. Required with `SCAMALYTICS_USER`; used as the second reputation provider when configured. |
 | `ABUSEIPDB_TIMEOUT_MS` | Optional | Timeout for AbuseIPDB requests. Defaults to `5000`. |
 | `ABUSEIPDB_MAX_AGE_DAYS` | Optional | AbuseIPDB report lookback window. Defaults to `90`. |
 | `IPQS_TIMEOUT_MS` | Optional | Timeout for IPQualityScore requests. Defaults to `5000`. |

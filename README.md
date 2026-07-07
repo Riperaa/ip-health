@@ -2,7 +2,7 @@
 
 Check IP reputation, network quality, and service compatibility before logging in.
 
-Live demo: [https://ip-health.vercel.app](https://ip-health.vercel.app)
+Live demo: [https://ip-health.app](https://ip-health.app)
 
 ## Features
 

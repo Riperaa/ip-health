@@ -50,11 +50,8 @@ export type FeedbackReason =
   | "Missing information"
   | "Other";
 
-const ANALYTICS_ENDPOINT = process.env.NEXT_PUBLIC_ANALYTICS_ENDPOINT;
-
-const noopAnalyticsProvider: AnalyticsProvider = {
-  track: () => undefined,
-};
+const ANALYTICS_ENDPOINT =
+  process.env.NEXT_PUBLIC_ANALYTICS_ENDPOINT || "/api/analytics";
 
 const endpointAnalyticsProvider: AnalyticsProvider = {
   async track(event) {
@@ -73,9 +70,7 @@ const endpointAnalyticsProvider: AnalyticsProvider = {
   },
 };
 
-let analyticsProvider: AnalyticsProvider = ANALYTICS_ENDPOINT
-  ? endpointAnalyticsProvider
-  : noopAnalyticsProvider;
+let analyticsProvider: AnalyticsProvider = endpointAnalyticsProvider;
 
 export function setAnalyticsProvider(provider: AnalyticsProvider) {
   analyticsProvider = provider;

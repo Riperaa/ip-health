@@ -12,10 +12,15 @@ export default function PrivacyPage() {
         IP Health does not have an account system.
       </p>
       <p>
-        Product analytics, when configured, use category-level events such as
-        analysis started, analysis completed, compare started, evidence quality,
-        country code, network identity category, and feedback reason. Analytics
-        payloads do not include searched IP addresses, API keys, or personal
+        IP Health uses anonymous product analytics to understand whether core
+        flows such as analysis, comparison, and feedback are working well. These
+        events are limited to category-level fields such as country code,
+        network identity category, evidence quality, success status, and
+        feedback reason.
+      </p>
+      <p>
+        Analytics events do not store raw IP addresses, request headers, API
+        keys, tokens, account identifiers, device identifiers, or other personal
         identifiers.
       </p>
       <p>

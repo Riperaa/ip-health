@@ -7,6 +7,7 @@ import type {
 import { fetchAbuseIpDb } from "../fetch/abuse";
 import { fetchCloudflareTrace } from "../fetch/cloudflare";
 import { fetchDetectedIp, fetchIpifyPublicIp, fetchIpInfo } from "../fetch/ip";
+import { fetchIpApiIs } from "../fetch/ipapi-is";
 import { fetchIpqs } from "../fetch/ipqs";
 import { fetchScamalytics } from "../fetch/scamalytics";
 import { assertValidIpv4Address } from "../validation";
@@ -55,21 +56,23 @@ export async function fetchProviderAnalysis(
 
   assertValidIpv4Address(trimmedIpAddress);
 
-  const [ipInfo, abuseIpDb, cloudflare, ipqs, scamalytics] = await Promise.all([
-    trackProviderRequest("ipinfo", fetchIpInfo(trimmedIpAddress), options),
-    trackProviderRequest(
-      "abuseipdb",
-      fetchAbuseIpDb(trimmedIpAddress),
-      options,
-    ),
-    trackProviderRequest("cloudflare", fetchCloudflareTrace(), options),
-    trackProviderRequest("ipqs", fetchIpqs(trimmedIpAddress), options),
-    trackProviderRequest(
-      "scamalytics",
-      fetchScamalytics(trimmedIpAddress),
-      options,
-    ),
-  ]);
+  const [ipInfo, abuseIpDb, cloudflare, ipqs, scamalytics, ipApiIs] =
+    await Promise.all([
+      trackProviderRequest("ipinfo", fetchIpInfo(trimmedIpAddress), options),
+      trackProviderRequest(
+        "abuseipdb",
+        fetchAbuseIpDb(trimmedIpAddress),
+        options,
+      ),
+      trackProviderRequest("cloudflare", fetchCloudflareTrace(), options),
+      trackProviderRequest("ipqs", fetchIpqs(trimmedIpAddress), options),
+      trackProviderRequest(
+        "scamalytics",
+        fetchScamalytics(trimmedIpAddress),
+        options,
+      ),
+      trackProviderRequest("ipapi_is", fetchIpApiIs(trimmedIpAddress), options),
+    ]);
 
   return {
     ipInfo,
@@ -77,5 +80,6 @@ export async function fetchProviderAnalysis(
     cloudflare,
     ipqs,
     scamalytics,
+    ipApiIs,
   };
 }

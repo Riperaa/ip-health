@@ -4,6 +4,7 @@ import type {
   AbuseIpDbResponse,
   CloudflareTraceResponse,
   EndUserReport,
+  IpApiIsResponse,
   IpInfoResponse,
   IpqsResponse,
   NetworkIdentityCategory,
@@ -15,6 +16,7 @@ type NetworkIdentityInput = {
   abuseIpDb?: AbuseIpDbResponse | null;
   ipqs?: IpqsResponse | null;
   cloudflare?: CloudflareTraceResponse | null;
+  ipApiIs?: IpApiIsResponse | null;
 };
 
 type ProviderMatcher = {
@@ -372,6 +374,7 @@ function isInfrastructureUsage(usageType?: string | null) {
 function getSignalContext({
   ipInfo,
   abuseIpDb,
+  ipApiIs,
 }: NetworkIdentityInput): SignalContext {
   const parsedOrg = parseOrg(ipInfo.org);
   const sourceValues = [
@@ -383,6 +386,9 @@ function getSignalContext({
     parsedOrg.name,
     abuseIpDb?.isp,
     abuseIpDb?.domain,
+    ipApiIs?.organization,
+    ipApiIs?.asnName,
+    ipApiIs?.isp,
     ipInfo.hostname,
     ipInfo.privacy?.service,
   ];
@@ -396,6 +402,9 @@ function getSignalContext({
       pickProvider(
         ipInfo.company?.name,
         abuseIpDb?.isp,
+        ipApiIs?.organization,
+        ipApiIs?.asnName,
+        ipApiIs?.isp,
         ipInfo.asn?.name,
         parsedOrg.name,
         ipInfo.org,
@@ -452,7 +461,7 @@ function hasDatacenterSignal(
   input: NetworkIdentityInput,
   signals: SignalContext,
 ) {
-  const { ipInfo, abuseIpDb, cloudflare } = input;
+  const { ipInfo, abuseIpDb, cloudflare, ipApiIs } = input;
   const asnType = normalizeText(ipInfo.asn?.type);
   const companyType = normalizeText(ipInfo.company?.type);
 
@@ -460,6 +469,8 @@ function hasDatacenterSignal(
     ipInfo.privacy?.hosting === true ||
     isInfrastructureUsage(abuseIpDb?.usageType) ||
     hasCloudflareColoSignal(ipInfo, cloudflare) ||
+    ipApiIs?.datacenter === true ||
+    ipApiIs?.hosting === true ||
     asnType.includes("hosting") ||
     asnType.includes("business") ||
     companyType.includes("hosting") ||
@@ -547,7 +558,11 @@ function buildIdentity({
 function getTorIdentity(
   input: NetworkIdentityInput,
 ): EndUserReport["identity"] | null {
-  const provider = pickProvider(input.ipInfo.privacy?.service, "Tor Exit");
+  const provider = pickProvider(
+    input.ipInfo.privacy?.service,
+    input.ipApiIs?.organization,
+    "Tor Exit",
+  );
 
   if (input.ipInfo.privacy?.tor === true) {
     return buildIdentity({
@@ -567,13 +582,26 @@ function getTorIdentity(
     });
   }
 
+  if (input.ipApiIs?.tor === true) {
+    return buildIdentity({
+      category: "Tor Exit",
+      provider,
+      identityConfidence: "Medium",
+      reason: "ipapi.is marks this IP as Tor exit traffic.",
+    });
+  }
+
   return null;
 }
 
 function getVpnProxyIdentity(
   input: NetworkIdentityInput,
 ): EndUserReport["identity"] | null {
-  const provider = pickProvider(input.ipInfo.privacy?.service, "VPN / Proxy");
+  const provider = pickProvider(
+    input.ipInfo.privacy?.service,
+    input.ipApiIs?.organization,
+    "VPN / Proxy",
+  );
 
   if (
     input.ipInfo.privacy?.vpn === true ||
@@ -599,6 +627,15 @@ function getVpnProxyIdentity(
       provider,
       identityConfidence: "High",
       reason: "IPQS marks this IP as VPN or proxy traffic.",
+    });
+  }
+
+  if (input.ipApiIs?.vpn === true || input.ipApiIs?.proxy === true) {
+    return buildIdentity({
+      category: "VPN / Proxy",
+      provider,
+      identityConfidence: "Medium",
+      reason: "ipapi.is marks this IP as VPN or proxy traffic.",
     });
   }
 

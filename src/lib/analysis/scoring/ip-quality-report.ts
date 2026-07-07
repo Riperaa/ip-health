@@ -10,6 +10,7 @@ import type {
   CloudflareTraceResponse,
   ConnectivityProbeResult,
   FinalDecision,
+  IpApiIsResponse,
   IpInfoResponse,
   IpqsResponse,
   IpQualityConfidence,
@@ -31,6 +32,7 @@ type BuildIpQualityReportInput = {
   abuseIpDb: AbuseIpDbResponse | null;
   ipqs: IpqsResponse | null;
   scamalytics: ScamalyticsResponse | null;
+  ipApiIs: IpApiIsResponse | null;
   cloudflare: CloudflareTraceResponse | null;
   connectivity: ConnectivityProbeResult | null;
   finalDecision: FinalDecision | null;
@@ -222,6 +224,10 @@ function isScamalyticsAvailable(scamalytics?: ScamalyticsResponse | null) {
   return Boolean(scamalytics && scamalytics.status !== "unavailable");
 }
 
+function isIpApiIsAvailable(ipApiIs?: IpApiIsResponse | null) {
+  return Boolean(ipApiIs && ipApiIs.status !== "unavailable");
+}
+
 function getIpqsFraudScore(ipqs?: IpqsResponse | null) {
   if (ipqs?.status === "unavailable") {
     return null;
@@ -310,10 +316,12 @@ function getReputationConfidence(
   abuseIpDb: AbuseIpDbResponse | null,
   ipqs: IpqsResponse | null,
   scamalytics: ScamalyticsResponse | null,
+  ipApiIs: IpApiIsResponse | null,
 ) {
   const hasAbuseIpDb = Boolean(abuseIpDb);
   const hasIpqs = isIpqsAvailable(ipqs);
   const hasScamalytics = isScamalyticsAvailable(scamalytics);
+  const hasIpApiIs = isIpApiIsAvailable(ipApiIs);
 
   if (hasAbuseIpDb && hasIpqs) {
     return {
@@ -332,6 +340,15 @@ function getReputationConfidence(
     };
   }
 
+  if (hasAbuseIpDb && hasIpApiIs) {
+    return {
+      confidence: "Medium" as const,
+      confidenceReason:
+        "IPQS and Scamalytics reputation data were unavailable; ipapi.is was available.",
+      maxScore: 82,
+    };
+  }
+
   if (!hasAbuseIpDb && !hasIpqs && !hasScamalytics) {
     return {
       confidence: "Low" as const,
@@ -343,9 +360,9 @@ function getReputationConfidence(
   return {
     confidence: "Medium" as const,
     confidenceReason:
-      hasIpqs || hasScamalytics
+      hasIpqs || hasScamalytics || hasIpApiIs
         ? "Abuse history data was unavailable."
-        : "IPQS and Scamalytics reputation data were unavailable.",
+        : "IPQS, Scamalytics, and ipapi.is reputation data were unavailable.",
     maxScore: hasIpqs ? 90 : 85,
   };
 }
@@ -381,6 +398,7 @@ function buildReputationScore(
   abuseIpDb: AbuseIpDbResponse | null,
   ipqs: IpqsResponse | null,
   scamalytics: ScamalyticsResponse | null,
+  ipApiIs: IpApiIsResponse | null,
 ): ScoreEvidence {
   const abuseConfidence = abuseIpDb?.abuseConfidence ?? null;
   const fraudScore = getIpqsFraudScore(ipqs);
@@ -394,11 +412,16 @@ function buildReputationScore(
     scamalytics?.proxy === true ? 20 : 0,
     scamalytics?.vpn === true ? 15 : 0,
     scamalytics?.tor === true ? 30 : 0,
+    ipApiIs?.abuser === true ? 12 : 0,
+    ipApiIs?.proxy === true ? 8 : 0,
+    ipApiIs?.vpn === true ? 6 : 0,
+    ipApiIs?.tor === true ? 12 : 0,
   ];
   const providerConfidence = getReputationConfidence(
     abuseIpDb,
     ipqs,
     scamalytics,
+    ipApiIs,
   );
   const rawScore = clampScore(
     100 - penalties.reduce((total, penalty) => total + penalty, 0),
@@ -407,6 +430,11 @@ function buildReputationScore(
   const hasAbuseSignal = (abuseConfidence ?? 0) > 0;
   const hasFraudSignal = (fraudScore ?? 0) >= 25;
   const hasScamalyticsSignal = (scamalyticsScore ?? 0) >= 25;
+  const hasIpApiIsSignal =
+    ipApiIs?.abuser === true ||
+    ipApiIs?.vpn === true ||
+    ipApiIs?.proxy === true ||
+    ipApiIs?.tor === true;
   const hasStrongSignal =
     (abuseConfidence ?? 0) >= 60 ||
     (fraudScore ?? 0) >= 80 ||
@@ -445,6 +473,7 @@ function buildReputationScore(
     hasAbuseSignal ||
     hasFraudSignal ||
     hasScamalyticsSignal ||
+    hasIpApiIsSignal ||
     ipqs?.bot === true ||
     scamalytics?.proxy === true ||
     scamalytics?.vpn === true ||
@@ -463,7 +492,8 @@ function buildReputationScore(
 
   if (
     ipqs?.status === "unavailable" &&
-    !isScamalyticsAvailable(scamalytics)
+    !isScamalyticsAvailable(scamalytics) &&
+    !isIpApiIsAvailable(ipApiIs)
   ) {
     return {
       score,
@@ -546,10 +576,11 @@ function buildNetworkQualityScore({
   abuseIpDb,
   ipqs,
   scamalytics,
+  ipApiIs,
   cloudflare,
 }: Pick<
   BuildIpQualityReportInput,
-  "ipInfo" | "abuseIpDb" | "ipqs" | "scamalytics" | "cloudflare"
+  "ipInfo" | "abuseIpDb" | "ipqs" | "scamalytics" | "ipApiIs" | "cloudflare"
 >): ScoreEvidence {
   const privacy = ipInfo.privacy;
   const hasTor =
@@ -564,6 +595,12 @@ function buildNetworkQualityScore({
     ipqs?.proxy === true ||
     scamalytics?.proxy === true;
   const hasRelay = privacy?.relay === true;
+  const hasIpApiReview =
+    ipApiIs?.vpn === true ||
+    ipApiIs?.proxy === true ||
+    ipApiIs?.tor === true ||
+    ipApiIs?.datacenter === true ||
+    ipApiIs?.hosting === true;
   const hasHosting =
     privacy?.hosting === true ||
     isInfrastructureUsage(abuseIpDb?.usageType) ||
@@ -586,6 +623,7 @@ function buildNetworkQualityScore({
     hasVpn ? 35 : 0,
     hasRelay ? 20 : 0,
     hasHosting ? 30 : 0,
+    hasIpApiReview ? 10 : 0,
     isCloudflareWarpOn(cloudflare) ? 25 : 0,
     !ownership.hasAsn ? 10 : 0,
     !ownership.hasOwner ? 5 : 0,
@@ -633,6 +671,19 @@ function buildNetworkQualityScore({
       detail:
         "This IP belongs to a hosting provider rather than a typical residential connection.",
       tone: "infrastructure",
+      confidence: providerConfidence.confidence,
+      confidenceReason: providerConfidence.confidenceReason,
+    };
+  }
+
+  if (hasIpApiReview) {
+    return {
+      score,
+      assessmentLabel,
+      summary: "Secondary network review signal",
+      detail:
+        "ipapi.is reported a privacy or infrastructure signal; use it as corroborating evidence.",
+      tone: score >= 60 ? "caution" : "risk",
       confidence: providerConfidence.confidence,
       confidenceReason: providerConfidence.confidenceReason,
     };
@@ -951,6 +1002,7 @@ function buildDataQuality({
   cloudflare,
   ipqs,
   scamalytics,
+  ipApiIs,
   connectivity,
 }: Pick<
   BuildIpQualityReportInput,
@@ -959,22 +1011,32 @@ function buildDataQuality({
   | "cloudflare"
   | "ipqs"
   | "scamalytics"
+  | "ipApiIs"
   | "connectivity"
 >) {
   const reasons: string[] = [];
   const ipInfoCoverage = getIpInfoCoverage(ipInfo);
   const connectivityConfidence = getConnectivityConfidence(connectivity);
   const hasFallbackReputation =
-    Boolean(abuseIpDb) && isScamalyticsAvailable(scamalytics);
+    Boolean(abuseIpDb) &&
+    (isScamalyticsAvailable(scamalytics) || isIpApiIsAvailable(ipApiIs));
   const hasNetworkContext =
-    ipInfoCoverage !== "unavailable" && Boolean(cloudflare);
+    ipInfoCoverage !== "unavailable" &&
+    Boolean(cloudflare) &&
+    isIpApiIsAvailable(ipApiIs);
 
   if (!isIpqsAvailable(ipqs)) {
     reasons.push(
       isScamalyticsAvailable(scamalytics)
         ? "IPQS reputation data was unavailable; Scamalytics was available."
+        : isIpApiIsAvailable(ipApiIs)
+          ? "IPQS reputation data was unavailable; ipapi.is was available."
         : "IPQS reputation data was unavailable.",
     );
+  }
+
+  if (!isScamalyticsAvailable(scamalytics) && !isIpApiIsAvailable(ipApiIs)) {
+    reasons.push("Scamalytics and ipapi.is secondary data were unavailable.");
   }
 
   if (ipInfoCoverage === "unavailable") {
@@ -1008,9 +1070,9 @@ function buildDataQuality({
   return {
     level,
     tone: getConfidenceTone(level),
-      reason:
+    reason:
       level === "High"
-        ? "IPQS, IPInfo, and connectivity probes were available."
+        ? "IPQS, IPInfo, ipapi.is, and connectivity probes were available."
         : level === "Medium"
           ? `Some data sources unavailable: ${reason}`
           : `Important data sources were unavailable: ${reason}`,
@@ -1175,6 +1237,7 @@ export function buildIpQualityReport({
   abuseIpDb,
   ipqs,
   scamalytics,
+  ipApiIs,
   cloudflare,
   connectivity,
   finalDecision,
@@ -1236,7 +1299,7 @@ export function buildIpQualityReport({
       "reputation",
       "Reputation",
       "Shield",
-      buildReputationScore(abuseIpDb, ipqs, scamalytics),
+      buildReputationScore(abuseIpDb, ipqs, scamalytics, ipApiIs),
     ),
     networkQuality: buildDimension(
       "networkQuality",
@@ -1247,6 +1310,7 @@ export function buildIpQualityReport({
         abuseIpDb,
         ipqs,
         scamalytics,
+        ipApiIs,
         cloudflare,
       }),
     ),
@@ -1268,6 +1332,7 @@ export function buildIpQualityReport({
     cloudflare,
     ipqs,
     scamalytics,
+    ipApiIs,
     connectivity,
   });
   const confidence = dataQuality.level;

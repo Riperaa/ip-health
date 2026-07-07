@@ -18,6 +18,10 @@ import type {
 import type { ProviderResult as AbuseIpDbResponse } from "@/lib/providers/abuseipdb";
 import type { ProviderResult as CloudflareTraceResponse } from "@/lib/providers/cloudflare";
 import type { ProviderResult as IpInfoResponse } from "@/lib/providers/ipinfo";
+import type {
+  ProviderResult as IpApiIsResponse,
+  IpApiIsUnavailableReason,
+} from "@/lib/providers/ipapi-is";
 import type { ProviderResult as IpqsResponse } from "@/lib/providers/ipqs";
 import type {
   ProviderResult as ScamalyticsResponse,
@@ -28,6 +32,8 @@ export type {
   AbuseIpDbResponse,
   CloudflareTraceResponse,
   IpInfoResponse,
+  IpApiIsResponse,
+  IpApiIsUnavailableReason,
   IpqsResponse,
   ScamalyticsResponse,
   ScamalyticsUnavailableReason,
@@ -43,6 +49,7 @@ export type ProviderAnalysisResult = {
   cloudflare: CloudflareTraceResponse | null;
   ipqs: IpqsResponse | null;
   scamalytics: ScamalyticsResponse | null;
+  ipApiIs: IpApiIsResponse | null;
 };
 
 export type AnalysisProgressStepId =
@@ -52,6 +59,7 @@ export type AnalysisProgressStepId =
   | "cloudflare"
   | "ipqs"
   | "scamalytics"
+  | "ipapi_is"
   | "trust_score"
   | "report";
 
@@ -206,6 +214,39 @@ export type ScamalyticsExternalSignal =
       error?: string;
     };
 
+export type IpApiIsExternalSignal =
+  | {
+      status: "available";
+      providerStatus: {
+        httpStatusCode: number | null;
+        providerError: string | null;
+      };
+      vpn: boolean;
+      proxy: boolean;
+      tor: boolean;
+      datacenter: boolean;
+      hosting: boolean;
+      asn: string;
+      asnName: string;
+      organization: string;
+      country: string;
+      countryCode: string;
+      region: string;
+      city: string;
+      abuser: boolean;
+      companyAbuserScore: string;
+      asnAbuserScore: string;
+    }
+  | {
+      status: "unavailable";
+      reason?: IpApiIsUnavailableReason;
+      providerStatus?: {
+        httpStatusCode: number | null;
+        providerError: string | null;
+      };
+      error?: string;
+    };
+
 export type FinalDecisionV1 = {
   version: "1.0";
   rawSignals: {
@@ -223,6 +264,7 @@ export type FinalDecisionV1 = {
   externalSignals: {
     ipqs: IpqsExternalSignal;
     scamalytics: ScamalyticsExternalSignal;
+    ipApiIs: IpApiIsExternalSignal;
   };
   decision: {
     ip: string;
@@ -244,6 +286,7 @@ export type FinalDecisionV1 = {
     externalSignals: {
       ipqs: IpqsExternalSignal;
       scamalytics: ScamalyticsExternalSignal;
+      ipApiIs: IpApiIsExternalSignal;
     };
     signals: FinalDecisionSignal[];
   };

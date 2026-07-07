@@ -487,7 +487,8 @@ function hasFinalDecisionExternalSignals(value: FinalDecisionV1) {
   return (
     isObjectRecord(value.externalSignals) &&
     isObjectRecord(value.externalSignals.ipqs) &&
-    isObjectRecord(value.externalSignals.scamalytics)
+    isObjectRecord(value.externalSignals.scamalytics) &&
+    isObjectRecord(value.externalSignals.ipApiIs)
   );
 }
 
@@ -535,10 +536,15 @@ function withRegionAvailabilityDefaults(
             ? (decision.externalSignals
                 .scamalytics as FinalDecisionV1["decision"]["externalSignals"]["scamalytics"])
             : { status: "unavailable" },
+          ipApiIs: isObjectRecord(decision.externalSignals.ipApiIs)
+            ? (decision.externalSignals
+                .ipApiIs as FinalDecisionV1["decision"]["externalSignals"]["ipApiIs"])
+            : { status: "unavailable" },
         }
       : {
           ipqs: { status: "unavailable" },
           scamalytics: { status: "unavailable" },
+          ipApiIs: { status: "unavailable" },
         };
   const hasHardRestriction =
     normalizedRegionAvailability.status === "likely_blocked" ||

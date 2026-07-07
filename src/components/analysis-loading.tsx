@@ -45,6 +45,11 @@ export const ANALYSIS_LOADING_STEPS = [
     status: "Checking Scamalytics...",
   },
   {
+    id: "ipapi_is",
+    label: "Querying ipapi.is",
+    status: "Checking ipapi.is...",
+  },
+  {
     id: "trust_score",
     label: "Calculating Trust Score",
     status: "Calculating reputation...",

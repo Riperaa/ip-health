@@ -15,6 +15,7 @@ import type {
   AbuseIpDbResponse,
   ComparisonDisplayResult,
   ComparisonVerdict,
+  IpApiIsResponse,
   IpComparisonResult,
   IpInfoResponse,
   IpqsResponse,
@@ -70,25 +71,39 @@ function getAbuseConfidenceValue(abuseIpDb?: AbuseIpDbResponse | null) {
   return abuseIpDb?.abuseConfidence ?? null;
 }
 
-function hasTor(ipInfo: IpInfoResponse, ipqs?: IpqsResponse | null) {
-  return ipInfo.privacy?.tor === true || ipqs?.tor === true;
+function hasTor(
+  ipInfo: IpInfoResponse,
+  ipqs?: IpqsResponse | null,
+  ipApiIs?: IpApiIsResponse | null,
+) {
+  return (
+    ipInfo.privacy?.tor === true ||
+    ipqs?.tor === true ||
+    ipApiIs?.tor === true
+  );
 }
 
 function hasSevereAbuseOrTor(
   ipInfo: IpInfoResponse,
   abuseIpDb?: AbuseIpDbResponse | null,
   ipqs?: IpqsResponse | null,
+  ipApiIs?: IpApiIsResponse | null,
 ) {
-  return (abuseIpDb?.abuseConfidence ?? 0) >= 85 || hasTor(ipInfo, ipqs);
+  return (
+    (abuseIpDb?.abuseConfidence ?? 0) >= 85 || hasTor(ipInfo, ipqs, ipApiIs)
+  );
 }
 
 function hasInfrastructureSignals(
   ipInfo: IpInfoResponse,
   abuseIpDb?: AbuseIpDbResponse | null,
+  ipApiIs?: IpApiIsResponse | null,
 ) {
   return (
     ipInfo.privacy?.hosting === true ||
-    isInfrastructureUsage(abuseIpDb?.usageType)
+    isInfrastructureUsage(abuseIpDb?.usageType) ||
+    ipApiIs?.datacenter === true ||
+    ipApiIs?.hosting === true
   );
 }
 
@@ -133,12 +148,13 @@ function buildScoreRecommendation(score: number): Recommendation {
 function getDisplayResult(
   result: CompareProviderResult,
 ): ComparisonDisplayResult {
-  const { ipInfo, abuseIpDb, ipqs, scamalytics, cloudflare } = result;
+  const { ipInfo, abuseIpDb, ipqs, scamalytics, ipApiIs, cloudflare } = result;
   const qualityReport = buildIpQualityReport({
     ipInfo,
     abuseIpDb,
     ipqs,
     scamalytics,
+    ipApiIs,
     cloudflare,
     connectivity: null,
     finalDecision: null,
@@ -151,6 +167,7 @@ function getDisplayResult(
     abuseIpDb,
     ipqs,
     cloudflare,
+    ipApiIs,
   });
 
   return {
@@ -162,6 +179,9 @@ function getDisplayResult(
       ipInfo,
       abuseIpDb,
       ipqs,
+      cloudflare,
+      scamalytics,
+      ipApiIs,
     ),
     networkIdentity: identity.networkIdentity,
     identityProvider: identity.provider,
@@ -170,8 +190,17 @@ function getDisplayResult(
     abuseConfidenceValue: getAbuseConfidenceValue(abuseIpDb),
     country: formatDetail(pickDetail(ipInfo.country_name, ipInfo.country)),
     ispOrg: getIspOrg(ipInfo, abuseIpDb),
-    hasSevereAbuseOrTor: hasSevereAbuseOrTor(ipInfo, abuseIpDb, ipqs),
-    hasInfrastructureSignals: hasInfrastructureSignals(ipInfo, abuseIpDb),
+    hasSevereAbuseOrTor: hasSevereAbuseOrTor(
+      ipInfo,
+      abuseIpDb,
+      ipqs,
+      ipApiIs,
+    ),
+    hasInfrastructureSignals: hasInfrastructureSignals(
+      ipInfo,
+      abuseIpDb,
+      ipApiIs,
+    ),
   };
 }
 

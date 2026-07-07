@@ -1,6 +1,7 @@
 import type {
   AbuseIpDbResponse,
   CloudflareTraceResponse,
+  IpApiIsResponse,
   IpInfoResponse,
   IpqsResponse,
   ScamalyticsResponse,
@@ -106,6 +107,20 @@ function getScamalyticsPenalties(scamalytics?: ScamalyticsResponse | null) {
   ];
 }
 
+function getIpApiIsPenalties(ipApiIs?: IpApiIsResponse | null) {
+  if (!ipApiIs || ipApiIs.status === "unavailable") {
+    return [];
+  }
+
+  return [
+    ipApiIs.tor === true ? 18 : 0,
+    ipApiIs.proxy === true ? 12 : 0,
+    ipApiIs.vpn === true ? 10 : 0,
+    ipApiIs.datacenter === true || ipApiIs.hosting === true ? 8 : 0,
+    ipApiIs.abuser === true ? 12 : 0,
+  ];
+}
+
 function getCloudflarePenalties(
   ipInfo: IpInfoResponse,
   cloudflare?: CloudflareTraceResponse | null,
@@ -138,6 +153,7 @@ export function calculateTrustScore(
   ipqs?: IpqsResponse | null,
   cloudflare?: CloudflareTraceResponse | null,
   scamalytics?: ScamalyticsResponse | null,
+  ipApiIs?: IpApiIsResponse | null,
 ) {
   const { hasAsn, hasIspOrOrg } = getIpInfoSignals(ipInfo);
   const privacy = ipInfo.privacy;
@@ -152,6 +168,7 @@ export function calculateTrustScore(
     ...getAbuseIpDbPenalties(abuseIpDb),
     ...getIpqsPenalties(ipqs),
     ...getScamalyticsPenalties(scamalytics),
+    ...getIpApiIsPenalties(ipApiIs),
     ...getCloudflarePenalties(ipInfo, cloudflare),
   ];
 

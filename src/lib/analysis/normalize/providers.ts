@@ -1,6 +1,7 @@
 import type {
   AbuseIpDbResponse,
   CloudflareTraceResponse,
+  IpApiIsResponse,
   IpInfoResponse,
   IpqsResponse,
   ProviderAnalysisResult,
@@ -101,6 +102,39 @@ export function normalizeScamalytics(
   };
 }
 
+export function normalizeIpApiIs(
+  data: IpApiIsResponse | null,
+): IpApiIsResponse | null {
+  if (!data) {
+    return null;
+  }
+
+  return {
+    ...data,
+    status: data.status ?? "available",
+    providerStatus: data.providerStatus ?? {
+      httpStatusCode: null,
+      providerError: null,
+    },
+    vpn: data.vpn ?? null,
+    proxy: data.proxy ?? null,
+    tor: data.tor ?? null,
+    datacenter: data.datacenter ?? null,
+    hosting: data.hosting ?? null,
+    asn: data.asn ?? null,
+    asnName: data.asnName ?? null,
+    organization: data.organization ?? null,
+    isp: data.isp ?? null,
+    country: data.country ?? null,
+    countryCode: data.countryCode ?? null,
+    region: data.region ?? null,
+    city: data.city ?? null,
+    abuser: data.abuser ?? null,
+    companyAbuserScore: data.companyAbuserScore ?? null,
+    asnAbuserScore: data.asnAbuserScore ?? null,
+  };
+}
+
 export function normalizeProviderAnalysisResult(
   result: ProviderAnalysisResult | null,
   fallbackIpAddress: string,
@@ -113,5 +147,6 @@ export function normalizeProviderAnalysisResult(
     cloudflare: normalizeCloudflareTrace(result?.cloudflare ?? null),
     ipqs: normalizeIpqs(result?.ipqs ?? null),
     scamalytics: normalizeScamalytics(result?.scamalytics ?? null),
+    ipApiIs: normalizeIpApiIs(result?.ipApiIs ?? null),
   };
 }

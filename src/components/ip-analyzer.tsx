@@ -486,6 +486,17 @@ function IpHealthScoreCard({ result }: { result: AnalysisResult }) {
           ? ("good" as const)
           : ("caution" as const),
     },
+    {
+      label: "ipapi.is",
+      value:
+        externalSignals?.ipApiIs.status === "available"
+          ? "available"
+          : "unavailable",
+      tone:
+        externalSignals?.ipApiIs.status === "available"
+          ? ("good" as const)
+          : ("caution" as const),
+    },
   ];
   const dimensions = [
     qualityReport.dimensions.reputation,
@@ -1215,6 +1226,69 @@ function TechnicalScamalyticsSection({ result }: { result: AnalysisResult }) {
   );
 }
 
+function TechnicalIpApiIsSection({ result }: { result: AnalysisResult }) {
+  const ipApiIs = result.finalDecision?.decision.externalSignals.ipApiIs;
+
+  return (
+    <section className="surface-card rounded-2xl border bg-white p-5">
+      <div className="flex flex-col gap-1">
+        <p className="text-sm font-semibold text-neutral-950">ipapi.is</p>
+        <p className="text-sm leading-6 text-neutral-500">
+          Secondary IP intelligence provider fields.
+        </p>
+      </div>
+
+      {ipApiIs?.status === "available" ? (
+        <dl className="mt-4 grid gap-3 sm:grid-cols-3">
+          <ReportField label="Status" value="Available" />
+          <ReportField
+            label="HTTP Status"
+            value={
+              ipApiIs.providerStatus.httpStatusCode
+                ? String(ipApiIs.providerStatus.httpStatusCode)
+                : "Not reported"
+            }
+          />
+          <ReportField label="VPN" value={ipApiIs.vpn ? "Yes" : "No"} />
+          <ReportField label="Proxy" value={ipApiIs.proxy ? "Yes" : "No"} />
+          <ReportField label="Tor" value={ipApiIs.tor ? "Yes" : "No"} />
+          <ReportField
+            label="Datacenter"
+            value={ipApiIs.datacenter ? "Yes" : "No"}
+          />
+          <ReportField
+            label="Hosting"
+            value={ipApiIs.hosting ? "Yes" : "No"}
+          />
+          <ReportField label="ASN" value={ipApiIs.asn || "Not identified"} />
+          <ReportField
+            label="Organization"
+            value={
+              ipApiIs.organization || ipApiIs.asnName || "Not identified"
+            }
+          />
+          <ReportField
+            label="Location"
+            value={
+              [ipApiIs.city, ipApiIs.region, ipApiIs.country]
+                .filter(Boolean)
+                .join(", ") || "Not identified"
+            }
+          />
+          <ReportField
+            label="Abuser Signal"
+            value={ipApiIs.abuser ? "Yes" : "No"}
+          />
+        </dl>
+      ) : (
+        <p className="mt-4 rounded-xl border border-neutral-100 bg-neutral-50 px-4 py-3 text-sm leading-6 text-neutral-500">
+          {ipApiIs?.error ?? "ipapi.is data is unavailable."}
+        </p>
+      )}
+    </section>
+  );
+}
+
 function TechnicalDetailsSection({ result }: { result: AnalysisResult }) {
   const [isTechnicalDetailsVisible, setIsTechnicalDetailsVisible] =
     useState(false);
@@ -1226,7 +1300,7 @@ function TechnicalDetailsSection({ result }: { result: AnalysisResult }) {
   return (
     <DisclosureSection
       title="Technical Details"
-      summary="Network identity, reputation, ASN, IPInfo, IPQS, Scamalytics, connectivity, and Cloudflare"
+      summary="Network identity, reputation, ASN, IPInfo, IPQS, Scamalytics, ipapi.is, connectivity, and Cloudflare"
       isExpanded={isTechnicalDetailsVisible}
       onToggle={() =>
         setIsTechnicalDetailsVisible((currentVisibility) => !currentVisibility)
@@ -1239,6 +1313,7 @@ function TechnicalDetailsSection({ result }: { result: AnalysisResult }) {
         <TechnicalIpFactsSection result={result} />
         <TechnicalIpqsSection result={result} />
         <TechnicalScamalyticsSection result={result} />
+        <TechnicalIpApiIsSection result={result} />
         <TechnicalConnectivitySection result={result} />
         <NetworkIntegritySection result={result} />
       </div>

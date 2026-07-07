@@ -1,5 +1,6 @@
 "use client";
 
+import { ThumbsDown, ThumbsUp } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import {
@@ -61,17 +62,19 @@ export function ResultFeedback({ context }: { context: AnalysisContext }) {
           type="button"
           onClick={handleHelpfulClick}
           aria-pressed={feedbackState === "helpful"}
-          className="h-10 rounded-full border border-neutral-200 bg-white px-4 text-sm font-medium text-neutral-600 shadow-sm shadow-neutral-950/[0.03] transition hover:border-neutral-300 hover:bg-neutral-50 hover:text-neutral-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950 aria-pressed:border-emerald-200 aria-pressed:bg-emerald-50 aria-pressed:text-emerald-700"
+          className="inline-flex h-10 items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-4 text-sm font-medium text-neutral-600 shadow-sm shadow-neutral-950/[0.03] transition hover:border-neutral-300 hover:bg-neutral-50 hover:text-neutral-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950 aria-pressed:border-emerald-200 aria-pressed:bg-emerald-50 aria-pressed:text-emerald-700"
         >
+          <ThumbsUp aria-hidden="true" size={16} />
           Helpful
         </button>
         <button
           type="button"
           onClick={handleNotHelpfulClick}
           aria-pressed={feedbackState === "not-helpful"}
-          className="h-10 rounded-full border border-neutral-200 bg-white px-4 text-sm font-medium text-neutral-600 shadow-sm shadow-neutral-950/[0.03] transition hover:border-neutral-300 hover:bg-neutral-50 hover:text-neutral-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950 aria-pressed:border-red-200 aria-pressed:bg-red-50 aria-pressed:text-red-700"
+          className="inline-flex h-10 items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-4 text-sm font-medium text-neutral-600 shadow-sm shadow-neutral-950/[0.03] transition hover:border-neutral-300 hover:bg-neutral-50 hover:text-neutral-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950 aria-pressed:border-red-200 aria-pressed:bg-red-50 aria-pressed:text-red-700"
         >
-          Not helpful
+          <ThumbsDown aria-hidden="true" size={16} />
+          Not Helpful
         </button>
       </div>
 

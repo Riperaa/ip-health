@@ -175,7 +175,7 @@ export function buildNetworkSharingRisk({
     addEvidence(evidence, "Strong VPN/proxy signal confirmed");
 
     if (hasDatacenterSignal || hasHostingSignal) {
-      addEvidence(evidence, "Datacenter or hosting network");
+      addEvidence(evidence, "Shared infrastructure pattern");
     }
 
     return createSharingRisk({
@@ -198,7 +198,7 @@ export function buildNetworkSharingRisk({
     } else if (identity.networkIdentity === "Public Infrastructure") {
       addEvidence(evidence, "Public or edge infrastructure");
     } else {
-      addEvidence(evidence, "Datacenter or hosting network");
+      addEvidence(evidence, "Shared infrastructure pattern");
     }
 
     addEvidence(evidence, "Network mismatch signal");
@@ -234,7 +234,7 @@ export function buildNetworkSharingRisk({
       return createSharingRisk({
         level: "High",
         reason:
-          "Hosted infrastructure with mismatch signals is likely shared or relayed.",
+          "Mismatch signals suggest traffic may be relayed or shared across infrastructure.",
         evidence,
       });
     }
@@ -242,7 +242,7 @@ export function buildNetworkSharingRisk({
     return createSharingRisk({
       level: "High",
       reason:
-        "Hosting infrastructure with mismatch signals is likely shared or relayed.",
+        "Mismatch signals suggest traffic may be relayed or shared across infrastructure.",
       evidence,
     });
   }
@@ -263,15 +263,15 @@ export function buildNetworkSharingRisk({
 
   if (hasDatacenterSignal || hasHostingSignal || hasPublicOrManagedSignal) {
     if (hasDatacenterSignal) {
-      addEvidence(evidence, "Datacenter network detected");
+      addEvidence(evidence, "Shared infrastructure pattern");
     }
 
     if (hasHostingSignal) {
-      addEvidence(evidence, "Hosting infrastructure signal");
+      addEvidence(evidence, "Relay or multi-user access signal");
     }
 
     if (hasPublicOrManagedSignal) {
-      addEvidence(evidence, "Public or managed network");
+      addEvidence(evidence, "Managed infrastructure pattern");
     }
 
     if (hasInfrastructureRoute) {
@@ -309,7 +309,7 @@ export function buildNetworkSharingRisk({
       return createSharingRisk({
         level: "Medium",
         reason:
-          "Reputation may be clean, but hosted infrastructure is often treated as less trustworthy than residential ISP traffic.",
+          "Traffic may come from shared infrastructure rather than a single household or personal device.",
         evidence,
       });
     }
@@ -317,7 +317,7 @@ export function buildNetworkSharingRisk({
     return createSharingRisk({
       level: "Medium",
       reason:
-        "Datacenter infrastructure often serves many unrelated users or services.",
+        "Traffic may come from shared infrastructure rather than a single household or personal device.",
       evidence,
     });
   }

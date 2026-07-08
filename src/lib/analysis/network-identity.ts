@@ -511,21 +511,21 @@ function getTone(category: NetworkIdentityCategory): StatusTone {
 function getDetail(category: NetworkIdentityCategory) {
   switch (category) {
     case "Residential ISP":
-      return "Residential ISP detected. This IP appears to belong to a consumer broadband provider.";
+      return "Residential ISP detected. This IP appears to belong to a consumer broadband provider and is generally a normal access network when reputation is clean.";
     case "Mobile Network":
       return "Mobile network detected. This IP appears to belong to a cellular carrier.";
     case "Enterprise Network":
-      return "Enterprise network detected. This IP belongs to an organization-operated network rather than a consumer ISP.";
+      return "Enterprise network detected. This IP belongs to an organization-operated network. These networks are often clean, though some platforms may apply extra checks to shared corporate traffic.";
     case "Public Infrastructure":
-      return "Public infrastructure detected. This IP belongs to a well-known internet service such as public DNS, CDN, or edge infrastructure.";
+      return "Public infrastructure detected. This is normal for public DNS, CDN, and edge services, but it is not ideal as a personal browsing or account registration IP.";
     case "Cloud Provider":
-      return "Cloud infrastructure detected. This IP belongs to a hosting provider rather than a typical residential connection.";
+      return "Cloud infrastructure detected. Reputation may be clean, but many platforms treat hosted infrastructure as less trustworthy than residential ISP traffic.";
     case "Datacenter":
-      return "Hosting infrastructure detected. This IP belongs to shared server or datacenter networks rather than a typical residential connection.";
+      return "Datacenter infrastructure detected. Reputation may be clean, but many platforms treat hosted infrastructure as less trustworthy than residential ISP traffic.";
     case "VPN / Proxy":
       return "VPN or proxy network detected. Traffic may be relayed through an anonymization or privacy service.";
     case "Tor Exit":
-      return "Tor exit network detected. Traffic is routed through the Tor network.";
+      return "Tor exit network detected. This is a high-risk anonymity network and is not recommended for account registration, verification, banking, payments, or sensitive login.";
     case "Unknown":
       return "Network identity could not be confidently determined.";
   }

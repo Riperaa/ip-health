@@ -70,6 +70,7 @@ import type {
   IpQualityReport,
   IpTypeBadge,
   NetworkIntegrity,
+  NetworkIdentityCategory,
   OverallVerdict,
   ProviderAnalysisResult,
   ResultFact,
@@ -164,6 +165,14 @@ function getNetworkIdentity(
     asn: formatDetail(asn),
     isp: formatDetail(isp),
   };
+}
+
+function isConsumerAccessIdentity(category: NetworkIdentityCategory) {
+  return category === "Residential ISP" || category === "Mobile Network";
+}
+
+function isHostedInfrastructureIdentity(category: NetworkIdentityCategory) {
+  return category === "Cloud Provider" || category === "Datacenter";
 }
 
 function formatLocation(ipInfo: IpInfoResponse) {
@@ -294,7 +303,7 @@ function buildEndUserReport({
   const ipInfoPresentation = ipInfo as IpInfoPresentationFields;
   const identity = hasAnalysis
     ? classifyNetworkIdentity({ ipInfo, abuseIpDb, ipqs, cloudflare, ipApiIs })
-    : {
+    : ({
         networkIdentity: "Unknown",
         ipType: "Unknown",
         provider: "Not identified",
@@ -302,7 +311,7 @@ function buildEndUserReport({
         reason: "Run an analysis to identify network ownership.",
         detail: "Run an analysis to identify the network identity.",
         tone: "neutral" satisfies StatusTone,
-      } satisfies EndUserReport["identity"];
+      } satisfies EndUserReport["identity"]);
 
   return {
     reputation: {
@@ -462,7 +471,15 @@ function getScoreExplanationItems(
     cloudflare,
   );
   const usageType = formatUsageType(abuseIpDb?.usageType, ipInfo.privacy);
-  const networkIdentity = getNetworkIdentity(ipInfo, abuseIpDb);
+  const ownership = getNetworkIdentity(ipInfo, abuseIpDb);
+  const identity = classifyNetworkIdentity({
+    ipInfo,
+    abuseIpDb,
+    ipqs,
+    cloudflare,
+    ipApiIs,
+  });
+  const identityCategory = identity.networkIdentity;
   const reverseDns = getReverseDns(ipInfo, abuseIpDb);
   const items = [
     `Overall score blends Reputation (${Math.round(
@@ -502,19 +519,44 @@ function getScoreExplanationItems(
     items.push(
       "Scamalytics reputation data is unavailable, so analysis continued without it.",
     );
-  } else if (
-    scamalytics?.score !== null &&
-    scamalytics?.score !== undefined
-  ) {
+  } else if (scamalytics?.score !== null && scamalytics?.score !== undefined) {
     items.push(`Scamalytics risk score is ${scamalytics.score}/100.`);
   }
 
   if (ipApiIs?.status === "unavailable") {
-    items.push("ipapi.is data is unavailable, so analysis continued without it.");
+    items.push(
+      "ipapi.is data is unavailable, so analysis continued without it.",
+    );
   } else if (ipApiIs?.vpn || ipApiIs?.proxy || ipApiIs?.tor) {
-    items.push("ipapi.is reported VPN, proxy, or Tor review signals.");
+    if (identityCategory === "Tor Exit") {
+      items.push("ipapi.is reported a Tor exit signal.");
+    } else if (isConsumerAccessIdentity(identityCategory)) {
+      items.push(
+        "ipapi.is reported a secondary review signal; the primary classification remains a normal access network.",
+      );
+    } else if (identityCategory === "Enterprise Network") {
+      items.push(
+        "ipapi.is reported a secondary review signal; enterprise traffic can still receive extra checks on some platforms.",
+      );
+    } else {
+      items.push("ipapi.is reported VPN, proxy, or Tor review signals.");
+    }
   } else if (ipApiIs?.datacenter || ipApiIs?.hosting) {
-    items.push("ipapi.is reported datacenter or hosting evidence.");
+    if (identityCategory === "Enterprise Network") {
+      items.push(
+        "ipapi.is reported a secondary infrastructure signal; the primary classification remains an enterprise network.",
+      );
+    } else if (identityCategory === "Public Infrastructure") {
+      items.push(
+        "ipapi.is reported service infrastructure, which is expected for public DNS, CDN, or edge networks.",
+      );
+    } else if (isConsumerAccessIdentity(identityCategory)) {
+      items.push(
+        "ipapi.is reported a secondary infrastructure signal; some checks may require review.",
+      );
+    } else {
+      items.push("ipapi.is reported datacenter or hosting evidence.");
+    }
   } else if (ipApiIs?.status === "available") {
     items.push("ipapi.is returned no VPN, proxy, Tor, or hosting signal.");
   }
@@ -532,11 +574,29 @@ function getScoreExplanationItems(
   }
 
   if (hasInfrastructure) {
-    items.push(
-      hasDetail(usageType)
-        ? `Network usage looks like ${usageType.toLowerCase()}, which stricter services may review.`
-        : "Network integrity signals suggest infrastructure routing, which stricter services may review.",
-    );
+    if (isConsumerAccessIdentity(identityCategory)) {
+      items.push(
+        "Some infrastructure checks may require review, but network ownership still looks like a normal access network.",
+      );
+    } else if (identityCategory === "Enterprise Network") {
+      items.push(
+        "Enterprise networks are often clean, but some platforms may apply extra checks to large organization or shared corporate traffic.",
+      );
+    } else if (identityCategory === "Public Infrastructure") {
+      items.push(
+        "Public DNS, CDN, or edge infrastructure is normal for services, but not ideal as a personal browsing or account registration IP.",
+      );
+    } else if (isHostedInfrastructureIdentity(identityCategory)) {
+      items.push(
+        "Reputation may be clean, but many platforms treat hosted infrastructure as less trustworthy than residential ISP traffic.",
+      );
+    } else {
+      items.push(
+        hasDetail(usageType)
+          ? `Network usage looks like ${usageType.toLowerCase()}, which stricter services may review.`
+          : "Network integrity signals suggest infrastructure routing, which stricter services may review.",
+      );
+    }
   } else {
     items.push("No hosting infrastructure signal was detected.");
   }
@@ -547,9 +607,9 @@ function getScoreExplanationItems(
     items.push("Cloudflare and IPinfo report different visible IPs.");
   }
 
-  if (hasDetail(networkIdentity.asn) || hasDetail(networkIdentity.isp)) {
+  if (hasDetail(ownership.asn) || hasDetail(ownership.isp)) {
     items.push(
-      `Network owner is visible: ${[networkIdentity.asn, networkIdentity.isp]
+      `Network owner is visible: ${[ownership.asn, ownership.isp]
         .filter((value) => hasDetail(value))
         .join(" / ")}.`,
     );
@@ -576,7 +636,15 @@ function getRiskSignals(
 ): RiskSignal[] {
   const privacy = ipInfo.privacy;
   const abuseConfidence = abuseIpDb?.abuseConfidence ?? null;
-  const networkIdentity = getNetworkIdentity(ipInfo, abuseIpDb);
+  const ownership = getNetworkIdentity(ipInfo, abuseIpDb);
+  const identity = classifyNetworkIdentity({
+    ipInfo,
+    abuseIpDb,
+    ipqs,
+    cloudflare,
+    ipApiIs,
+  });
+  const identityCategory = identity.networkIdentity;
   const signals: RiskSignal[] = [];
 
   if (privacy?.proxy === true) {
@@ -641,8 +709,7 @@ function getRiskSignals(
     signals.push({
       label: "IPQS fraud score",
       detail: `IPQualityScore reports ${ipqsFraudScore}/100 fraud risk.`,
-      tone:
-        ipqsFraudScore >= IPQS_STRONG_RISK_FRAUD_SCORE ? "risk" : "caution",
+      tone: ipqsFraudScore >= IPQS_STRONG_RISK_FRAUD_SCORE ? "risk" : "caution",
     });
   }
 
@@ -653,9 +720,7 @@ function getRiskSignals(
       label: "Scamalytics risk score",
       detail: `Scamalytics reports ${scamalyticsScore}/100 reputation risk.`,
       tone:
-        scamalyticsScore >= SCAMALYTICS_STRONG_RISK_SCORE
-          ? "risk"
-          : "caution",
+        scamalyticsScore >= SCAMALYTICS_STRONG_RISK_SCORE ? "risk" : "caution",
     });
   }
 
@@ -668,11 +733,27 @@ function getRiskSignals(
   }
 
   if (ipApiIs?.vpn === true || ipApiIs?.proxy === true) {
-    signals.push({
-      label: "ipapi.is VPN/proxy signal",
-      detail: "ipapi.is marks this IP as VPN or proxy traffic.",
-      tone: "caution",
-    });
+    if (isConsumerAccessIdentity(identityCategory)) {
+      signals.push({
+        label: "Minor review signal",
+        detail:
+          "A secondary provider reported a privacy review signal, but the primary classification remains a normal access network.",
+        tone: "caution",
+      });
+    } else if (identityCategory === "Enterprise Network") {
+      signals.push({
+        label: "Enterprise network review signal",
+        detail:
+          "A secondary provider reported a privacy review signal. Large organization and shared corporate traffic can receive extra checks.",
+        tone: "caution",
+      });
+    } else {
+      signals.push({
+        label: "ipapi.is VPN/proxy signal",
+        detail: "ipapi.is marks this IP as VPN or proxy traffic.",
+        tone: "caution",
+      });
+    }
   }
 
   if (ipApiIs?.abuser === true) {
@@ -684,31 +765,115 @@ function getRiskSignals(
   }
 
   if (hasNativeInfrastructureSignal(ipInfo, abuseIpDb)) {
-    signals.push({
-      label: "Hosting infrastructure",
-      detail: hasDetail(networkIdentity.asn)
-        ? "Network ownership appears to be hosting or infrastructure."
-        : "Network appears to be hosting or infrastructure.",
-      tone: "infrastructure",
-    });
+    if (isConsumerAccessIdentity(identityCategory)) {
+      signals.push({
+        label: "Minor network review signal",
+        detail:
+          "Some infrastructure checks may require review, but network ownership still looks like a normal access network.",
+        tone: "caution",
+      });
+    } else if (identityCategory === "Enterprise Network") {
+      signals.push({
+        label: "Enterprise network",
+        detail:
+          "Traffic comes from a large organization or shared corporate network, which some platforms review more closely.",
+        tone: "caution",
+      });
+    } else if (identityCategory === "Public Infrastructure") {
+      signals.push({
+        label: "Public infrastructure",
+        detail:
+          "This is normal for public DNS, CDN, or edge services, but not ideal for personal browsing or account registration.",
+        tone: "infrastructure",
+      });
+    } else if (isHostedInfrastructureIdentity(identityCategory)) {
+      signals.push({
+        label: "Hosted infrastructure",
+        detail:
+          "Reputation may be clean, but many platforms treat hosted infrastructure as less trustworthy than residential ISP traffic.",
+        tone: "infrastructure",
+      });
+    } else {
+      signals.push({
+        label: "Hosting infrastructure",
+        detail: hasDetail(ownership.asn)
+          ? "Network ownership appears to be hosting or infrastructure."
+          : "Network appears to be hosting or infrastructure.",
+        tone: "infrastructure",
+      });
+    }
   }
 
   if (ipApiIs?.datacenter === true || ipApiIs?.hosting === true) {
-    signals.push({
-      label: "ipapi.is hosting signal",
-      detail: "ipapi.is reports datacenter or hosting infrastructure.",
-      tone: "infrastructure",
-    });
+    if (isConsumerAccessIdentity(identityCategory)) {
+      signals.push({
+        label: "Minor review signal",
+        detail:
+          "A secondary provider reported an infrastructure review signal, but the primary classification remains a normal access network.",
+        tone: "caution",
+      });
+    } else if (identityCategory === "Enterprise Network") {
+      signals.push({
+        label: "Enterprise network review signal",
+        detail:
+          "A secondary provider reported an infrastructure review signal. Enterprise traffic can receive extra checks because it comes from a shared corporate network.",
+        tone: "caution",
+      });
+    } else if (identityCategory === "Public Infrastructure") {
+      signals.push({
+        label: "Public infrastructure",
+        detail:
+          "This is normal for public DNS, CDN, or edge services, but not ideal for personal browsing or account registration.",
+        tone: "infrastructure",
+      });
+    } else if (isHostedInfrastructureIdentity(identityCategory)) {
+      signals.push({
+        label: "Hosted infrastructure",
+        detail:
+          "Reputation may be clean, but many platforms treat hosted infrastructure as less trustworthy than residential ISP traffic.",
+        tone: "infrastructure",
+      });
+    } else {
+      signals.push({
+        label: "ipapi.is hosting signal",
+        detail: "ipapi.is reports datacenter or hosting infrastructure.",
+        tone: "infrastructure",
+      });
+    }
   }
 
   if (hasCloudflareColoSignal(ipInfo, cloudflare)) {
-    signals.push({
-      label: "Infrastructure route",
-      detail: hasDetail(cloudflare?.colo)
-        ? `Cloudflare routed this IP through ${cloudflare?.colo}.`
-        : "Cloudflare detected an edge routing signal.",
-      tone: "infrastructure",
-    });
+    if (identityCategory === "Public Infrastructure") {
+      signals.push({
+        label: "Public edge infrastructure",
+        detail: hasDetail(cloudflare?.colo)
+          ? `Cloudflare reports edge routing through ${cloudflare?.colo}, which is expected for service infrastructure.`
+          : "Cloudflare reported an edge routing signal, which is expected for service infrastructure.",
+        tone: "infrastructure",
+      });
+    } else if (identityCategory === "Enterprise Network") {
+      signals.push({
+        label: "Enterprise network review signal",
+        detail:
+          "Cloudflare reported an edge routing signal. Enterprise traffic may receive extra checks when network paths are shared.",
+        tone: "caution",
+      });
+    } else if (isConsumerAccessIdentity(identityCategory)) {
+      signals.push({
+        label: "Minor review signal",
+        detail:
+          "Cloudflare reported an edge routing signal. Some checks may require review, but the primary classification remains a normal access network.",
+        tone: "caution",
+      });
+    } else {
+      signals.push({
+        label: "Infrastructure route",
+        detail: hasDetail(cloudflare?.colo)
+          ? `Cloudflare routed this IP through ${cloudflare?.colo}.`
+          : "Cloudflare detected an edge routing signal.",
+        tone: "infrastructure",
+      });
+    }
   }
 
   return signals;
@@ -1167,8 +1332,7 @@ export function applyConnectivityFinalGate(
     finalDecision.decision.regionAvailability.status === "likely_blocked" ||
     finalDecision.decision.regionAvailability.restriction === "hard_region";
   const ipqsSignal = finalDecision.decision.externalSignals.ipqs;
-  const scamalyticsSignal =
-    finalDecision.decision.externalSignals.scamalytics;
+  const scamalyticsSignal = finalDecision.decision.externalSignals.scamalytics;
   const reputationRiskScores = [
     ipqsSignal.status === "available" ? ipqsSignal.fraud_score : null,
     scamalyticsSignal.status === "available" ? scamalyticsSignal.score : null,
@@ -1437,13 +1601,7 @@ function buildFinalDecision({
   const ipqsSignal =
     ipqsRiskProbability === null
       ? []
-      : [
-          buildProbabilitySignal(
-            "ipqs_fraud_score",
-            ipqsRiskProbability,
-            0.75,
-          ),
-        ];
+      : [buildProbabilitySignal("ipqs_fraud_score", ipqsRiskProbability, 0.75)];
   const scamalyticsSignal =
     scamalyticsRiskProbability === null
       ? []

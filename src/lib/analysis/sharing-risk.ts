@@ -54,6 +54,20 @@ function addEvidence(evidence: string[], label: string) {
   }
 }
 
+function isResidentialOrMobileIdentity(identity: EndUserReport["identity"]) {
+  return (
+    identity.networkIdentity === "Residential ISP" ||
+    identity.networkIdentity === "Mobile Network"
+  );
+}
+
+function isHostedInfrastructureIdentity(identity: EndUserReport["identity"]) {
+  return (
+    identity.networkIdentity === "Cloud Provider" ||
+    identity.networkIdentity === "Datacenter"
+  );
+}
+
 function createSharingRisk({
   level,
   reason,
@@ -63,13 +77,15 @@ function createSharingRisk({
   reason: string;
   evidence: string[];
 }): EndUserReport["sharingRisk"] {
-  const toneByLevel: Record<SharingRiskLevel, EndUserReport["sharingRisk"]["tone"]> =
-    {
-      Low: "good",
-      Medium: "caution",
-      High: "risk",
-      Unknown: "neutral",
-    };
+  const toneByLevel: Record<
+    SharingRiskLevel,
+    EndUserReport["sharingRisk"]["tone"]
+  > = {
+    Low: "good",
+    Medium: "caution",
+    High: "risk",
+    Unknown: "neutral",
+  };
 
   return {
     level,
@@ -97,18 +113,18 @@ export function buildNetworkSharingRisk({
     ipqs?.tor === true ||
     scamalytics?.tor === true ||
     ipApiIs?.tor === true;
-  const hasVpnProxySignal =
+  const hasStrongVpnProxySignal =
     privacy?.vpn === true ||
     privacy?.proxy === true ||
     privacy?.relay === true ||
     ipqs?.vpn === true ||
     ipqs?.activeVpn === true ||
     ipqs?.proxy === true ||
-    scamalytics?.vpn === true ||
-    scamalytics?.proxy === true ||
     ipApiIs?.vpn === true ||
     ipApiIs?.proxy === true ||
     isCloudflareWarpOn(cloudflare);
+  const hasReviewVpnProxySignal =
+    scamalytics?.vpn === true || scamalytics?.proxy === true;
   const hasDatacenterSignal =
     ipApiIs?.datacenter === true ||
     identity.networkIdentity === "Datacenter" ||
@@ -149,13 +165,14 @@ export function buildNetworkSharingRisk({
 
     return createSharingRisk({
       level: "High",
-      reason: "This IP is likely used by many users or services.",
+      reason:
+        "Tor exit traffic is high risk and is not recommended for account registration, verification, banking, payments, or sensitive login.",
       evidence,
     });
   }
 
-  if (hasVpnProxySignal) {
-    addEvidence(evidence, "VPN/proxy signal detected");
+  if (hasStrongVpnProxySignal) {
+    addEvidence(evidence, "Strong VPN/proxy signal confirmed");
 
     if (hasDatacenterSignal || hasHostingSignal) {
       addEvidence(evidence, "Datacenter or hosting network");
@@ -163,18 +180,69 @@ export function buildNetworkSharingRisk({
 
     return createSharingRisk({
       level: "High",
-      reason: "VPN or proxy infrastructure is commonly shared by many users or services.",
+      reason:
+        "VPN or proxy infrastructure is commonly shared by many users or services.",
       evidence,
     });
   }
 
+  if (hasReviewVpnProxySignal) {
+    addEvidence(evidence, "Secondary privacy review signal");
+  }
+
   if ((hasDatacenterSignal || hasHostingSignal) && hasMismatchSignal) {
-    addEvidence(evidence, "Datacenter or hosting network");
+    if (isResidentialOrMobileIdentity(identity)) {
+      addEvidence(evidence, "Minor review signal");
+    } else if (identity.networkIdentity === "Enterprise Network") {
+      addEvidence(evidence, "Enterprise network");
+    } else if (identity.networkIdentity === "Public Infrastructure") {
+      addEvidence(evidence, "Public or edge infrastructure");
+    } else {
+      addEvidence(evidence, "Datacenter or hosting network");
+    }
+
     addEvidence(evidence, "Network mismatch signal");
+
+    if (isResidentialOrMobileIdentity(identity)) {
+      return createSharingRisk({
+        level: "Low",
+        reason:
+          "This appears to be a normal access network. Some checks may require review, but no strong sharing signal is confirmed.",
+        evidence,
+      });
+    }
+
+    if (identity.networkIdentity === "Enterprise Network") {
+      return createSharingRisk({
+        level: "Medium",
+        reason:
+          "Enterprise networks are often clean, but some platforms may apply extra checks because traffic comes from a large organization or shared corporate network.",
+        evidence,
+      });
+    }
+
+    if (identity.networkIdentity === "Public Infrastructure") {
+      return createSharingRisk({
+        level: "Medium",
+        reason:
+          "Public DNS, CDN, and edge infrastructure is normal for services, but it is not ideal as a personal browsing or account registration IP.",
+        evidence,
+      });
+    }
+
+    if (isHostedInfrastructureIdentity(identity)) {
+      return createSharingRisk({
+        level: "High",
+        reason:
+          "Hosted infrastructure with mismatch signals is likely shared or relayed.",
+        evidence,
+      });
+    }
 
     return createSharingRisk({
       level: "High",
-      reason: "Hosting infrastructure with mismatch signals is likely shared or relayed.",
+      reason:
+        "Hosting infrastructure with mismatch signals is likely shared or relayed.",
       evidence,
     });
   }
@@ -210,20 +278,58 @@ export function buildNetworkSharingRisk({
       addEvidence(evidence, "Infrastructure route detected");
     }
 
+    if (isResidentialOrMobileIdentity(identity)) {
+      return createSharingRisk({
+        level: "Low",
+        reason:
+          "This appears to be a normal access network. Minor review signals may still require extra checks on stricter platforms.",
+        evidence,
+      });
+    }
+
+    if (identity.networkIdentity === "Enterprise Network") {
+      return createSharingRisk({
+        level: "Medium",
+        reason:
+          "Enterprise networks are often clean, but some platforms may apply extra checks because traffic comes from a large organization or shared corporate network.",
+        evidence,
+      });
+    }
+
+    if (identity.networkIdentity === "Public Infrastructure") {
+      return createSharingRisk({
+        level: "Medium",
+        reason:
+          "Public DNS, CDN, and edge infrastructure is normal for services, but it is not ideal as a personal browsing or account registration IP.",
+        evidence,
+      });
+    }
+
+    if (isHostedInfrastructureIdentity(identity)) {
+      return createSharingRisk({
+        level: "Medium",
+        reason:
+          "Reputation may be clean, but hosted infrastructure is often treated as less trustworthy than residential ISP traffic.",
+        evidence,
+      });
+    }
+
     return createSharingRisk({
       level: "Medium",
-      reason: "Datacenter infrastructure often serves many unrelated users or services.",
+      reason:
+        "Datacenter infrastructure often serves many unrelated users or services.",
       evidence,
     });
   }
 
   if (isResidentialOrMobile) {
     addEvidence(evidence, identity.networkIdentity);
-    addEvidence(evidence, "No VPN/proxy/hosting signal");
+    addEvidence(evidence, "No strong privacy or infrastructure signal");
 
     return createSharingRisk({
       level: "Low",
-      reason: "This IP appears less likely to be heavily shared.",
+      reason:
+        "This looks like a normal access network and is less likely to be heavily shared.",
       evidence,
     });
   }

@@ -22,10 +22,7 @@ type VerdictDisplay = {
   tone: StatusTone;
 };
 
-const verdictContent: Record<
-  OverallVerdict,
-  VerdictDisplay
-> = {
+const verdictContent: Record<OverallVerdict, VerdictDisplay> = {
   Healthy: {
     label: "High quality IP",
     description: "Strong overall IP quality signals.",
@@ -109,7 +106,10 @@ function getReliabilityCappedVerdict(
     return null;
   }
 
-  if (result.qualityReport.dataQuality.level === "Low" && verdict === "Healthy") {
+  if (
+    result.qualityReport.dataQuality.level === "Low" &&
+    verdict === "Healthy"
+  ) {
     return "Use with Caution";
   }
 
@@ -166,6 +166,43 @@ function getRiskSignalExplanation(signal: {
   const normalizedDetail = signal.detail.toLowerCase();
   const text = `${normalizedLabel} ${normalizedDetail}`;
 
+  if (text.includes("tor")) {
+    return {
+      title: "Tor exit signal detected",
+      whyItMatters:
+        "Tor exit traffic is high risk for registration, verification, banking, payments, and sensitive login.",
+    };
+  }
+
+  if (text.includes("minor review")) {
+    return {
+      title: "Minor review signal",
+      whyItMatters:
+        "Some checks may require review, but this is not a strong privacy-network signal by itself.",
+    };
+  }
+
+  if (text.includes("enterprise network") || text.includes("corporate")) {
+    return {
+      title: "Enterprise network review",
+      whyItMatters:
+        "Large organization and shared corporate networks can receive extra checks on some platforms.",
+    };
+  }
+
+  if (
+    text.includes("public infrastructure") ||
+    text.includes("edge infrastructure") ||
+    text.includes("cdn") ||
+    text.includes("public dns")
+  ) {
+    return {
+      title: "Public infrastructure",
+      whyItMatters:
+        "Normal for services and edge networks, but not ideal as a personal browsing or account registration IP.",
+    };
+  }
+
   if (
     text.includes("hosting") ||
     text.includes("infrastructure") ||
@@ -218,6 +255,13 @@ function getRiskSignalCards(result: AnalysisResult) {
     ...getRiskSignalExplanation(signal),
   }));
   const existingTitles = new Set(cards.map((card) => card.title));
+  const identity = result.endUserReport.identity.networkIdentity;
+  const isConsumerAccess =
+    identity === "Residential ISP" || identity === "Mobile Network";
+  const isEnterprise = identity === "Enterprise Network";
+  const isPublicInfrastructure = identity === "Public Infrastructure";
+  const isHostedInfrastructure =
+    identity === "Cloud Provider" || identity === "Datacenter";
 
   function addCard(card: {
     label: string;
@@ -255,6 +299,42 @@ function getRiskSignalCards(result: AnalysisResult) {
         signal.signalName === "asn_type" ||
         signal.signalName === "isp_reputation"
       ) {
+        if (isConsumerAccess) {
+          addCard({
+            label: "Review",
+            detail: "A secondary ownership signal may require review.",
+            tone: "caution",
+            title: "Minor review signal",
+            whyItMatters:
+              "Some checks may require review, but this is not a strong privacy-network signal by itself.",
+          });
+          return;
+        }
+
+        if (isEnterprise) {
+          addCard({
+            label: "Enterprise",
+            detail: "Large organization traffic may receive extra checks.",
+            tone: "caution",
+            title: "Enterprise network review",
+            whyItMatters:
+              "Large organization and shared corporate networks can receive extra checks on some platforms.",
+          });
+          return;
+        }
+
+        if (isPublicInfrastructure) {
+          addCard({
+            label: "Public infrastructure",
+            detail: "Service or edge infrastructure raised a review signal.",
+            tone: "infrastructure",
+            title: "Public infrastructure",
+            whyItMatters:
+              "Normal for services and edge networks, but not ideal as a personal browsing or account registration IP.",
+          });
+          return;
+        }
+
         addCard({
           label: "Hosting",
           detail: "Network ownership raised a hosting risk signal.",
@@ -267,6 +347,58 @@ function getRiskSignalCards(result: AnalysisResult) {
       }
 
       if (signal.signalName === "proxy_cloudflare") {
+        if (existingTitles.has("Tor exit signal detected")) {
+          return;
+        }
+
+        if (isConsumerAccess) {
+          addCard({
+            label: "Review",
+            detail: "A secondary network path signal may require review.",
+            tone: "caution",
+            title: "Minor review signal",
+            whyItMatters:
+              "Some checks may require review, but this is not a strong privacy-network signal by itself.",
+          });
+          return;
+        }
+
+        if (isEnterprise) {
+          addCard({
+            label: "Enterprise",
+            detail: "A shared corporate network path may require review.",
+            tone: "caution",
+            title: "Enterprise network review",
+            whyItMatters:
+              "Large organization and shared corporate networks can receive extra checks on some platforms.",
+          });
+          return;
+        }
+
+        if (isPublicInfrastructure) {
+          addCard({
+            label: "Public infrastructure",
+            detail: "An edge network path raised a review signal.",
+            tone: "infrastructure",
+            title: "Public infrastructure",
+            whyItMatters:
+              "Normal for services and edge networks, but not ideal as a personal browsing or account registration IP.",
+          });
+          return;
+        }
+
+        if (isHostedInfrastructure) {
+          addCard({
+            label: "Hosted infrastructure",
+            detail: "Hosted infrastructure raised a review signal.",
+            tone: "infrastructure",
+            title: "Cloud or hosting infrastructure",
+            whyItMatters:
+              "Many platforms treat hosted infrastructure as less trustworthy than residential ISP traffic.",
+          });
+          return;
+        }
+
         addCard({
           label: "VPN / Proxy",
           detail: "An anonymized or relayed network path raised risk.",
@@ -354,6 +486,13 @@ function getPositiveScoreSignals(result: AnalysisResult) {
 function getNegativeScoreSignals(result: AnalysisResult) {
   const finalDecisionSignals = result.finalDecision?.decision.signals ?? [];
   const negativeSignals = new Set<string>();
+  const identity = result.endUserReport.identity.networkIdentity;
+  const isConsumerAccess =
+    identity === "Residential ISP" || identity === "Mobile Network";
+  const isEnterprise = identity === "Enterprise Network";
+  const isPublicInfrastructure = identity === "Public Infrastructure";
+  const isHostedInfrastructure =
+    identity === "Cloud Provider" || identity === "Datacenter";
   const riskSignalText = result.riskSignals
     .map((signal) => `${signal.label} ${signal.detail}`)
     .join(" ")
@@ -364,17 +503,36 @@ function getNegativeScoreSignals(result: AnalysisResult) {
     riskSignalText.includes("infrastructure") ||
     riskSignalText.includes("asn")
   ) {
-    negativeSignals.add("Cloud or hosting infrastructure");
+    if (isConsumerAccess) {
+      negativeSignals.add("Minor review signal");
+    } else if (isEnterprise) {
+      negativeSignals.add("Enterprise network review");
+    } else if (isPublicInfrastructure) {
+      negativeSignals.add("Public infrastructure");
+    } else {
+      negativeSignals.add("Cloud or hosting infrastructure");
+    }
   }
 
   if (
     riskSignalText.includes("proxy") ||
     riskSignalText.includes("vpn") ||
-    riskSignalText.includes("tor") ||
     riskSignalText.includes("relay") ||
     riskSignalText.includes("warp")
   ) {
-    negativeSignals.add("VPN or proxy signal detected");
+    if (isConsumerAccess) {
+      negativeSignals.add("Minor review signal");
+    } else if (isEnterprise) {
+      negativeSignals.add("Enterprise network review");
+    } else if (isHostedInfrastructure) {
+      negativeSignals.add("Cloud or hosting infrastructure");
+    } else {
+      negativeSignals.add("VPN or proxy signal detected");
+    }
+  }
+
+  if (riskSignalText.includes("tor")) {
+    negativeSignals.add("Tor exit signal detected");
   }
 
   if (
@@ -678,6 +836,17 @@ function addEvidenceSignal(signals: EvidenceSignal[], signal: EvidenceSignal) {
 
 function getEvidenceTone(label: string): StatusTone {
   const normalizedLabel = label.toLowerCase();
+
+  if (
+    normalizedLabel.includes("minor review") ||
+    normalizedLabel.includes("enterprise network")
+  ) {
+    return "caution";
+  }
+
+  if (normalizedLabel.includes("public infrastructure")) {
+    return "infrastructure";
+  }
 
   if (
     normalizedLabel.includes("datacenter") ||
@@ -1257,10 +1426,7 @@ function TechnicalScamalyticsSection({ result }: { result: AnalysisResult }) {
             value={scamalytics.country || "Not identified"}
           />
           <ReportField label="VPN" value={scamalytics.vpn ? "Yes" : "No"} />
-          <ReportField
-            label="Proxy"
-            value={scamalytics.proxy ? "Yes" : "No"}
-          />
+          <ReportField label="Proxy" value={scamalytics.proxy ? "Yes" : "No"} />
           <ReportField label="Tor" value={scamalytics.tor ? "Yes" : "No"} />
           <ReportField
             label="Server"
@@ -1306,16 +1472,11 @@ function TechnicalIpApiIsSection({ result }: { result: AnalysisResult }) {
             label="Datacenter"
             value={ipApiIs.datacenter ? "Yes" : "No"}
           />
-          <ReportField
-            label="Hosting"
-            value={ipApiIs.hosting ? "Yes" : "No"}
-          />
+          <ReportField label="Hosting" value={ipApiIs.hosting ? "Yes" : "No"} />
           <ReportField label="ASN" value={ipApiIs.asn || "Not identified"} />
           <ReportField
             label="Organization"
-            value={
-              ipApiIs.organization || ipApiIs.asnName || "Not identified"
-            }
+            value={ipApiIs.organization || ipApiIs.asnName || "Not identified"}
           />
           <ReportField
             label="Location"

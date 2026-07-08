@@ -4,6 +4,7 @@ import {
   isConnectivityProbeReachable,
   isConnectivityProbeUnreachable,
 } from "../connectivity/probe";
+import { classifyNetworkIdentity } from "../network-identity";
 import { parseOrg, pickDetail } from "../normalize/common";
 import type {
   AbuseIpDbResponse,
@@ -17,6 +18,7 @@ import type {
   IpQualityReport,
   IpQualityScoreDimension,
   IpQualityScoreDimensionKey,
+  NetworkIdentityCategory,
   ScamalyticsResponse,
   ServiceCompatibilityCategory,
 } from "../types";
@@ -173,6 +175,14 @@ function hasConsumerNetworkSignal(
       "wireless",
     ])
   );
+}
+
+function isConsumerAccessIdentity(category: NetworkIdentityCategory) {
+  return category === "Residential ISP" || category === "Mobile Network";
+}
+
+function isHostedInfrastructureIdentity(category: NetworkIdentityCategory) {
+  return category === "Cloud Provider" || category === "Datacenter";
 }
 
 function getIpInfoOwnershipSignals(ipInfo: IpInfoResponse) {
@@ -462,7 +472,8 @@ function buildReputationScore(
       score,
       assessmentLabel,
       summary: "High reputation risk detected",
-      detail: "Abuse history or reputation provider data raised a strong signal.",
+      detail:
+        "Abuse history or reputation provider data raised a strong signal.",
       tone: getScoreTone(score),
       confidence: providerConfidence.confidence,
       confidenceReason: providerConfidence.confidenceReason,
@@ -582,6 +593,14 @@ function buildNetworkQualityScore({
   BuildIpQualityReportInput,
   "ipInfo" | "abuseIpDb" | "ipqs" | "scamalytics" | "ipApiIs" | "cloudflare"
 >): ScoreEvidence {
+  const identity = classifyNetworkIdentity({
+    ipInfo,
+    abuseIpDb,
+    ipqs,
+    cloudflare,
+    ipApiIs,
+  });
+  const identityCategory = identity.networkIdentity;
   const privacy = ipInfo.privacy;
   const hasTor =
     privacy?.tor === true || ipqs?.tor === true || scamalytics?.tor === true;
@@ -644,7 +663,21 @@ function buildNetworkQualityScore({
       score,
       assessmentLabel,
       summary: "Tor network detected",
-      detail: "Tor exit traffic is a shared network signal for many services.",
+      detail:
+        "Tor exit traffic is high risk and is not recommended for account registration, verification, banking, payments, or sensitive login.",
+      tone: "risk",
+      confidence: providerConfidence.confidence,
+      confidenceReason: providerConfidence.confidenceReason,
+    };
+  }
+
+  if (identityCategory === "Tor Exit") {
+    return {
+      score,
+      assessmentLabel,
+      summary: "Tor network detected",
+      detail:
+        "Tor exit traffic is high risk and is not recommended for account registration, verification, banking, payments, or sensitive login.",
       tone: "risk",
       confidence: providerConfidence.confidence,
       confidenceReason: providerConfidence.confidenceReason,
@@ -652,11 +685,38 @@ function buildNetworkQualityScore({
   }
 
   if (hasVpn || hasProxy || hasRelay || isCloudflareWarpOn(cloudflare)) {
+    if (isConsumerAccessIdentity(identityCategory)) {
+      return {
+        score,
+        assessmentLabel,
+        summary: "Minor network review signals",
+        detail:
+          "Network ownership looks like a normal access network. Some secondary checks may require review, but they do not override the primary residential or mobile classification by themselves.",
+        tone: score >= 60 ? "caution" : "risk",
+        confidence: providerConfidence.confidence,
+        confidenceReason: providerConfidence.confidenceReason,
+      };
+    }
+
+    if (identityCategory === "Enterprise Network") {
+      return {
+        score,
+        assessmentLabel,
+        summary: "Enterprise network review signals",
+        detail:
+          "Enterprise networks are often clean, but platforms may apply extra checks because traffic comes from a large organization or shared corporate network.",
+        tone: score >= 60 ? "caution" : "risk",
+        confidence: providerConfidence.confidence,
+        confidenceReason: providerConfidence.confidenceReason,
+      };
+    }
+
     return {
       score,
       assessmentLabel,
       summary: "VPN or proxy network detected",
-      detail: "An anonymized, relayed, or shared network path was detected.",
+      detail:
+        "A strong anonymized, relayed, or shared network path was detected.",
       tone: score >= 60 ? "caution" : "risk",
       confidence: providerConfidence.confidence,
       confidenceReason: providerConfidence.confidenceReason,
@@ -664,12 +724,51 @@ function buildNetworkQualityScore({
   }
 
   if (hasHosting) {
+    if (isConsumerAccessIdentity(identityCategory)) {
+      return {
+        score,
+        assessmentLabel,
+        summary: "Minor network review signals",
+        detail:
+          "Network ownership looks like a normal access network. Some infrastructure checks may require review, but the primary classification remains residential or mobile.",
+        tone: score >= 60 ? "caution" : "risk",
+        confidence: providerConfidence.confidence,
+        confidenceReason: providerConfidence.confidenceReason,
+      };
+    }
+
+    if (identityCategory === "Enterprise Network") {
+      return {
+        score,
+        assessmentLabel,
+        summary: "Enterprise network detected",
+        detail:
+          "Enterprise networks are often clean, but some platforms may apply extra checks because traffic comes from a large organization or shared corporate network.",
+        tone: score >= 60 ? "caution" : "risk",
+        confidence: providerConfidence.confidence,
+        confidenceReason: providerConfidence.confidenceReason,
+      };
+    }
+
+    if (identityCategory === "Public Infrastructure") {
+      return {
+        score,
+        assessmentLabel,
+        summary: "Public infrastructure detected",
+        detail:
+          "This is normal for public DNS, CDN, and edge services, but it is not ideal as a personal browsing or account registration IP.",
+        tone: "infrastructure",
+        confidence: providerConfidence.confidence,
+        confidenceReason: providerConfidence.confidenceReason,
+      };
+    }
+
     return {
       score,
       assessmentLabel,
       summary: "Cloud or hosting infrastructure detected",
       detail:
-        "This IP belongs to a hosting provider rather than a typical residential connection.",
+        "Reputation may be clean, but many platforms treat hosted infrastructure as less trustworthy than residential ISP traffic.",
       tone: "infrastructure",
       confidence: providerConfidence.confidence,
       confidenceReason: providerConfidence.confidenceReason,
@@ -677,6 +776,58 @@ function buildNetworkQualityScore({
   }
 
   if (hasIpApiReview) {
+    if (isConsumerAccessIdentity(identityCategory)) {
+      return {
+        score,
+        assessmentLabel,
+        summary: "Minor review signal",
+        detail:
+          "A secondary provider reported a review signal. Some checks may require review, but the primary classification remains a normal access network.",
+        tone: score >= 60 ? "caution" : "risk",
+        confidence: providerConfidence.confidence,
+        confidenceReason: providerConfidence.confidenceReason,
+      };
+    }
+
+    if (identityCategory === "Enterprise Network") {
+      return {
+        score,
+        assessmentLabel,
+        summary: "Enterprise network review signal",
+        detail:
+          "A secondary provider reported a review signal. Enterprise traffic can receive extra checks because it comes from a large organization or shared corporate network.",
+        tone: score >= 60 ? "caution" : "risk",
+        confidence: providerConfidence.confidence,
+        confidenceReason: providerConfidence.confidenceReason,
+      };
+    }
+
+    if (identityCategory === "Public Infrastructure") {
+      return {
+        score,
+        assessmentLabel,
+        summary: "Public infrastructure review signal",
+        detail:
+          "This is normal for services and edge infrastructure, but not ideal as a personal browsing or account registration IP.",
+        tone: score >= 60 ? "caution" : "risk",
+        confidence: providerConfidence.confidence,
+        confidenceReason: providerConfidence.confidenceReason,
+      };
+    }
+
+    if (isHostedInfrastructureIdentity(identityCategory)) {
+      return {
+        score,
+        assessmentLabel,
+        summary: "Hosted infrastructure review signal",
+        detail:
+          "Reputation may be clean, but many platforms treat hosted infrastructure as less trustworthy than residential ISP traffic.",
+        tone: score >= 60 ? "caution" : "risk",
+        confidence: providerConfidence.confidence,
+        confidenceReason: providerConfidence.confidenceReason,
+      };
+    }
+
     return {
       score,
       assessmentLabel,
@@ -1031,7 +1182,7 @@ function buildDataQuality({
         ? "IPQS reputation data was unavailable; Scamalytics was available."
         : isIpApiIsAvailable(ipApiIs)
           ? "IPQS reputation data was unavailable; ipapi.is was available."
-        : "IPQS reputation data was unavailable.",
+          : "IPQS reputation data was unavailable.",
     );
   }
 
@@ -1183,7 +1334,7 @@ function buildBaseOverallSummary(dimensions: IpQualityReport["dimensions"]) {
   const compatibility = dimensions.compatibility;
 
   if ((reputation.score ?? 0) >= 85 && hasManagedNetworkSignal(network)) {
-    return "Reputation signals are clean, but this IP belongs to infrastructure commonly used by hosting providers.";
+    return `Reputation signals are clean, but ${lowerFirst(network.summary)}.`;
   }
 
   if ((reputation.score ?? 0) >= 85 && (network.score ?? 100) < 80) {
@@ -1220,6 +1371,91 @@ function buildOverallSummary(
   }
 
   return baseSummary;
+}
+
+function hasTorSignal({
+  ipInfo,
+  ipqs,
+  scamalytics,
+  ipApiIs,
+}: Pick<
+  BuildIpQualityReportInput,
+  "ipInfo" | "ipqs" | "scamalytics" | "ipApiIs"
+>) {
+  return (
+    ipInfo.privacy?.tor === true ||
+    ipqs?.tor === true ||
+    scamalytics?.tor === true ||
+    ipApiIs?.tor === true
+  );
+}
+
+function buildRecommendationExplanation({
+  dimensions,
+  dataQuality,
+  overallScore,
+  ipInfo,
+  abuseIpDb,
+  ipqs,
+  scamalytics,
+  ipApiIs,
+  cloudflare,
+}: Pick<
+  BuildIpQualityReportInput,
+  "ipInfo" | "abuseIpDb" | "ipqs" | "scamalytics" | "ipApiIs" | "cloudflare"
+> & {
+  dimensions: IpQualityReport["dimensions"];
+  dataQuality: IpQualityReport["dataQuality"];
+  overallScore: number;
+}) {
+  const identity = classifyNetworkIdentity({
+    ipInfo,
+    abuseIpDb,
+    ipqs,
+    cloudflare,
+    ipApiIs,
+  });
+  const category = identity.networkIdentity;
+  const abuseConfidence = abuseIpDb?.abuseConfidence ?? null;
+  const hasCleanReputation =
+    (dimensions.reputation.score ?? 0) >= 80 && overallScore >= 70;
+
+  if (
+    category === "Tor Exit" ||
+    hasTorSignal({ ipInfo, ipqs, scamalytics, ipApiIs })
+  ) {
+    return "High risk: Tor exit traffic is not recommended for account registration, verification, banking, payments, or sensitive login.";
+  }
+
+  if (abuseConfidence !== null && abuseConfidence >= 85) {
+    return "High risk: severe abuse history was reported, so this IP is not recommended for account registration, verification, banking, payments, or sensitive login.";
+  }
+
+  if (isHostedInfrastructureIdentity(category)) {
+    return "Reputation may be clean, but many platforms treat hosted infrastructure as less trustworthy than residential ISP traffic. Use extra caution for account registration, verification, banking, payments, and sensitive login.";
+  }
+
+  if (category === "Public Infrastructure") {
+    return "This is normal for public DNS, CDN, and edge infrastructure, but it is not ideal as a personal browsing or account registration IP.";
+  }
+
+  if (isConsumerAccessIdentity(category)) {
+    if (hasCleanReputation) {
+      return "This looks suitable for normal browsing and account use when reputation is clean. Minor review signals may still trigger extra checks on stricter platforms.";
+    }
+
+    return "This appears to be a normal access network, but some checks may require review based on the available reputation or provider signals.";
+  }
+
+  if (category === "Enterprise Network") {
+    return "Enterprise networks are often clean, but some platforms may apply extra checks because traffic comes from a large organization or shared corporate network.";
+  }
+
+  if (category === "VPN / Proxy") {
+    return "Strong privacy or relay signals are present, so this IP may face extra verification or restrictions for accounts, payments, banking, and sensitive login.";
+  }
+
+  return buildOverallSummary(dimensions, dataQuality);
 }
 
 function buildOverallScore(dimensions: IpQualityReport["dimensions"]) {
@@ -1346,7 +1582,17 @@ export function buildIpQualityReport({
     dataQuality,
     assessment,
     summary: buildOverallSummary(dimensions, dataQuality),
-    recommendationExplanation: buildOverallSummary(dimensions, dataQuality),
+    recommendationExplanation: buildRecommendationExplanation({
+      dimensions,
+      dataQuality,
+      overallScore,
+      ipInfo,
+      abuseIpDb,
+      ipqs,
+      scamalytics,
+      ipApiIs,
+      cloudflare,
+    }),
     weights: QUALITY_SCORE_WEIGHTS,
     dimensions,
   };

@@ -373,6 +373,7 @@ export function IpAnalyzerContainer({ locale = "en" }: { locale?: Locale }) {
       {analysisStarted && !isAnalysisLoadingVisible ? (
         <div className="w-full text-left">
           <DisclosureSection
+            locale={locale}
             title={t("Recent Checks")}
             summary={t("Saved in this browser only")}
             isExpanded={isRecentChecksVisible}

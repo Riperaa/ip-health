@@ -439,6 +439,121 @@ const zh: Record<string, string> = {
     "声誉数据提供方报告了较高风险。",
   "Some services may be harder to access from this network path.":
     "通过当前网络路径访问部分服务可能更困难。",
+  "Confidence pending": "可信度待定",
+  "No major review signals detected": "未发现明显需复核信号",
+  "Proxy detected": "检测到代理",
+  "VPN detected": "检测到 VPN",
+  "Tor detected": "检测到 Tor",
+  "Relay detected": "检测到中继",
+  "WARP enabled": "WARP 已启用",
+  "IPQS fraud score": "IPQS 风险评分",
+  "Scamalytics risk score": "Scamalytics 风险评分",
+  "ipapi.is Tor signal": "ipapi.is Tor 信号",
+  "Enterprise network review signal": "企业网络复核信号",
+  "ipapi.is VPN/proxy signal": "ipapi.is VPN/代理信号",
+  "ipapi.is abuse signal": "ipapi.is 滥用信号",
+  "Minor network review signal": "轻微网络复核信号",
+  "Hosted infrastructure": "托管基础设施",
+  "Hosting infrastructure": "托管基础设施",
+  "ipapi.is hosting signal": "ipapi.is 托管服务信号",
+  "Infrastructure route": "基础设施路由",
+  "Secondary privacy review signal": "次要隐私网络复核信号",
+  "Relay or multi-user access signal": "中继或多用户访问信号",
+  "Infrastructure route detected": "检测到基础设施路由",
+  "No strong sharing signal detected": "未检测到明显共享信号",
+  "IP Address": "IP 地址",
+  "Enter an IP address or analyze your current IP to see IP quality and compatibility.":
+    "输入 IP 地址或分析当前 IP，以查看 IP 质量和兼容性。",
+  "Score details will appear here after analysis.":
+    "分析完成后将在此显示评分详情。",
+  "Run an analysis to see score details.": "请先运行分析以查看评分详情。",
+  Expand: "展开",
+  Collapse: "收起",
+  proxy: "代理",
+  relay: "中继",
+  "Traffic appears to be routed through a proxy service.":
+    "流量似乎通过代理服务进行路由。",
+  "Traffic appears to be routed through a VPN service.":
+    "流量似乎通过 VPN 服务进行路由。",
+  "Tor exit traffic is a strong risk signal for many services.":
+    "Tor 出口流量对许多服务而言是强风险信号。",
+  "Relay traffic can make the origin of activity harder to verify.":
+    "中继流量会增加验证活动来源的难度。",
+  "Cloudflare reports WARP is active for this network path.":
+    "Cloudflare 报告当前网络路径已启用 WARP。",
+  "A secondary provider reported a privacy review signal, but the primary classification remains a normal access network.":
+    "辅助数据提供方报告了隐私网络复核信号，但主要分类仍为普通接入网络。",
+  "A secondary provider reported a privacy review signal. Large organization and shared corporate traffic can receive extra checks.":
+    "辅助数据提供方报告了隐私网络复核信号。大型组织和企业共享流量可能触发额外检查。",
+  "ipapi.is reports this IP is linked to abusive activity.":
+    "ipapi.is 报告此 IP 与滥用活动有关。",
+  "Traffic comes from a large organization or shared corporate network, which some platforms review more closely.":
+    "流量来自大型组织或企业共享网络，部分平台会对此进行更严格的复核。",
+  "This is normal for public DNS, CDN, or edge services, but not ideal for personal browsing or account registration.":
+    "这对公共 DNS、CDN 或边缘服务而言很正常，但不适合个人浏览或账号注册。",
+  "This is normal for public DNS, CDN, and edge services, but it is not ideal as a personal browsing or account registration IP.":
+    "这类公共 DNS、CDN 和边缘服务用于服务很正常，但不适合作为个人浏览或注册账号的 IP。",
+  "A secondary provider reported an infrastructure review signal, but the primary classification remains a normal access network.":
+    "辅助数据提供方报告了基础设施复核信号，但主要分类仍为普通接入网络。",
+  "A secondary provider reported an infrastructure review signal. Enterprise traffic can receive extra checks because it comes from a shared corporate network.":
+    "辅助数据提供方报告了基础设施复核信号。企业流量来自共享公司网络，因此可能触发额外检查。",
+  "ipapi.is reports datacenter or hosting infrastructure.":
+    "ipapi.is 报告此 IP 属于数据中心或托管基础设施。",
+  "Cloudflare reported an edge routing signal, which is expected for service infrastructure.":
+    "Cloudflare 报告了边缘路由信号，这符合服务基础设施的预期。",
+  "Cloudflare reported an edge routing signal. Enterprise traffic may receive extra checks when network paths are shared.":
+    "Cloudflare 报告了边缘路由信号。企业流量在共享网络路径时可能触发额外检查。",
+  "Cloudflare reported an edge routing signal. Some checks may require review, but the primary classification remains a normal access network.":
+    "Cloudflare 报告了边缘路由信号。部分检测可能需要复核，但主要分类仍为普通接入网络。",
+  "Cloudflare detected an edge routing signal.":
+    "Cloudflare 检测到边缘路由信号。",
+  "IP matches Cloudflare DNS public resolver infrastructure.":
+    "此 IP 与 Cloudflare DNS 公共解析器基础设施匹配。",
+  "IP matches Quad9 public resolver infrastructure.":
+    "此 IP 与 Quad9 公共解析器基础设施匹配。",
+  "IP matches Cisco OpenDNS public resolver infrastructure.":
+    "此 IP 与 Cisco OpenDNS 公共解析器基础设施匹配。",
+  "ipapi.is marks this IP as Tor exit traffic.":
+    "ipapi.is 将此 IP 标记为 Tor 出口流量。",
+  "ipapi.is marks this IP as VPN or proxy traffic.":
+    "ipapi.is 将此 IP 标记为 VPN 或代理流量。",
+  "IPQS reputation data is unavailable, so analysis continued without it.":
+    "IPQS 声誉数据不可用，分析已在缺少该数据的情况下继续。",
+  "Scamalytics reputation data is unavailable, so analysis continued without it.":
+    "Scamalytics 声誉数据不可用，分析已在缺少该数据的情况下继续。",
+  "ipapi.is data is unavailable, so analysis continued without it.":
+    "ipapi.is 数据不可用，分析已在缺少该数据的情况下继续。",
+  "ipapi.is reported a Tor exit signal.": "ipapi.is 报告了 Tor 出口信号。",
+  "ipapi.is reported a secondary review signal; the primary classification remains a normal access network.":
+    "ipapi.is 报告了次要复核信号；主要分类仍为普通接入网络。",
+  "ipapi.is reported a secondary review signal; enterprise traffic can still receive extra checks on some platforms.":
+    "ipapi.is 报告了次要复核信号；企业流量在部分平台仍可能触发额外检查。",
+  "ipapi.is reported VPN, proxy, or Tor review signals.":
+    "ipapi.is 报告了 VPN、代理或 Tor 复核信号。",
+  "ipapi.is reported a secondary infrastructure signal; the primary classification remains an enterprise network.":
+    "ipapi.is 报告了次要基础设施信号；主要分类仍为企业网络。",
+  "ipapi.is reported service infrastructure, which is expected for public DNS, CDN, or edge networks.":
+    "ipapi.is 报告了服务基础设施，这符合公共 DNS、CDN 或边缘网络的预期。",
+  "ipapi.is reported a secondary infrastructure signal; some checks may require review.":
+    "ipapi.is 报告了次要基础设施信号；部分检测可能需要复核。",
+  "ipapi.is returned no VPN, proxy, Tor, or hosting signal.":
+    "ipapi.is 未返回 VPN、代理、Tor 或托管服务信号。",
+  "Cloudflare WARP is active, which increases network risk.":
+    "Cloudflare WARP 已启用，这会增加网络风险。",
+  "Cloudflare WARP is not active.": "Cloudflare WARP 未启用。",
+  "Some infrastructure checks may require review, but network ownership still looks like a normal access network.":
+    "部分基础设施检测可能需要复核，但网络归属仍表现为普通接入网络。",
+  "Network integrity signals suggest infrastructure routing, which stricter services may review.":
+    "网络完整性信号表明存在基础设施路由，风控较严格的服务可能会进行复核。",
+  "Cloudflare and IPinfo agree on the visible IP.":
+    "Cloudflare 与 IPinfo 对可见 IP 的检测结果一致。",
+  "Cloudflare and IPinfo report different visible IPs.":
+    "Cloudflare 与 IPinfo 报告了不同的可见 IP。",
+  "ASN/ISP is unknown, so ownership confidence is lower.":
+    "ASN/ISP 未知，因此网络归属可信度较低。",
+  "DNS is present and does not show an obvious conflict.":
+    "DNS 信息存在，且未显示明显冲突。",
+  "DNS consistency could not be confirmed.": "无法确认 DNS 一致性。",
 };
 
 export function localizeText(locale: Locale, value: string): string {
@@ -451,6 +566,45 @@ export function localizeText(locale: Locale, value: string): string {
   }
 
   return value
+    .replace(
+      /^Abuse history is (low|elevated|high) at (\d+)% confidence\.$/,
+      (_, level, confidence) =>
+        `滥用记录${level === "low" ? "较低" : level === "elevated" ? "有所升高" : "较高"}，可信度为 ${confidence}%。`,
+    )
+    .replace(/^IPQS fraud score is (\d+)\/100\.$/, "IPQS 风险评分为 $1/100。")
+    .replace(
+      /^Scamalytics risk score is (\d+)\/100\.$/,
+      "Scamalytics 风险评分为 $1/100。",
+    )
+    .replace(/^(.+) detected\.$/, (_, signals) => {
+      const localized = signals
+        .split(/, | and /)
+        .map((signal: string) => zh[signal] ?? signal)
+        .join("、");
+      return `检测到${localized}。`;
+    })
+    .replace(
+      /^Network usage looks like (.+), which stricter services may review\.$/,
+      (_, usageType) =>
+        `网络使用类型表现为${localizeText(locale, usageType)}，风控较严格的服务可能会进行复核。`,
+    )
+    .replace(/^Network owner is visible: (.+)\.$/, "网络归属可见：$1。")
+    .replace(/^(.+) confidence reported\.$/, (_, level) => {
+      const confidence = level
+        .replace(/^Low, /, "较低，")
+        .replace(/^Elevated, /, "偏高，")
+        .replace(/^High, /, "较高，")
+        .replace(/^No abuse score$/, "无滥用评分");
+      return `报告的滥用可信度：${confidence}。`;
+    })
+    .replace(
+      /^Cloudflare reports edge routing through (.+), which is expected for service infrastructure\.$/,
+      "Cloudflare 报告流量经由 $1 进行边缘路由，这符合服务基础设施的预期。",
+    )
+    .replace(
+      /^Cloudflare routed this IP through (.+)\.$/,
+      "Cloudflare 通过 $1 路由此 IP。",
+    )
     .replace(
       /^Confidence: (.+)$/,
       (_, level) => `可信度：${zh[level] ?? level}`,

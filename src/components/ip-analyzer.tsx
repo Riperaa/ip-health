@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  Compass,
-  ListChecks,
-  Network,
-  ShieldCheck,
-  Users,
-} from "lucide-react";
+import { Compass, ListChecks, Network, ShieldCheck, Users } from "lucide-react";
 import { useState, type ReactNode } from "react";
 
 import { StatusBadge } from "@/components/status-badge";
@@ -579,6 +573,7 @@ export function DisclosureSection({
   onToggle,
   contentId,
   children,
+  locale = "en",
 }: {
   title: string;
   titleIcon?: ReactNode;
@@ -587,6 +582,7 @@ export function DisclosureSection({
   onToggle: () => void;
   contentId: string;
   children: ReactNode;
+  locale?: Locale;
 }) {
   return (
     <section>
@@ -595,6 +591,7 @@ export function DisclosureSection({
           type="button"
           aria-controls={contentId}
           aria-expanded={isExpanded}
+          aria-label={localizeText(locale, isExpanded ? "Collapse" : "Expand")}
           onClick={onToggle}
           className="flex min-h-12 w-full flex-col gap-1 px-4 py-3 text-left text-sm font-semibold text-neutral-950 transition hover:bg-[#f3f4f7] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
         >
@@ -623,7 +620,13 @@ export function DisclosureSection({
   );
 }
 
-function IpHealthScoreCard({ result, locale }: { result: AnalysisResult; locale: Locale }) {
+function IpHealthScoreCard({
+  result,
+  locale,
+}: {
+  result: AnalysisResult;
+  locale: Locale;
+}) {
   const t = messages(locale);
   const verdictDisplay = getVerdictDisplay(result);
   const qualityReport = result.qualityReport;
@@ -764,7 +767,9 @@ function IpHealthScoreCard({ result, locale }: { result: AnalysisResult; locale:
 
         <div className="rounded-2xl border border-neutral-100 bg-neutral-50/70 p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-sm font-semibold text-neutral-950">{t("Assessment")}</p>
+            <p className="text-sm font-semibold text-neutral-950">
+              {t("Assessment")}
+            </p>
             <StatusBadge tone={assessment.tone} variant="quiet">
               {t(assessment.label)}
             </StatusBadge>
@@ -972,7 +977,9 @@ function EvidenceList({
 
   return (
     <div className="rounded-2xl border border-neutral-100 bg-neutral-50/60 p-4">
-      <p className="text-sm font-semibold text-neutral-950">{localizeText(locale, title)}</p>
+      <p className="text-sm font-semibold text-neutral-950">
+        {localizeText(locale, title)}
+      </p>
       <ul className="mt-3 space-y-2">
         {visibleSignals.map((signal) => (
           <li key={signal.label} className="flex gap-2 text-sm leading-6">
@@ -995,7 +1002,13 @@ function EvidenceList({
   );
 }
 
-function ReputationSection({ result, locale }: { result: AnalysisResult; locale: Locale }) {
+function ReputationSection({
+  result,
+  locale,
+}: {
+  result: AnalysisResult;
+  locale: Locale;
+}) {
   const t = messages(locale);
   if (!result.finalDecision) {
     return null;
@@ -1008,7 +1021,9 @@ function ReputationSection({ result, locale }: { result: AnalysisResult; locale:
   return (
     <section className="surface-card rounded-2xl border bg-white p-5">
       <div>
-        <p className="text-sm font-semibold text-neutral-950">{t("Reputation")}</p>
+        <p className="text-sm font-semibold text-neutral-950">
+          {t("Reputation")}
+        </p>
         <p className="mt-1 text-sm leading-6 text-neutral-500">
           {t("Provider and history signals.")}
         </p>
@@ -1033,7 +1048,10 @@ function ReputationSection({ result, locale }: { result: AnalysisResult; locale:
 
       <dl className="mt-4 grid gap-3 sm:grid-cols-3">
         <ReportField label={t("Risk Score")} value={t(reputation.fraudRisk)} />
-        <ReportField label={t("Abuse History")} value={t(reputation.abuseSignals)} />
+        <ReportField
+          label={t("Abuse History")}
+          value={t(reputation.abuseSignals)}
+        />
         <ReportField
           label={t("Confidence")}
           value={t(reputationDimension.confidence)}
@@ -1070,7 +1088,13 @@ function getNetworkIdentityDisplay(
   };
 }
 
-function IpIdentitySection({ result, locale }: { result: AnalysisResult; locale: Locale }) {
+function IpIdentitySection({
+  result,
+  locale,
+}: {
+  result: AnalysisResult;
+  locale: Locale;
+}) {
   const t = messages(locale);
   if (!result.finalDecision) {
     return null;
@@ -1086,10 +1110,7 @@ function IpIdentitySection({ result, locale }: { result: AnalysisResult; locale:
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <p className="inline-flex items-center gap-2 text-sm font-semibold text-neutral-950">
-              <Network
-                aria-hidden="true"
-                className="size-4 text-neutral-400"
-              />
+              <Network aria-hidden="true" className="size-4 text-neutral-400" />
               {t("Network Identity")}
             </p>
             <StatusBadge tone={identity.tone} variant="quiet">
@@ -1118,7 +1139,9 @@ function IpIdentitySection({ result, locale }: { result: AnalysisResult; locale:
         </div>
 
         <div className="rounded-2xl border border-neutral-100 bg-neutral-50/70 p-4">
-          <p className="text-sm font-semibold text-neutral-950">{t("Location")}</p>
+          <p className="text-sm font-semibold text-neutral-950">
+            {t("Location")}
+          </p>
           <dl className="mt-4 grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
             <ReportField label={t("Country")} value={location.country} />
             <ReportField label={t("City")} value={location.city} />
@@ -1130,7 +1153,13 @@ function IpIdentitySection({ result, locale }: { result: AnalysisResult; locale:
   );
 }
 
-function SharingRiskSection({ result, locale }: { result: AnalysisResult; locale: Locale }) {
+function SharingRiskSection({
+  result,
+  locale,
+}: {
+  result: AnalysisResult;
+  locale: Locale;
+}) {
   const t = messages(locale);
   if (!result.finalDecision) {
     return null;
@@ -1147,10 +1176,7 @@ function SharingRiskSection({ result, locale }: { result: AnalysisResult; locale
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="inline-flex items-center gap-2 text-sm font-semibold text-neutral-950">
-            <Users
-              aria-hidden="true"
-              className="size-4 text-neutral-400"
-            />
+            <Users aria-hidden="true" className="size-4 text-neutral-400" />
             {t("Sharing Risk")}
           </p>
           <p className="mt-2 text-sm leading-6 text-neutral-500">
@@ -1184,7 +1210,13 @@ function SharingRiskSection({ result, locale }: { result: AnalysisResult; locale
   );
 }
 
-function RecommendedUsageSection({ result, locale }: { result: AnalysisResult; locale: Locale }) {
+function RecommendedUsageSection({
+  result,
+  locale,
+}: {
+  result: AnalysisResult;
+  locale: Locale;
+}) {
   const t = messages(locale);
   const verdict = getReliabilityCappedVerdict(result);
 
@@ -1196,10 +1228,7 @@ function RecommendedUsageSection({ result, locale }: { result: AnalysisResult; l
     <section className="surface-card rounded-2xl border bg-white p-5">
       <div className="flex flex-col gap-1">
         <p className="inline-flex items-center gap-2 text-sm font-semibold text-neutral-950">
-          <Compass
-            aria-hidden="true"
-            className="size-4 text-neutral-400"
-          />
+          <Compass aria-hidden="true" className="size-4 text-neutral-400" />
           {t("Recommendation")}
         </p>
         <p className="text-sm leading-6 text-neutral-500">
@@ -1244,7 +1273,13 @@ function RecommendedUsageSection({ result, locale }: { result: AnalysisResult; l
   );
 }
 
-function NetworkIntegritySection({ result, locale }: { result: AnalysisResult; locale: Locale }) {
+function NetworkIntegritySection({
+  result,
+  locale,
+}: {
+  result: AnalysisResult;
+  locale: Locale;
+}) {
   const t = messages(locale);
   return (
     <section className="surface-card rounded-2xl border bg-white p-5">
@@ -1329,7 +1364,13 @@ function getConnectivityMethodLabel(method: ConnectivityProbe["method"]) {
   return "Browser probe";
 }
 
-function TechnicalConnectivitySection({ result, locale }: { result: AnalysisResult; locale: Locale }) {
+function TechnicalConnectivitySection({
+  result,
+  locale,
+}: {
+  result: AnalysisResult;
+  locale: Locale;
+}) {
   const t = messages(locale);
   const connectivity =
     result.connectivity ?? result.finalDecision?.decision.connectivity ?? null;
@@ -1337,7 +1378,9 @@ function TechnicalConnectivitySection({ result, locale }: { result: AnalysisResu
   if (!connectivity) {
     return (
       <section className="surface-card rounded-2xl border bg-white p-5">
-        <p className="text-sm font-semibold text-neutral-950">{t("Connectivity")}</p>
+        <p className="text-sm font-semibold text-neutral-950">
+          {t("Connectivity")}
+        </p>
         <p className="mt-4 rounded-xl border border-neutral-100 bg-neutral-50 px-4 py-3 text-sm leading-6 text-neutral-500">
           {t("Connectivity probe data is unavailable.")}
         </p>
@@ -1354,7 +1397,9 @@ function TechnicalConnectivitySection({ result, locale }: { result: AnalysisResu
   return (
     <section className="surface-card rounded-2xl border bg-white p-5">
       <div className="flex flex-col gap-1">
-        <p className="text-sm font-semibold text-neutral-950">{t("Connectivity")}</p>
+        <p className="text-sm font-semibold text-neutral-950">
+          {t("Connectivity")}
+        </p>
         <p className="text-sm leading-6 text-neutral-500">
           {t("Browser reachability probes.")}
         </p>
@@ -1373,7 +1418,9 @@ function TechnicalConnectivitySection({ result, locale }: { result: AnalysisResu
                 {probe.label}
               </dt>
               <dd className="mt-2">
-                <StatusBadge tone={display.tone}>{t(display.label)}</StatusBadge>
+                <StatusBadge tone={display.tone}>
+                  {t(display.label)}
+                </StatusBadge>
               </dd>
               <dd className="mt-2 text-sm leading-6 text-neutral-500">
                 {t(getConnectivityMethodLabel(probe.result.method))}
@@ -1386,7 +1433,13 @@ function TechnicalConnectivitySection({ result, locale }: { result: AnalysisResu
   );
 }
 
-function TechnicalIpFactsSection({ result, locale }: { result: AnalysisResult; locale: Locale }) {
+function TechnicalIpFactsSection({
+  result,
+  locale,
+}: {
+  result: AnalysisResult;
+  locale: Locale;
+}) {
   const t = messages(locale);
   return (
     <section className="surface-card rounded-2xl border bg-white p-5">
@@ -1396,16 +1449,26 @@ function TechnicalIpFactsSection({ result, locale }: { result: AnalysisResult; l
       </p>
 
       <dl className="mt-4 grid gap-3 sm:grid-cols-3">
-        <ReportField label="IP Address" value={result.ip.address} />
+        <ReportField label={t("IP Address")} value={result.ip.address} />
         {result.ip.facts.map((fact) => (
-          <ReportField key={fact.label} label={t(fact.label)} value={fact.value} />
+          <ReportField
+            key={fact.label}
+            label={t(fact.label)}
+            value={fact.value}
+          />
         ))}
       </dl>
     </section>
   );
 }
 
-function TechnicalIpqsSection({ result, locale }: { result: AnalysisResult; locale: Locale }) {
+function TechnicalIpqsSection({
+  result,
+  locale,
+}: {
+  result: AnalysisResult;
+  locale: Locale;
+}) {
   const t = messages(locale);
   const ipqs = result.finalDecision?.decision.externalSignals.ipqs;
 
@@ -1420,7 +1483,10 @@ function TechnicalIpqsSection({ result, locale }: { result: AnalysisResult; loca
 
       {ipqs?.status === "available" ? (
         <dl className="mt-4 grid gap-3 sm:grid-cols-3">
-          <ReportField label={t("Risk Score")} value={`${ipqs.fraud_score}/100`} />
+          <ReportField
+            label={t("Risk Score")}
+            value={`${ipqs.fraud_score}/100`}
+          />
           <ReportField
             label={t("Country")}
             value={ipqs.country || t("Not identified")}
@@ -1442,7 +1508,13 @@ function TechnicalIpqsSection({ result, locale }: { result: AnalysisResult; loca
   );
 }
 
-function TechnicalScamalyticsSection({ result, locale }: { result: AnalysisResult; locale: Locale }) {
+function TechnicalScamalyticsSection({
+  result,
+  locale,
+}: {
+  result: AnalysisResult;
+  locale: Locale;
+}) {
   const t = messages(locale);
   const scamalytics =
     result.finalDecision?.decision.externalSignals.scamalytics;
@@ -1458,7 +1530,10 @@ function TechnicalScamalyticsSection({ result, locale }: { result: AnalysisResul
 
       {scamalytics?.status === "available" ? (
         <dl className="mt-4 grid gap-3 sm:grid-cols-3">
-          <ReportField label={t("Risk Score")} value={`${scamalytics.score}/100`} />
+          <ReportField
+            label={t("Risk Score")}
+            value={`${scamalytics.score}/100`}
+          />
           <ReportField
             label={t("Risk Level")}
             value={t(scamalytics.risk || "Not reported")}
@@ -1468,7 +1543,10 @@ function TechnicalScamalyticsSection({ result, locale }: { result: AnalysisResul
             value={scamalytics.country || t("Not identified")}
           />
           <ReportField label="VPN" value={t(scamalytics.vpn ? "Yes" : "No")} />
-          <ReportField label="Proxy" value={t(scamalytics.proxy ? "Yes" : "No")} />
+          <ReportField
+            label="Proxy"
+            value={t(scamalytics.proxy ? "Yes" : "No")}
+          />
           <ReportField label="Tor" value={t(scamalytics.tor ? "Yes" : "No")} />
           <ReportField
             label={t("Server")}
@@ -1484,7 +1562,13 @@ function TechnicalScamalyticsSection({ result, locale }: { result: AnalysisResul
   );
 }
 
-function TechnicalIpApiIsSection({ result, locale }: { result: AnalysisResult; locale: Locale }) {
+function TechnicalIpApiIsSection({
+  result,
+  locale,
+}: {
+  result: AnalysisResult;
+  locale: Locale;
+}) {
   const t = messages(locale);
   const ipApiIs = result.finalDecision?.decision.externalSignals.ipApiIs;
 
@@ -1515,11 +1599,16 @@ function TechnicalIpApiIsSection({ result, locale }: { result: AnalysisResult; l
             label={t("Datacenter")}
             value={t(ipApiIs.datacenter ? "Yes" : "No")}
           />
-          <ReportField label={t("Hosting")} value={t(ipApiIs.hosting ? "Yes" : "No")} />
+          <ReportField
+            label={t("Hosting")}
+            value={t(ipApiIs.hosting ? "Yes" : "No")}
+          />
           <ReportField label="ASN" value={ipApiIs.asn || t("Not identified")} />
           <ReportField
             label={t("Organization")}
-            value={ipApiIs.organization || ipApiIs.asnName || t("Not identified")}
+            value={
+              ipApiIs.organization || ipApiIs.asnName || t("Not identified")
+            }
           />
           <ReportField
             label={t("Location")}
@@ -1543,7 +1632,13 @@ function TechnicalIpApiIsSection({ result, locale }: { result: AnalysisResult; l
   );
 }
 
-function TechnicalDetailsSection({ result, locale }: { result: AnalysisResult; locale: Locale }) {
+function TechnicalDetailsSection({
+  result,
+  locale,
+}: {
+  result: AnalysisResult;
+  locale: Locale;
+}) {
   const t = messages(locale);
   const [isTechnicalDetailsVisible, setIsTechnicalDetailsVisible] =
     useState(false);
@@ -1554,6 +1649,7 @@ function TechnicalDetailsSection({ result, locale }: { result: AnalysisResult; l
 
   return (
     <DisclosureSection
+      locale={locale}
       title={t("Technical Details")}
       titleIcon={
         <ListChecks
@@ -1561,7 +1657,9 @@ function TechnicalDetailsSection({ result, locale }: { result: AnalysisResult; l
           className="size-4 shrink-0 text-neutral-400"
         />
       }
-      summary={t("ASN, IPInfo, IPQS, Scamalytics, ipapi.is, connectivity, and Cloudflare")}
+      summary={t(
+        "ASN, IPInfo, IPQS, Scamalytics, ipapi.is, connectivity, and Cloudflare",
+      )}
       isExpanded={isTechnicalDetailsVisible}
       onToggle={() =>
         setIsTechnicalDetailsVisible((currentVisibility) => !currentVisibility)
@@ -1580,7 +1678,13 @@ function TechnicalDetailsSection({ result, locale }: { result: AnalysisResult; l
   );
 }
 
-export function IpAnalyzer({ result, locale = "en" }: { result: AnalysisResult; locale?: Locale }) {
+export function IpAnalyzer({
+  result,
+  locale = "en",
+}: {
+  result: AnalysisResult;
+  locale?: Locale;
+}) {
   const t = messages(locale);
   return (
     <div className="mt-6 flex w-full flex-col gap-4 text-left">
@@ -1592,7 +1696,9 @@ export function IpAnalyzer({ result, locale = "en" }: { result: AnalysisResult; 
       <TechnicalDetailsSection result={result} locale={locale} />
 
       <p className="text-xs leading-5 text-neutral-400">
-        {t("IP Health provides reputation-based guidance only. Services may also consider account history, device signals, payment method, browser fingerprint, and behavior.")}
+        {t(
+          "IP Health provides reputation-based guidance only. Services may also consider account history, device signals, payment method, browser fingerprint, and behavior.",
+        )}
       </p>
     </div>
   );

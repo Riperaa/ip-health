@@ -135,7 +135,7 @@ function ResultCard({
                   <StatusBadge tone={trustTone}>{row.value}</StatusBadge>
                 ) : isSharingRisk ? (
                   <StatusBadge tone={row.tone ?? "neutral"}>
-                    {row.value}
+                    {t(row.value)}
                   </StatusBadge>
                 ) : (
                   row.value

@@ -1,19 +1,23 @@
+import Image from "next/image";
 import Link from "next/link";
 
 import { FooterLinks } from "@/components/footer-links";
 
-const supportOptions = [
+const paymentOptions = [
   {
     name: "WeChat Pay",
-    status: "Coming soon",
+    description:
+      "Scan the QR code below to support IP Health with WeChat Pay.",
+    image: "/sponsor/wechat-pay.png",
+    width: 1077,
+    height: 1461,
   },
   {
     name: "Alipay",
-    status: "Coming soon",
-  },
-  {
-    name: "International support",
-    status: "Planned",
+    description: "Scan the QR code below to support IP Health with Alipay.",
+    image: "/sponsor/alipay.png",
+    width: 1025,
+    height: 1535,
   },
 ];
 
@@ -27,43 +31,94 @@ export default function SponsorPage() {
         IP Health
       </Link>
 
-      <section className="mx-auto flex w-full max-w-4xl flex-1 flex-col items-center justify-center px-5 py-20 sm:px-8">
-        <div className="w-full max-w-2xl text-center">
+      <section className="mx-auto w-full max-w-4xl flex-1 px-5 pb-16 pt-24 sm:px-8 sm:pb-20 sm:pt-28">
+        <header className="mx-auto max-w-3xl text-center">
           <h1 className="text-balance text-5xl font-semibold tracking-normal text-neutral-950 sm:text-6xl">
             Support IP Health
           </h1>
-          <p className="mx-auto mt-5 max-w-xl text-pretty text-base leading-7 text-neutral-500 sm:text-lg">
-            Support options are being prepared.
-            <br />
-            WeChat Pay and Alipay will be available soon.
+          <p className="mx-auto mt-5 max-w-2xl text-pretty text-base leading-7 text-neutral-500 sm:text-lg">
+            IP Health is a free tool for checking IP reputation, network identity,
+            and risk signals before using an IP for login, registration, payments,
+            remote work, or business operations.
           </p>
+        </header>
 
-          <div className="surface-card mx-auto mt-10 w-full max-w-xl rounded-[28px] border bg-white p-5 text-left sm:p-6">
-            <div className="rounded-2xl border border-neutral-100 bg-neutral-50/70 p-5 text-center">
-              <h2 className="text-xl font-semibold text-neutral-950">
-                Support options are being prepared.
-              </h2>
-              <p className="mt-3 text-sm leading-6 text-neutral-500">
-                WeChat Pay and Alipay will be available soon.
-              </p>
-            </div>
+        <section className="mt-12 sm:mt-16" aria-labelledby="china-support">
+          <h2
+            id="china-support"
+            className="text-center text-2xl font-semibold text-neutral-950"
+          >
+            China support
+          </h2>
 
-            <div className="mt-4 grid gap-3 sm:grid-cols-3">
-              {supportOptions.map((option) => (
-                <div
-                  key={option.name}
-                  className="rounded-2xl border border-neutral-100 p-4 text-center"
-                >
-                  <h3 className="text-sm font-semibold text-neutral-950">
-                    {option.name}
-                  </h3>
-                  <p className="mt-2 text-sm leading-6 text-neutral-500">
-                    {option.status}
-                  </p>
+          <div className="mt-6 grid items-start gap-5 md:grid-cols-2">
+            {paymentOptions.map((option) => (
+              <article
+                key={option.name}
+                className="surface-card rounded-[28px] border bg-white p-5 text-center sm:p-6"
+              >
+                <h3 className="text-xl font-semibold text-neutral-950">
+                  {option.name}
+                </h3>
+                <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-neutral-500">
+                  {option.description}
+                </p>
+                <div className="mt-5 flex justify-center">
+                  <Image
+                    src={option.image}
+                    alt={`${option.name} collection QR code`}
+                    width={option.width}
+                    height={option.height}
+                    className="h-auto w-full max-w-[280px] rounded-2xl border border-neutral-200 bg-white"
+                    sizes="(max-width: 767px) min(280px, calc(100vw - 80px)), 280px"
+                  />
                 </div>
-              ))}
-            </div>
+              </article>
+            ))}
           </div>
+        </section>
+
+        <div className="mt-5 grid gap-5 md:grid-cols-2">
+          <section
+            className="rounded-[28px] border border-neutral-200 bg-neutral-50/70 p-6"
+            aria-labelledby="international-support"
+          >
+            <h2
+              id="international-support"
+              className="text-xl font-semibold text-neutral-950"
+            >
+              International support
+            </h2>
+            <p className="mt-3 text-sm leading-6 text-neutral-500">
+              International card payment is being prepared.
+              <br />
+              For manual payment options, contact{" "}
+              <a
+                href="mailto:contact@iphealth.app"
+                className="font-medium text-neutral-700 underline decoration-neutral-300 underline-offset-4 transition hover:text-neutral-950"
+              >
+                contact@iphealth.app
+              </a>
+              .
+            </p>
+          </section>
+
+          <section
+            className="rounded-[28px] border border-neutral-200 bg-neutral-50/70 p-6"
+            aria-labelledby="important-note"
+          >
+            <h2
+              id="important-note"
+              className="text-xl font-semibold text-neutral-950"
+            >
+              Important note
+            </h2>
+            <p className="mt-3 text-sm leading-6 text-neutral-500">
+              Sponsorship is voluntary. It does not affect IP Health scores,
+              analysis results, risk labels, recommendations, or data-source
+              behavior.
+            </p>
+          </section>
         </div>
       </section>
       <FooterLinks />

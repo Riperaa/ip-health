@@ -106,21 +106,47 @@ export default function ChineseSponsorPage() {
           </div>
         </section>
 
-        <section
-          className="mx-auto mt-5 max-w-2xl rounded-[28px] border border-neutral-200 bg-neutral-50/70 p-6"
-          aria-labelledby="important-note-zh"
-        >
-          <h2
-            id="important-note-zh"
-            className="text-xl font-semibold text-neutral-950"
+        <div className="mt-5 grid gap-5 md:grid-cols-2">
+          <section
+            className="rounded-[28px] border border-neutral-200 bg-neutral-50/70 p-6"
+            aria-labelledby="international-support-zh"
           >
-            重要说明
-          </h2>
-          <p className="mt-3 text-sm leading-6 text-neutral-500">
-            赞助完全自愿。赞助不会影响 IP Health
-            的评分、分析结果、风险标签、建议或数据源行为。
-          </p>
-        </section>
+            <h2
+              id="international-support-zh"
+              className="text-xl font-semibold text-neutral-950"
+            >
+              国际支持
+            </h2>
+            <p className="mt-3 text-sm leading-6 text-neutral-500">
+              国际银行卡支付功能正在准备中。
+              <br />
+              如需了解其他支付方式，请联系{" "}
+              <a
+                href="mailto:contact@iphealth.app"
+                className="font-medium text-neutral-700 underline decoration-neutral-300 underline-offset-4 transition hover:text-neutral-950"
+              >
+                contact@iphealth.app
+              </a>
+              。
+            </p>
+          </section>
+
+          <section
+            className="rounded-[28px] border border-neutral-200 bg-neutral-50/70 p-6"
+            aria-labelledby="important-note-zh"
+          >
+            <h2
+              id="important-note-zh"
+              className="text-xl font-semibold text-neutral-950"
+            >
+              重要说明
+            </h2>
+            <p className="mt-3 text-sm leading-6 text-neutral-500">
+              赞助完全自愿。赞助不会影响 IP Health
+              的评分、分析结果、风险标签、建议或数据源行为。
+            </p>
+          </section>
+        </div>
       </section>
 
       <FooterLinks />

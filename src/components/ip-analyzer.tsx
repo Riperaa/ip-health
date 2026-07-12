@@ -1,5 +1,12 @@
 "use client";
 
+import {
+  Compass,
+  ListChecks,
+  Network,
+  ShieldCheck,
+  Users,
+} from "lucide-react";
 import { useState, type ReactNode } from "react";
 
 import { StatusBadge } from "@/components/status-badge";
@@ -565,6 +572,7 @@ function getNegativeScoreSignals(result: AnalysisResult) {
 
 export function DisclosureSection({
   title,
+  titleIcon,
   summary,
   isExpanded,
   onToggle,
@@ -572,6 +580,7 @@ export function DisclosureSection({
   children,
 }: {
   title: string;
+  titleIcon?: ReactNode;
   summary?: string;
   isExpanded: boolean;
   onToggle: () => void;
@@ -595,6 +604,7 @@ export function DisclosureSection({
             >
               {isExpanded ? "v" : ">"}
             </span>
+            {titleIcon}
             <span>{title}</span>
           </span>
           {summary ? (
@@ -721,7 +731,11 @@ function IpHealthScoreCard({ result }: { result: AnalysisResult }) {
       <div className="mt-6 grid gap-3 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
         <div className="rounded-2xl border border-neutral-100 bg-neutral-50/70 p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-sm font-semibold text-neutral-950">
+            <p className="inline-flex items-center gap-2 text-sm font-semibold text-neutral-950">
+              <ShieldCheck
+                aria-hidden="true"
+                className="size-4 text-neutral-400"
+              />
               Evidence Quality
             </p>
             <StatusBadge tone={dataQuality.tone} variant="quiet">
@@ -1063,7 +1077,11 @@ function IpIdentitySection({ result }: { result: AnalysisResult }) {
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.8fr)]">
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            <p className="text-sm font-semibold text-neutral-950">
+            <p className="inline-flex items-center gap-2 text-sm font-semibold text-neutral-950">
+              <Network
+                aria-hidden="true"
+                className="size-4 text-neutral-400"
+              />
               Network Identity
             </p>
             <StatusBadge tone={identity.tone} variant="quiet">
@@ -1119,8 +1137,11 @@ function SharingRiskSection({ result }: { result: AnalysisResult }) {
     <section className="surface-card rounded-2xl border bg-white p-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <p className="text-sm font-semibold text-neutral-950">
-            <span aria-hidden="true">🌐 </span>
+          <p className="inline-flex items-center gap-2 text-sm font-semibold text-neutral-950">
+            <Users
+              aria-hidden="true"
+              className="size-4 text-neutral-400"
+            />
             Sharing Risk
           </p>
           <p className="mt-2 text-sm leading-6 text-neutral-500">
@@ -1164,7 +1185,13 @@ function RecommendedUsageSection({ result }: { result: AnalysisResult }) {
   return (
     <section className="surface-card rounded-2xl border bg-white p-5">
       <div className="flex flex-col gap-1">
-        <p className="text-sm font-semibold text-neutral-950">Recommendation</p>
+        <p className="inline-flex items-center gap-2 text-sm font-semibold text-neutral-950">
+          <Compass
+            aria-hidden="true"
+            className="size-4 text-neutral-400"
+          />
+          Recommendation
+        </p>
         <p className="text-sm leading-6 text-neutral-500">
           {result.qualityReport.recommendationExplanation}
         </p>
@@ -1511,6 +1538,12 @@ function TechnicalDetailsSection({ result }: { result: AnalysisResult }) {
   return (
     <DisclosureSection
       title="Technical Details"
+      titleIcon={
+        <ListChecks
+          aria-hidden="true"
+          className="size-4 shrink-0 text-neutral-400"
+        />
+      }
       summary="ASN, IPInfo, IPQS, Scamalytics, ipapi.is, connectivity, and Cloudflare"
       isExpanded={isTechnicalDetailsVisible}
       onToggle={() =>

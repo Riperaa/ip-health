@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://ip-health.vercel.app/sitemap.xml
+Sitemap: https://iphealth.app/sitemap.xml

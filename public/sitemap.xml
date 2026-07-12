@@ -1,21 +1,21 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://ip-health.vercel.app/</loc>
+    <loc>https://iphealth.app/</loc>
   </url>
   <url>
-    <loc>https://ip-health.vercel.app/compare</loc>
+    <loc>https://iphealth.app/compare</loc>
   </url>
   <url>
-    <loc>https://ip-health.vercel.app/sponsor</loc>
+    <loc>https://iphealth.app/sponsor</loc>
   </url>
   <url>
-    <loc>https://ip-health.vercel.app/about</loc>
+    <loc>https://iphealth.app/about</loc>
   </url>
   <url>
-    <loc>https://ip-health.vercel.app/privacy</loc>
+    <loc>https://iphealth.app/privacy</loc>
   </url>
   <url>
-    <loc>https://ip-health.vercel.app/disclaimer</loc>
+    <loc>https://iphealth.app/disclaimer</loc>
   </url>
 </urlset>

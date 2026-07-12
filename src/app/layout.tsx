@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 
-const siteUrl = "https://ip-health.vercel.app";
+const siteUrl = "https://iphealth.app";
 const title = "IP Health – Check IP Trust, Risk, and Compatibility";
 const description =
   "Know whether you can trust an IP in 5 seconds. Check IP reputation, risk signals, service compatibility, and compare IPs.";
@@ -12,6 +12,9 @@ export const metadata: Metadata = {
   title,
   description,
   applicationName: "IP Health",
+  alternates: {
+    canonical: "/",
+  },
   openGraph: {
     title,
     description,

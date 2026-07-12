@@ -1,19 +1,45 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 
 import { FooterLinks } from "@/components/footer-links";
 import { IpAnalyzerContainer } from "@/components/ip-analyzer-container";
 import { LanguageSwitcher } from "@/components/language-switcher";
 
-export default function Home() {
+const title = "IP Health – 检查 IP 声誉、网络身份和风险信号";
+const description =
+  "免费检查 IP 声誉、网络身份和风险信号，在注册、登录、支付、远程办公或业务操作前了解潜在风控风险。";
+
+export const metadata: Metadata = {
+  title,
+  description,
+  alternates: {
+    canonical: "/zh",
+    languages: { en: "/", "zh-CN": "/zh" },
+  },
+  openGraph: {
+    title,
+    description,
+    siteName: "IP Health",
+    type: "website",
+    url: "/zh",
+    locale: "zh_CN",
+  },
+  twitter: { card: "summary_large_image", title, description },
+};
+
+export default function ChineseHome() {
   return (
-    <main className="flex min-h-dvh flex-col bg-white text-neutral-950">
+    <main
+      lang="zh-CN"
+      className="flex min-h-dvh flex-col bg-white text-neutral-950"
+    >
       <div className="fixed right-4 top-4 z-10 flex items-center gap-2 sm:right-8 sm:top-7">
-        <LanguageSwitcher href="/zh" label="中文" />
+        <LanguageSwitcher href="/" label="English" />
         <Link
-          href="/sponsor"
+          href="/zh/sponsor"
           className="rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-sm font-medium text-neutral-600 shadow-sm shadow-neutral-950/[0.03] transition hover:border-neutral-300 hover:text-neutral-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950"
         >
-          Sponsor
+          支持项目
         </Link>
       </div>
 
@@ -22,11 +48,9 @@ export default function Home() {
           <h1 className="text-balance text-5xl font-semibold tracking-normal text-neutral-950 sm:text-6xl md:text-7xl">
             IP Health
           </h1>
-          <p className="mx-auto mt-5 max-w-xl text-pretty text-base leading-7 text-neutral-600 sm:text-lg">
-            Know whether you can trust this IP in 5 seconds.
-          </p>
-          <p className="mx-auto mt-2 max-w-xl text-pretty text-sm leading-6 text-neutral-500 sm:text-base">
-            Check IP reputation and risk signals before logging in.
+          <p className="mx-auto mt-5 max-w-2xl text-pretty text-base leading-7 text-neutral-600 sm:text-lg">
+            IP Health 是一个用于检查 IP 声誉、网络身份和风险信号的免费工具。
+            你可以在使用某个 IP 注册、登录、支付、远程办公或业务操作前，先了解它可能带来的风控风险。
           </p>
 
           <IpAnalyzerContainer />

@@ -4,10 +4,16 @@
     <loc>https://iphealth.app/</loc>
   </url>
   <url>
+    <loc>https://iphealth.app/zh</loc>
+  </url>
+  <url>
     <loc>https://iphealth.app/compare</loc>
   </url>
   <url>
     <loc>https://iphealth.app/sponsor</loc>
+  </url>
+  <url>
+    <loc>https://iphealth.app/zh/sponsor</loc>
   </url>
   <url>
     <loc>https://iphealth.app/about</loc>

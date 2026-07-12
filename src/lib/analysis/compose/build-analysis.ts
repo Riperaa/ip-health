@@ -2121,7 +2121,9 @@ export async function buildAnalysis(
   const historyRecord = buildIpHistoryRecord(providerResult, trimmedIpAddress);
   const nextIpHistory = getNextIpHistory(storedIpHistory, historyRecord);
 
-  persistIpHistory(nextIpHistory);
+  if (!options?.qaMode) {
+    persistIpHistory(nextIpHistory);
+  }
   options?.onProgress?.({ step: "trust_score", status: "completed" });
   options?.onProgress?.({ step: "report", status: "running" });
 

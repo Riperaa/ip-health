@@ -80,6 +80,7 @@ export type AnalysisProgressHandler = (
 
 export type AnalysisProgressOptions = {
   onProgress?: AnalysisProgressHandler;
+  qaMode?: boolean;
 };
 
 export type RecentCheck = {

@@ -179,6 +179,13 @@ export async function POST(request: Request) {
     );
   }
 
+  if (isRecord(body) && body.qaMode === true) {
+    console.info("[analytics] QA event skipped");
+    logAnalyticsResponse(202);
+
+    return NextResponse.json({ ok: true }, { status: 202 });
+  }
+
   const record = buildAnalyticsRecord(body);
 
   if (!record) {

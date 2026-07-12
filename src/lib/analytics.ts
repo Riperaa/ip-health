@@ -30,11 +30,16 @@ export type AnalyticsEvent = {
     name: EventName;
     payload: AnalyticsEventPayload[EventName];
     timestamp: string;
+    qaMode?: true;
   };
 }[AnalyticsEventName];
 
 export type AnalyticsProvider = {
   track: (event: AnalyticsEvent) => void | Promise<void>;
+};
+
+type TrackAnalyticsOptions = {
+  qaMode?: boolean;
 };
 
 export type AnalysisContext = {
@@ -79,11 +84,13 @@ export function setAnalyticsProvider(provider: AnalyticsProvider) {
 export function trackAnalyticsEvent<EventName extends AnalyticsEventName>(
   name: EventName,
   payload: AnalyticsEventPayload[EventName],
+  options?: TrackAnalyticsOptions,
 ) {
   const event = {
     name,
     payload,
     timestamp: new Date().toISOString(),
+    ...(options?.qaMode ? { qaMode: true } : {}),
   } as AnalyticsEvent;
 
   void Promise.resolve(analyticsProvider.track(event)).catch(() => {

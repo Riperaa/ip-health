@@ -87,6 +87,7 @@ function LoadingSpinner() {
 }
 
 export function IpAnalyzerContainer() {
+  const [isQaMode, setIsQaMode] = useState(false);
   const [ipAddress, setIpAddress] = useState("");
   const [error, setError] = useState("");
   const [analysisErrorIp, setAnalysisErrorIp] = useState("");
@@ -101,6 +102,7 @@ export function IpAnalyzerContainer() {
   const [analysisLoadingState, setAnalysisLoadingState] =
     useState<AnalysisLoadingState>(initialAnalysisLoadingState);
   const isAnalysisInFlight = useRef(false);
+  const isQaModeRef = useRef(false);
 
   const analyzeAddress = useCallback(async (nextIpAddress: string) => {
     if (isAnalysisInFlight.current) {
@@ -125,6 +127,8 @@ export function IpAnalyzerContainer() {
       return;
     }
 
+    const isQaAnalysis = isQaModeRef.current;
+
     isAnalysisInFlight.current = true;
     setError("");
     setAnalysisErrorIp("");
@@ -132,7 +136,7 @@ export function IpAnalyzerContainer() {
     setAnalysisStarted(true);
     setIsAnalyzing(true);
     setAnalysisLoadingState(initialAnalysisLoadingState);
-    trackAnalyticsEvent("analyze_started", {});
+    trackAnalyticsEvent("analyze_started", {}, { qaMode: isQaAnalysis });
 
     function handleProgress(event: AnalysisProgressEvent) {
       setAnalysisLoadingState((currentState) => {
@@ -169,10 +173,13 @@ export function IpAnalyzerContainer() {
     try {
       const nextAnalysisResult = await buildAnalysis(trimmedIpAddress, {
         onProgress: handleProgress,
+        qaMode: isQaAnalysis,
       });
 
       setAnalysisResult(nextAnalysisResult);
-      setRecentChecks(saveRecentCheck(trimmedIpAddress));
+      if (!isQaAnalysis) {
+        setRecentChecks(saveRecentCheck(trimmedIpAddress));
+      }
       setAnalysisLoadingState({
         completedSteps: analysisLoadingStepIds,
         errorSteps: [],
@@ -181,7 +188,7 @@ export function IpAnalyzerContainer() {
       trackAnalyticsEvent("analyze_completed", {
         ...getAnalysisContext(nextAnalysisResult),
         success: true,
-      });
+      }, { qaMode: isQaAnalysis });
       await wait(500);
     } catch {
       setAnalysisResult(getEmptyAnalysisResult(trimmedIpAddress));
@@ -189,7 +196,7 @@ export function IpAnalyzerContainer() {
       trackAnalyticsEvent("analyze_completed", {
         ...getAnalysisContext(null),
         success: false,
-      });
+      }, { qaMode: isQaAnalysis });
     } finally {
       isAnalysisInFlight.current = false;
       setIsAnalyzing(false);
@@ -218,6 +225,14 @@ export function IpAnalyzerContainer() {
   }, [handleDetectPublicIp]);
 
   useEffect(() => {
+    const qaMode =
+      new URLSearchParams(window.location.search).get("qa") === "true";
+
+    isQaModeRef.current = qaMode;
+    setIsQaMode(qaMode);
+  }, []);
+
+  useEffect(() => {
     setRecentChecks(loadRecentChecks());
   }, []);
 
@@ -243,6 +258,11 @@ export function IpAnalyzerContainer() {
         onSubmit={handleSubmit}
         className="flex w-full flex-col items-center gap-3"
       >
+        {isQaMode ? (
+          <p className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">
+            QA mode: checks are not saved.
+          </p>
+        ) : null}
         <div className="surface-card flex w-full flex-col gap-3 rounded-[28px] border bg-white p-2 transition focus-within:border-neutral-300 sm:flex-row sm:items-center">
           <label htmlFor="ip-address" className="sr-only">
             IP address
@@ -325,7 +345,10 @@ export function IpAnalyzerContainer() {
         <div className="w-full">
           <IpAnalyzer result={analysisResult} />
           {analysisResult.trustScore.hasAnalysis ? (
-            <ResultFeedback context={getAnalysisContext(analysisResult)} />
+            <ResultFeedback
+              context={getAnalysisContext(analysisResult)}
+              isQaMode={isQaMode}
+            />
           ) : null}
         </div>
       ) : null}

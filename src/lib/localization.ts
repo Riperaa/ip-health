@@ -212,7 +212,7 @@ const zh: Record<string, string> = {
   "IP not found in recent abuse reports.": "近期滥用报告中未发现该 IP。",
   "Connectivity probes completed.": "连通性探测已完成。",
   "Connectivity probes were unavailable.": "连通性探测不可用。",
-  "Connectivity probes were partially verified.": "连通性探测仅得到部分验证。",
+  "Connectivity probes were partially verified.": "连通性探测已完成部分验证。",
   "Abuse history data was unavailable.": "滥用历史数据不可用。",
   "AbuseIPDB abuse history was unavailable.": "AbuseIPDB 滥用历史数据不可用。",
   "IPInfo network data was unavailable.": "IPInfo 网络数据不可用。",
@@ -300,9 +300,9 @@ const zh: Record<string, string> = {
   "Good available signals with some data sources unavailable.":
     "现有信号良好，但部分数据源不可用。",
   "Insufficient evidence for a high-confidence assessment. Important data sources were unavailable: IPQS reputation data was unavailable; Scamalytics was available. Connectivity probes were partially verified.":
-    "证据不足，无法做出高可信度评估。部分重要数据源不可用：IPQS 声誉数据不可用；Scamalytics 可用。连通性探测仅得到部分验证。",
+    "证据不足，无法做出高可信度评估。部分重要数据源不可用：IPQS 声誉数据不可用；Scamalytics 可用。连通性探测已完成部分验证。",
   "Important data sources were unavailable: IPQS reputation data was unavailable; Scamalytics was available. Connectivity probes were partially verified.":
-    "部分重要数据源不可用：IPQS 声誉数据不可用；Scamalytics 可用。连通性探测仅得到部分验证。",
+    "部分重要数据源不可用：IPQS 声誉数据不可用；Scamalytics 可用。连通性探测已完成部分验证。",
   "Clean Signals, Limited Evidence": "信号良好，但证据有限",
   "Strong Network Quality": "网络质量良好",
   "Moderate Compatibility": "兼容性一般",
@@ -439,6 +439,13 @@ const zh: Record<string, string> = {
     "声誉数据提供方报告了较高风险。",
   "Some services may be harder to access from this network path.":
     "通过当前网络路径访问部分服务可能更困难。",
+  "Reputation risk is the main issue for this IP.":
+    "该 IP 的主要问题是声誉风险。",
+  "Some data sources unavailable:": "部分数据源不可用：",
+  "IPQS reputation data was unavailable": "IPQS 声誉数据不可用",
+  "Scamalytics was available": "Scamalytics 可用",
+  "Connectivity probes were partially verified": "连通性探测已完成部分验证",
+  "Limited Network Quality": "网络质量受限",
   "Confidence pending": "可信度待定",
   "No major review signals detected": "未发现明显需复核信号",
   "Proxy detected": "检测到代理",
@@ -556,6 +563,14 @@ const zh: Record<string, string> = {
   "DNS consistency could not be confirmed.": "无法确认 DNS 一致性。",
 };
 
+const zhFragments: ReadonlyArray<readonly [string, string]> = [
+  ["Reputation risk is the main issue for this IP. ", "该 IP 的主要问题是声誉风险。"],
+  ["Some data sources unavailable: ", "部分数据源不可用："],
+  ["IPQS reputation data was unavailable; ", "IPQS 声誉数据不可用；"],
+  ["Scamalytics was available. ", "Scamalytics 可用。"],
+  ["Connectivity probes were partially verified.", "连通性探测已完成部分验证。"],
+];
+
 export function localizeText(locale: Locale, value: string): string {
   if (locale === "en" || !value) return value;
   if (zh[value]) return zh[value];
@@ -565,7 +580,12 @@ export function localizeText(locale: Locale, value: string): string {
     return `${localizeText(locale, compound[1])} · ${compound[2]}`;
   }
 
-  return value
+  const localizedFragments = zhFragments.reduce(
+    (text, [english, chinese]) => text.replaceAll(english, chinese),
+    value,
+  );
+
+  return localizedFragments
     .replace(
       /^Abuse history is (low|elevated|high) at (\d+)% confidence\.$/,
       (_, level, confidence) =>

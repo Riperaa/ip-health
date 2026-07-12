@@ -73,6 +73,7 @@ const coverageMatrix = {
     "Relay or multi-user access signal",
     "Infrastructure route detected",
     "No strong sharing signal detected",
+    "Limited Network Quality",
   ],
   "minor UI copy": [
     "IP Address",
@@ -108,6 +109,25 @@ const { localizeText } = await import(
 );
 
 const dynamicCases = [
+  [
+    "Reputation risk is the main issue for this IP.",
+    "该 IP 的主要问题是声誉风险。",
+  ],
+  [
+    "Some data sources unavailable: IPQS reputation data was unavailable; Scamalytics was available. Connectivity probes were partially verified.",
+    "部分数据源不可用：IPQS 声誉数据不可用；Scamalytics 可用。连通性探测已完成部分验证。",
+  ],
+  [
+    "Reputation risk is the main issue for this IP. Some data sources unavailable: IPQS reputation data was unavailable; Scamalytics was available. Connectivity probes were partially verified.",
+    "该 IP 的主要问题是声誉风险。部分数据源不可用：IPQS 声誉数据不可用；Scamalytics 可用。连通性探测已完成部分验证。",
+  ],
+  ["Some data sources unavailable:", "部分数据源不可用："],
+  ["IPQS reputation data was unavailable", "IPQS 声誉数据不可用"],
+  ["Scamalytics was available", "Scamalytics 可用"],
+  [
+    "Connectivity probes were partially verified",
+    "连通性探测已完成部分验证",
+  ],
   [
     "This is normal for public DNS, CDN, and edge services, but it is not ideal as a personal browsing or account registration IP.",
     "这类公共 DNS、CDN 和边缘服务用于服务很正常，但不适合作为个人浏览或注册账号的 IP。",

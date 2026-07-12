@@ -26,7 +26,7 @@ const paymentOptions = [
     description: "Scan the QR code below to support IP Health with Alipay.",
     image: "/sponsor/alipay.png",
     width: 1025,
-    height: 1535,
+    height: 1285,
   },
 ];
 

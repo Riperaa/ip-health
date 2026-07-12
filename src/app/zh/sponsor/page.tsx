@@ -40,7 +40,7 @@ const paymentOptions = [
     description: "扫描下方二维码，通过支付宝支持 IP Health。",
     image: "/sponsor/alipay.png",
     width: 1025,
-    height: 1535,
+    height: 1285,
   },
 ];
 

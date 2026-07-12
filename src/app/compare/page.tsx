@@ -13,7 +13,7 @@ export default function ComparePage() {
         IP Health
       </Link>
 
-      <IpCompare />
+      <IpCompare locale="en" />
       <FooterLinks />
     </main>
   );

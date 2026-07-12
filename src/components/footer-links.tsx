@@ -14,12 +14,15 @@ export function FooterLinks({ locale = "en" }: { locale?: Locale }) {
 
   return (
     <footer className="px-5 pb-6 text-center text-sm text-neutral-400">
-      <nav aria-label="Footer" className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1">
+      <nav
+        aria-label={t("Footer")}
+        className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1"
+      >
         {footerLinks.map((link, index) => (
           <span key={link.href} className="inline-flex items-center gap-x-2">
             {index > 0 ? <span aria-hidden="true">·</span> : null}
             <Link
-              href={link.href}
+              href={locale === "zh" ? `/zh${link.href}` : link.href}
               className="font-medium transition hover:text-neutral-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950"
             >
               {t(link.label)}

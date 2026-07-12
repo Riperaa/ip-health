@@ -30,10 +30,7 @@ import {
   INVALID_IP_ADDRESS_MESSAGE,
   isValidIpv4Address,
 } from "@/lib/analysis/validation";
-import {
-  getAnalysisContext,
-  trackAnalyticsEvent,
-} from "@/lib/analytics";
+import { getAnalysisContext, trackAnalyticsEvent } from "@/lib/analytics";
 import { localizeText, type Locale } from "@/lib/localization";
 
 const checkBeforeCards = [
@@ -109,104 +106,115 @@ export function IpAnalyzerContainer({ locale = "en" }: { locale?: Locale }) {
   const isAnalysisInFlight = useRef(false);
   const isQaModeRef = useRef(false);
 
-  const analyzeAddress = useCallback(async (nextIpAddress: string) => {
-    if (isAnalysisInFlight.current) {
-      return;
-    }
+  const analyzeAddress = useCallback(
+    async (nextIpAddress: string) => {
+      if (isAnalysisInFlight.current) {
+        return;
+      }
 
-    const trimmedIpAddress = nextIpAddress.trim();
+      const trimmedIpAddress = nextIpAddress.trim();
 
-    if (!trimmedIpAddress) {
-      setError(t(INVALID_IP_ADDRESS_MESSAGE));
+      if (!trimmedIpAddress) {
+        setError(t(INVALID_IP_ADDRESS_MESSAGE));
+        setAnalysisErrorIp("");
+        setAnalysisResult(getEmptyAnalysisResult(trimmedIpAddress));
+        setAnalysisStarted(false);
+        return;
+      }
+
+      if (!isValidIpv4Address(trimmedIpAddress)) {
+        setError(t(INVALID_IP_ADDRESS_MESSAGE));
+        setAnalysisErrorIp("");
+        setAnalysisResult(getEmptyAnalysisResult(trimmedIpAddress));
+        setAnalysisStarted(false);
+        return;
+      }
+
+      const isQaAnalysis = isQaModeRef.current;
+
+      isAnalysisInFlight.current = true;
+      setError("");
       setAnalysisErrorIp("");
       setAnalysisResult(getEmptyAnalysisResult(trimmedIpAddress));
-      setAnalysisStarted(false);
-      return;
-    }
+      setAnalysisStarted(true);
+      setIsAnalyzing(true);
+      setAnalysisLoadingState(initialAnalysisLoadingState);
+      trackAnalyticsEvent("analyze_started", {}, { qaMode: isQaAnalysis });
 
-    if (!isValidIpv4Address(trimmedIpAddress)) {
-      setError(t(INVALID_IP_ADDRESS_MESSAGE));
-      setAnalysisErrorIp("");
-      setAnalysisResult(getEmptyAnalysisResult(trimmedIpAddress));
-      setAnalysisStarted(false);
-      return;
-    }
+      function handleProgress(event: AnalysisProgressEvent) {
+        setAnalysisLoadingState((currentState) => {
+          if (event.status === "running") {
+            return {
+              ...currentState,
+              isComplete: false,
+            };
+          }
 
-    const isQaAnalysis = isQaModeRef.current;
+          if (event.status === "completed") {
+            return {
+              completedSteps: addUniqueStep(
+                currentState.completedSteps,
+                event.step,
+              ),
+              errorSteps: currentState.errorSteps.filter(
+                (step) => step !== event.step,
+              ),
+              isComplete: false,
+            };
+          }
 
-    isAnalysisInFlight.current = true;
-    setError("");
-    setAnalysisErrorIp("");
-    setAnalysisResult(getEmptyAnalysisResult(trimmedIpAddress));
-    setAnalysisStarted(true);
-    setIsAnalyzing(true);
-    setAnalysisLoadingState(initialAnalysisLoadingState);
-    trackAnalyticsEvent("analyze_started", {}, { qaMode: isQaAnalysis });
-
-    function handleProgress(event: AnalysisProgressEvent) {
-      setAnalysisLoadingState((currentState) => {
-        if (event.status === "running") {
           return {
-            ...currentState,
-            isComplete: false,
-          };
-        }
-
-        if (event.status === "completed") {
-          return {
-            completedSteps: addUniqueStep(
-              currentState.completedSteps,
-              event.step,
-            ),
-            errorSteps: currentState.errorSteps.filter(
+            completedSteps: currentState.completedSteps.filter(
               (step) => step !== event.step,
             ),
+            errorSteps: addUniqueStep(currentState.errorSteps, event.step),
             isComplete: false,
           };
-        }
-
-        return {
-          completedSteps: currentState.completedSteps.filter(
-            (step) => step !== event.step,
-          ),
-          errorSteps: addUniqueStep(currentState.errorSteps, event.step),
-          isComplete: false,
-        };
-      });
-    }
-
-    try {
-      const nextAnalysisResult = await buildAnalysis(trimmedIpAddress, {
-        onProgress: handleProgress,
-        qaMode: isQaAnalysis,
-      });
-
-      setAnalysisResult(nextAnalysisResult);
-      if (!isQaAnalysis) {
-        setRecentChecks(saveRecentCheck(trimmedIpAddress));
+        });
       }
-      setAnalysisLoadingState({
-        completedSteps: analysisLoadingStepIds,
-        errorSteps: [],
-        isComplete: true,
-      });
-      trackAnalyticsEvent("analyze_completed", {
-        ...getAnalysisContext(nextAnalysisResult),
-        success: true,
-      }, { qaMode: isQaAnalysis });
-      await wait(500);
-    } catch {
-      setAnalysisResult(getEmptyAnalysisResult(trimmedIpAddress));
-      setAnalysisErrorIp(trimmedIpAddress);
-      trackAnalyticsEvent("analyze_completed", {
-        ...getAnalysisContext(null),
-        success: false,
-      }, { qaMode: isQaAnalysis });
-    } finally {
-      isAnalysisInFlight.current = false;
-      setIsAnalyzing(false);
-    }
-  }, [t]);
+
+      try {
+        const nextAnalysisResult = await buildAnalysis(trimmedIpAddress, {
+          onProgress: handleProgress,
+          qaMode: isQaAnalysis,
+        });
+
+        setAnalysisResult(nextAnalysisResult);
+        if (!isQaAnalysis) {
+          setRecentChecks(saveRecentCheck(trimmedIpAddress));
+        }
+        setAnalysisLoadingState({
+          completedSteps: analysisLoadingStepIds,
+          errorSteps: [],
+          isComplete: true,
+        });
+        trackAnalyticsEvent(
+          "analyze_completed",
+          {
+            ...getAnalysisContext(nextAnalysisResult),
+            success: true,
+          },
+          { qaMode: isQaAnalysis },
+        );
+        await wait(500);
+      } catch {
+        setAnalysisResult(getEmptyAnalysisResult(trimmedIpAddress));
+        setAnalysisErrorIp(trimmedIpAddress);
+        trackAnalyticsEvent(
+          "analyze_completed",
+          {
+            ...getAnalysisContext(null),
+            success: false,
+          },
+          { qaMode: isQaAnalysis },
+        );
+      } finally {
+        isAnalysisInFlight.current = false;
+        setIsAnalyzing(false);
+      }
+    },
+    [t],
+  );
 
   const handleDetectPublicIp = useCallback(async () => {
     setError("");
@@ -309,7 +317,7 @@ export function IpAnalyzerContainer({ locale = "en" }: { locale?: Locale }) {
             {isDetecting ? t("Detecting...") : t("Auto Detect My IP")}
           </button>
           <Link
-            href="/compare"
+            href={locale === "zh" ? "/zh/compare" : "/compare"}
             className="flex h-10 items-center rounded-full border border-neutral-200 bg-white px-5 text-sm font-medium text-neutral-600 shadow-sm shadow-neutral-950/[0.03] transition hover:border-neutral-300 hover:bg-neutral-50 hover:text-neutral-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950"
           >
             {t("Compare IPs")}
@@ -328,7 +336,9 @@ export function IpAnalyzerContainer({ locale = "en" }: { locale?: Locale }) {
 
       {analysisErrorIp ? (
         <div className="w-full rounded-2xl border border-red-100 bg-red-50 p-4 text-left">
-          <p className="text-sm font-semibold text-red-700">{t("Analysis failed")}</p>
+          <p className="text-sm font-semibold text-red-700">
+            {t("Analysis failed")}
+          </p>
           <p className="mt-1 text-sm leading-6 text-red-600">
             {t("Unable to retrieve IP information.")}
             <br />

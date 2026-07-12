@@ -10,6 +10,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
+    "test:localization": "node scripts/check-localization.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },

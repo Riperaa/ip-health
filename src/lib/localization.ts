@@ -1,6 +1,29 @@
 export type Locale = "en" | "zh";
 
 const zh: Record<string, string> = {
+  Footer: "页脚导航",
+  "Better choice": "更佳选择",
+  "Compare two IP addresses side by side.": "并排比较两个 IP 地址。",
+  Compare: "开始对比",
+  "Comparing...": "正在对比…",
+  "Enter both IP addresses.": "请输入两个 IP 地址。",
+  "Unable to compare these IPs.": "无法对比这两个 IP。",
+  "IP A": "IP A",
+  "IP B": "IP B",
+  "Usage Type": "使用类型",
+  "Abuse Confidence": "滥用可信度",
+  "ISP / Organization": "ISP / 组织",
+  IP: "IP",
+  Infrastructure: "基础设施",
+  "No abuse score": "无滥用评分",
+  Elevated: "偏高",
+  Severe: "严重",
+  "Similar risk": "风险相近",
+  "Both IPs have similar risk levels.": "两个 IP 的风险水平相近。",
+  "This IP has a stronger IP Health Score profile.":
+    "该 IP 的健康评分表现更好。",
+  "This IP has moderate IP quality signals.": "该 IP 的质量信号一般。",
+  "This IP has elevated risk signals.": "该 IP 存在较高风险信号。",
   "IP address": "IP 地址",
   "QA mode: checks are not saved.": "QA 模式：检测记录不会保存。",
   "Enter an IPv4 address": "输入 IPv4 地址",
@@ -13,18 +36,22 @@ const zh: Record<string, string> = {
   "Unable to retrieve IP information.": "无法获取 IP 信息。",
   "Please try again in a moment.": "请稍后重试。",
   Retry: "重试",
-  "Unable to detect your IP. You can enter it manually.": "无法自动检测你的 IP，请手动输入。",
+  "Unable to detect your IP. You can enter it manually.":
+    "无法自动检测你的 IP，请手动输入。",
   "Invalid IP address": "请输入有效的 IPv4 地址。",
   "Recent Checks": "最近检测",
   "Saved in this browser only": "仅保存在当前浏览器中",
   "No recent checks yet.": "暂无最近检测记录。",
   "Why check your IP?": "为什么要检测 IP？",
   "Account Registration": "账号注册",
-  "Check whether your IP may trigger signup verification.": "了解当前 IP 是否可能触发注册验证。",
+  "Check whether your IP may trigger signup verification.":
+    "了解当前 IP 是否可能触发注册验证。",
   "VPN Usage": "VPN 使用",
-  "Understand whether your VPN exit IP looks trustworthy.": "判断 VPN 出口 IP 是否具有良好可信度。",
+  "Understand whether your VPN exit IP looks trustworthy.":
+    "判断 VPN 出口 IP 是否具有良好可信度。",
   "Online Security": "网络安全",
-  "See how websites may evaluate your network identity.": "了解网站可能如何判断你的网络身份。",
+  "See how websites may evaluate your network identity.":
+    "了解网站可能如何判断你的网络身份。",
   "Detecting your IP": "正在检测你的 IP",
   "Preparing IP check...": "正在准备 IP 检测…",
   "Querying AbuseIPDB": "正在查询 AbuseIPDB",
@@ -144,6 +171,122 @@ const zh: Record<string, string> = {
   High: "高",
   Medium: "中",
   Low: "低",
+  Good: "良好",
+  Fair: "一般",
+  Poor: "较差",
+  Partial: "部分可用",
+  Clean: "良好",
+  Review: "需复核",
+  Strong: "强",
+  Weak: "弱",
+  Detected: "已检测",
+  "Not detected": "未检测到",
+  Healthy: "健康",
+  Risky: "高风险",
+  Restricted: "受限",
+  Verified: "已验证",
+  "Not Verified": "未验证",
+  Recommended: "推荐使用",
+  "Not Recommended": "不推荐使用",
+  "Use with Caution": "谨慎使用",
+  "High Risk": "高风险",
+  "High Risk Signals": "高风险信号",
+  "High Reputation Risk": "高声誉风险",
+  "High Network Risk": "高网络风险",
+  "High Quality IP": "高质量 IP",
+  "Good Reputation": "声誉良好",
+  "Low Risk": "低风险",
+  "Medium Risk": "中等风险",
+  Residential: "住宅网络",
+  "Enterprise network": "企业网络",
+  "Public edge infrastructure": "公共边缘基础设施",
+  "Public or edge infrastructure": "公共或边缘基础设施",
+  "Strong VPN/proxy signal confirmed": "已确认强 VPN/代理信号",
+  "Network appears to be hosting or infrastructure.":
+    "网络表现为托管服务或基础设施。",
+  "Network ownership appears to be hosting or infrastructure.":
+    "网络归属表现为托管服务或基础设施。",
+  "No VPN, proxy, Tor, or relay detected.": "未检测到 VPN、代理、Tor 或中继。",
+  "No abuse database score was returned for this IP.":
+    "滥用数据库未返回该 IP 的评分。",
+  "IP not found in recent abuse reports.": "近期滥用报告中未发现该 IP。",
+  "Connectivity probes completed.": "连通性探测已完成。",
+  "Connectivity probes were unavailable.": "连通性探测不可用。",
+  "Connectivity probes were partially verified.": "连通性探测仅得到部分验证。",
+  "Abuse history data was unavailable.": "滥用历史数据不可用。",
+  "AbuseIPDB abuse history was unavailable.": "AbuseIPDB 滥用历史数据不可用。",
+  "IPInfo network data was unavailable.": "IPInfo 网络数据不可用。",
+  "IPInfo ownership data is incomplete.": "IPInfo 归属数据不完整。",
+  "IPInfo ownership data was incomplete.": "IPInfo 归属数据不完整。",
+  "Cloudflare trace data was unavailable.": "Cloudflare Trace 数据不可用。",
+  "Important reputation providers were unavailable.":
+    "重要声誉数据提供方不可用。",
+  "Provider reputation data shows low to moderate review signals.":
+    "声誉数据提供方显示轻度至中度复核信号。",
+  "Clean reputation signals, limited confidence": "声誉信号良好，但可信度有限",
+  "Clean reputation signals, but confidence is limited because IPQS data was unavailable.":
+    "声誉信号良好，但由于 IPQS 数据不可用，可信度有限。",
+  "Compatibility needs review before sensitive use.":
+    "用于敏感场景前需要复核兼容性。",
+  "Restricted Compatibility": "兼容性受限",
+  "Strong Compatibility": "兼容性良好",
+  "No browser connectivity probe data is available for this report.":
+    "本报告暂无浏览器连通性探测数据。",
+  "One or more service checks indicate regional or policy restrictions.":
+    "一项或多项服务检测显示存在区域或策略限制。",
+  "Mobile network detected. This IP appears to belong to a cellular carrier.":
+    "检测到移动网络。该 IP 可能属于移动通信运营商。",
+  "VPN or proxy network detected. Traffic may pass through a privacy or access service.":
+    "检测到 VPN 或代理网络。流量可能经过隐私或接入服务。",
+  "Tor exit network detected. Traffic exits through the Tor anonymity network.":
+    "检测到 Tor 出口网络。流量通过 Tor 匿名网络离开。",
+  "IPInfo privacy data marks this IP as Tor exit traffic.":
+    "IPInfo 隐私数据将该 IP 标记为 Tor 出口流量。",
+  "IPInfo privacy data marks this IP as VPN, proxy, or relay traffic.":
+    "IPInfo 隐私数据将该 IP 标记为 VPN、代理或中继流量。",
+  "IPQS marks this IP as Tor exit traffic.":
+    "IPQS 将该 IP 标记为 Tor 出口流量。",
+  "IPQS marks this IP as VPN or proxy traffic.":
+    "IPQS 将该 IP 标记为 VPN 或代理流量。",
+  "Provider data includes residential broadband ownership signals.":
+    "数据提供方包含住宅宽带归属信号。",
+  "Provider usage data identifies this IP as residential.":
+    "数据提供方的使用类型数据将该 IP 识别为住宅网络。",
+  "Provider usage data identifies this IP as mobile.":
+    "数据提供方的使用类型数据将该 IP 识别为移动网络。",
+  "ISP ownership signals suggest a residential broadband network.":
+    "ISP 归属信号表明这是住宅宽带网络。",
+  "Hosting or infrastructure signals were present, but a specific provider family was not identified.":
+    "检测到托管或基础设施信号，但未识别出具体提供商类别。",
+  "This IP appears less likely to be heavily shared.":
+    "该 IP 被大量共享的可能性较低。",
+  "Traffic may come from shared infrastructure rather than a single household or personal device.":
+    "流量可能来自共享基础设施，而非单个家庭或个人设备。",
+  "VPN or proxy infrastructure is commonly shared by many users or services.":
+    "VPN 或代理基础设施通常由多个用户或服务共享。",
+  "Tor exit traffic is high risk and is not recommended for account registration, verification, banking, payments, or sensitive login.":
+    "Tor 出口流量风险较高，不建议用于账号注册、身份验证、银行、支付或敏感登录。",
+  "This appears to be a normal access network. Minor review signals may still require extra checks on stricter platforms.":
+    "这看起来是普通接入网络。轻微复核信号仍可能在风控较严格的平台触发额外检查。",
+  "This appears to be a normal access network. Some checks may require review, but no strong sharing signal is confirmed.":
+    "这看起来是普通接入网络。部分检测可能需要复核，但尚未确认强共享信号。",
+  "Cloudflare WARP is active for this connection.":
+    "此连接已启用 Cloudflare WARP。",
+  "Cloudflare did not report WARP on this connection.":
+    "Cloudflare 未报告此连接启用了 WARP。",
+  "Cloudflare and IPinfo identify the same IP.":
+    "Cloudflare 与 IPinfo 识别到相同的 IP。",
+  "Cloudflare and IPinfo identify different IPs.":
+    "Cloudflare 与 IPinfo 识别到不同的 IP。",
+  "Unable to compare Cloudflare and IPinfo views.":
+    "无法比较 Cloudflare 与 IPinfo 的检测结果。",
+  Consistent: "一致",
+  Consistency: "一致性",
+  "Real IP": "真实 IP",
+  "VPN/WARP": "VPN/WARP",
+  "WARP on": "WARP 已开启",
+  "WARP status was not returned.": "未返回 WARP 状态。",
+  "Cloudflare network view.": "Cloudflare 网络视图。",
   "High quality IP": "高质量 IP",
   "Review dimensions": "部分维度需复核",
   "High risk signals": "发现高风险信号",
@@ -152,37 +295,57 @@ const zh: Record<string, string> = {
   "Strong overall IP quality signals.": "整体 IP 质量信号良好。",
   "Some signals may require verification.": "部分信号可能需要进一步验证。",
   "Sensitive services may restrict this IP.": "敏感服务可能会限制此 IP。",
-  "Insufficient evidence for a high-confidence verdict.": "现有证据不足以做出高可信度判断。",
-  "Good available signals with some data sources unavailable.": "现有信号良好，但部分数据源不可用。",
-  "Insufficient evidence for a high-confidence assessment. Important data sources were unavailable: IPQS reputation data was unavailable; Scamalytics was available. Connectivity probes were partially verified.": "证据不足，无法做出高可信度评估。部分重要数据源不可用：IPQS 声誉数据不可用；Scamalytics 可用。连通性探测仅得到部分验证。",
-  "Important data sources were unavailable: IPQS reputation data was unavailable; Scamalytics was available. Connectivity probes were partially verified.": "部分重要数据源不可用：IPQS 声誉数据不可用；Scamalytics 可用。连通性探测仅得到部分验证。",
+  "Insufficient evidence for a high-confidence verdict.":
+    "现有证据不足以做出高可信度判断。",
+  "Good available signals with some data sources unavailable.":
+    "现有信号良好，但部分数据源不可用。",
+  "Insufficient evidence for a high-confidence assessment. Important data sources were unavailable: IPQS reputation data was unavailable; Scamalytics was available. Connectivity probes were partially verified.":
+    "证据不足，无法做出高可信度评估。部分重要数据源不可用：IPQS 声誉数据不可用；Scamalytics 可用。连通性探测仅得到部分验证。",
+  "Important data sources were unavailable: IPQS reputation data was unavailable; Scamalytics was available. Connectivity probes were partially verified.":
+    "部分重要数据源不可用：IPQS 声誉数据不可用；Scamalytics 可用。连通性探测仅得到部分验证。",
   "Clean Signals, Limited Evidence": "信号良好，但证据有限",
   "Strong Network Quality": "网络质量良好",
   "Moderate Compatibility": "兼容性一般",
   "Clean IP history": "IP 历史记录良好",
-  "No abuse history or high reputation provider risk was reported.": "未发现滥用记录，声誉数据提供方也未报告高风险。",
-  "IPQS reputation data was unavailable; Scamalytics was available.": "IPQS 声誉数据不可用；Scamalytics 可用。",
+  "No abuse history or high reputation provider risk was reported.":
+    "未发现滥用记录，声誉数据提供方也未报告高风险。",
+  "IPQS reputation data was unavailable; Scamalytics was available.":
+    "IPQS 声誉数据不可用；Scamalytics 可用。",
   "Network type not fully identified": "网络类型尚未完全识别",
-  "Provider data did not clearly identify a residential or infrastructure network.": "数据提供方未能明确判断该 IP 属于住宅网络还是基础设施网络。",
+  "Provider data did not clearly identify a residential or infrastructure network.":
+    "数据提供方未能明确判断该 IP 属于住宅网络还是基础设施网络。",
   "IPInfo network ownership data is available.": "IPInfo 网络归属数据可用。",
   "Connectivity not fully verified": "连通性尚未完全验证",
-  "Browser probes ran, but reachability could not be fully confirmed.": "浏览器探测已完成，但无法完整确认可访问性。",
-  "Some connectivity probes could not be fully verified.": "部分连通性探测无法完整验证。",
-  "Public infrastructure detected. This IP appears to support DNS, CDN, edge, or other internet services.": "检测到公共基础设施。此 IP 可能用于 DNS、CDN、边缘节点或其他互联网服务。",
-  "IP matches Google Public DNS infrastructure.": "此 IP 与 Google Public DNS 基础设施匹配。",
-  "Public DNS, CDN, and edge infrastructure is normal for services, but it is not ideal as a personal browsing or account registration IP.": "公共 DNS、CDN 和边缘基础设施用于服务很正常，但不适合作为个人浏览或注册账号的 IP。",
+  "Browser probes ran, but reachability could not be fully confirmed.":
+    "浏览器探测已完成，但无法完整确认可访问性。",
+  "Some connectivity probes could not be fully verified.":
+    "部分连通性探测无法完整验证。",
+  "Public infrastructure detected. This IP appears to support DNS, CDN, edge, or other internet services.":
+    "检测到公共基础设施。此 IP 可能用于 DNS、CDN、边缘节点或其他互联网服务。",
+  "IP matches Google Public DNS infrastructure.":
+    "此 IP 与 Google Public DNS 基础设施匹配。",
+  "Public DNS, CDN, and edge infrastructure is normal for services, but it is not ideal as a personal browsing or account registration IP.":
+    "公共 DNS、CDN 和边缘基础设施用于服务很正常，但不适合作为个人浏览或注册账号的 IP。",
   "Managed infrastructure pattern": "托管基础设施特征",
   "IP mismatch": "IP 信息不一致",
   "None detected": "未发现",
-  "This is normal for public DNS, CDN, and edge infrastructure, but it is not ideal as a personal browsing or account registration IP.": "这类公共 DNS、CDN 和边缘基础设施用于服务很正常，但不适合作为个人浏览或注册账号的 IP。",
-  "ASN, IPInfo, IPQS, Scamalytics, ipapi.is, connectivity, and Cloudflare": "ASN、IPInfo、IPQS、Scamalytics、ipapi.is、连通性与 Cloudflare",
-  "IP Health provides reputation-based guidance only. Services may also consider account history, device signals, payment method, browser fingerprint, and behavior.": "IP Health 仅提供基于声誉数据的参考建议。服务平台还可能综合账号历史、设备信号、支付方式、浏览器指纹和行为等因素。",
+  "This is normal for public DNS, CDN, and edge infrastructure, but it is not ideal as a personal browsing or account registration IP.":
+    "这类公共 DNS、CDN 和边缘基础设施用于服务很正常，但不适合作为个人浏览或注册账号的 IP。",
+  "ASN, IPInfo, IPQS, Scamalytics, ipapi.is, connectivity, and Cloudflare":
+    "ASN、IPInfo、IPQS、Scamalytics、ipapi.is、连通性与 Cloudflare",
+  "IP Health provides reputation-based guidance only. Services may also consider account history, device signals, payment method, browser fingerprint, and behavior.":
+    "IP Health 仅提供基于声誉数据的参考建议。服务平台还可能综合账号历史、设备信号、支付方式、浏览器指纹和行为等因素。",
   "Residential ISP detected": "检测到住宅宽带",
-  "Network ownership looks like a normal consumer ISP or mobile network.": "网络归属表现为普通消费级 ISP 或移动网络。",
-  "Residential ISP detected. This IP appears to belong to a consumer broadband provider.": "检测到住宅宽带。此 IP 可能属于面向消费者的宽带提供商。",
-  "This looks like a normal access network and is less likely to be heavily shared.": "这看起来是普通接入网络，被大量用户共享的可能性较低。",
-  "No strong privacy or infrastructure signal": "未发现明显的匿名网络或基础设施信号",
-  "This looks suitable for normal browsing and account use when reputation is clean. Minor review signals may still trigger extra checks on stricter platforms.": "在 IP 声誉良好时，适合日常浏览和账号使用。轻微复核信号仍可能在风控较严格的平台触发额外检查。",
+  "Network ownership looks like a normal consumer ISP or mobile network.":
+    "网络归属表现为普通消费级 ISP 或移动网络。",
+  "Residential ISP detected. This IP appears to belong to a consumer broadband provider.":
+    "检测到住宅宽带。此 IP 可能属于面向消费者的宽带提供商。",
+  "This looks like a normal access network and is less likely to be heavily shared.":
+    "这看起来是普通接入网络，被大量用户共享的可能性较低。",
+  "No strong privacy or infrastructure signal":
+    "未发现明显的匿名网络或基础设施信号",
+  "This looks suitable for normal browsing and account use when reputation is clean. Minor review signals may still trigger extra checks on stricter platforms.":
+    "在 IP 声誉良好时，适合日常浏览和账号使用。轻微复核信号仍可能在风控较严格的平台触发额外检查。",
   "IPQualityScore data is unavailable.": "IPQualityScore 数据不可用。",
   "Scamalytics data is unavailable.": "Scamalytics 数据不可用。",
   "ipapi.is data is unavailable.": "ipapi.is 数据不可用。",
@@ -194,21 +357,32 @@ const zh: Record<string, string> = {
   "VPN or proxy network detected": "检测到 VPN 或代理网络",
   "Cloud or hosting infrastructure detected": "检测到云端或托管基础设施",
   "Enterprise network detected": "检测到企业网络",
-  "Enterprise network detected. This IP belongs to an organization-operated network.": "检测到企业网络。该 IP 属于由组织运营的网络。",
-  "Enterprise networks are often clean, but some platforms may apply extra checks because traffic comes from a large organization or shared corporate network.": "企业网络通常具有良好声誉，但由于流量来自大型组织或共享的公司网络，部分平台可能会进行额外检查。",
-  "Enterprise networks are often clean, but platforms may apply extra checks because traffic comes from a large organization or shared corporate network.": "企业网络通常具有良好声誉，但由于流量来自大型组织或共享的公司网络，平台可能会进行额外检查。",
-  "Enterprise networks are often clean, but some platforms may apply extra checks to large organization or shared corporate traffic.": "企业网络通常具有良好声誉，但部分平台可能会对大型组织或共享公司网络的流量进行额外检查。",
+  "Enterprise network detected. This IP belongs to an organization-operated network.":
+    "检测到企业网络。该 IP 属于由组织运营的网络。",
+  "Enterprise networks are often clean, but some platforms may apply extra checks because traffic comes from a large organization or shared corporate network.":
+    "企业网络通常具有良好声誉，但由于流量来自大型组织或共享的公司网络，部分平台可能会进行额外检查。",
+  "Enterprise networks are often clean, but platforms may apply extra checks because traffic comes from a large organization or shared corporate network.":
+    "企业网络通常具有良好声誉，但由于流量来自大型组织或共享的公司网络，平台可能会进行额外检查。",
+  "Enterprise networks are often clean, but some platforms may apply extra checks to large organization or shared corporate traffic.":
+    "企业网络通常具有良好声誉，但部分平台可能会对大型组织或共享公司网络的流量进行额外检查。",
   "Medium Network Quality": "中等网络质量",
-  "Reputation may be clean, but many platforms treat hosted infrastructure as less trustworthy than residential ISP traffic.": "该 IP 的声誉可能良好，但许多平台对托管基础设施的信任度通常低于住宅宽带流量。",
-  "Cloud infrastructure detected. Often treated differently from residential ISP traffic.": "检测到云基础设施。此类流量通常会被平台区别于住宅宽带流量对待。",
-  "Datacenter infrastructure detected. Often treated differently from residential ISP traffic.": "检测到数据中心基础设施。此类流量通常会被平台区别于住宅宽带流量对待。",
+  "Reputation may be clean, but many platforms treat hosted infrastructure as less trustworthy than residential ISP traffic.":
+    "该 IP 的声誉可能良好，但许多平台对托管基础设施的信任度通常低于住宅宽带流量。",
+  "Cloud infrastructure detected. Often treated differently from residential ISP traffic.":
+    "检测到云基础设施。此类流量通常会被平台区别于住宅宽带流量对待。",
+  "Datacenter infrastructure detected. Often treated differently from residential ISP traffic.":
+    "检测到数据中心基础设施。此类流量通常会被平台区别于住宅宽带流量对待。",
   "Hosted infrastructure review signal": "托管基础设施复核信号",
-  "ipapi.is reported datacenter or hosting evidence.": "ipapi.is 报告了数据中心或托管基础设施证据。",
-  "No hosting infrastructure signal was detected.": "未检测到托管基础设施信号。",
-  "Mismatch signals suggest traffic may be relayed or shared across infrastructure.": "不一致信号表明流量可能经过中转，或在基础设施中被多个用户共享。",
+  "ipapi.is reported datacenter or hosting evidence.":
+    "ipapi.is 报告了数据中心或托管基础设施证据。",
+  "No hosting infrastructure signal was detected.":
+    "未检测到托管基础设施信号。",
+  "Mismatch signals suggest traffic may be relayed or shared across infrastructure.":
+    "不一致信号表明流量可能经过中转，或在基础设施中被多个用户共享。",
   "Shared infrastructure pattern": "共享基础设施特征",
   "Network mismatch signal": "网络信息不一致信号",
-  "Reputation may be clean, but many platforms treat hosted infrastructure as less trustworthy than residential ISP traffic. Use extra caution for account registration, verification, banking, payments, and sensitive login.": "该 IP 的声誉可能良好，但许多平台对托管基础设施的信任度通常低于住宅宽带流量。用于账号注册、身份验证、银行、支付或敏感登录时应格外谨慎。",
+  "Reputation may be clean, but many platforms treat hosted infrastructure as less trustworthy than residential ISP traffic. Use extra caution for account registration, verification, banking, payments, and sensitive login.":
+    "该 IP 的声誉可能良好，但许多平台对托管基础设施的信任度通常低于住宅宽带流量。用于账号注册、身份验证、银行、支付或敏感登录时应格外谨慎。",
   "Public infrastructure detected": "检测到公共基础设施",
   "Minor network review signals": "轻微网络复核信号",
   "Enterprise network review signals": "企业网络复核信号",
@@ -223,12 +397,16 @@ const zh: Record<string, string> = {
   Sponsor: "支持项目",
   "Reputation Needs Review": "IP 声誉需要复核",
   "High reputation risk detected": "检测到较高声誉风险",
-  "Abuse history or reputation provider data raised a strong signal.": "滥用记录或声誉数据提供方报告了强风险信号。",
-  "Network identity could not be confidently determined.": "无法可靠判断网络身份。",
-  "Sharing level could not be confidently determined.": "无法可靠判断网络共享程度。",
+  "Abuse history or reputation provider data raised a strong signal.":
+    "滥用记录或声誉数据提供方报告了强风险信号。",
+  "Network identity could not be confidently determined.":
+    "无法可靠判断网络身份。",
+  "Sharing level could not be confidently determined.":
+    "无法可靠判断网络共享程度。",
   "Network identity unknown": "网络身份未知",
   "Provider data limited": "数据提供方信息有限",
-  "High risk: severe abuse history was reported, so this IP is not recommended for account registration, verification, banking, payments, or sensitive login.": "高风险：检测到严重滥用记录，不建议将此 IP 用于账号注册、身份验证、银行、支付或敏感登录。",
+  "High risk: severe abuse history was reported, so this IP is not recommended for account registration, verification, banking, payments, or sensitive login.":
+    "高风险：检测到严重滥用记录，不建议将此 IP 用于账号注册、身份验证、银行、支付或敏感登录。",
   "Clean IP reputation": "IP 声誉良好",
   "Normal network path": "网络路径正常",
   "Strong compatibility": "兼容性良好",
@@ -243,34 +421,141 @@ const zh: Record<string, string> = {
   "Tor exit signal detected": "检测到 Tor 出口节点信号",
   "Reputation risk signal": "声誉风险信号",
   "Connectivity signal detected": "检测到连通性风险信号",
-  "Tor exit traffic is high risk for registration, verification, banking, payments, and sensitive login.": "Tor 出口流量在注册、身份验证、银行、支付及敏感登录场景中通常属于高风险信号。",
-  "Some checks may require review, but this is not a strong privacy-network signal by itself.": "部分检测可能需要复核，但这一信号本身并不代表强匿名网络风险。",
-  "Large organization and shared corporate networks can receive extra checks on some platforms.": "大型组织或企业共享网络在部分平台上可能触发额外验证。",
-  "Normal for services and edge networks, but not ideal as a personal browsing or account registration IP.": "这类网络用于服务或边缘节点很正常，但不适合作为个人浏览或注册账号的 IP。",
-  "Some platforms add review steps for shared cloud hosting IP ranges.": "部分平台会对共享云托管 IP 段增加复核步骤。",
-  "Many platforms treat hosted infrastructure as less trustworthy than residential ISP traffic.": "许多平台对托管基础设施 IP 的信任度低于住宅宽带 IP。",
-  "Some services may request additional verification.": "部分服务可能要求额外验证。",
-  "Provider reputation data reported elevated risk.": "声誉数据提供方报告了较高风险。",
-  "Some services may be harder to access from this network path.": "通过当前网络路径访问部分服务可能更困难。",
+  "Tor exit traffic is high risk for registration, verification, banking, payments, and sensitive login.":
+    "Tor 出口流量在注册、身份验证、银行、支付及敏感登录场景中通常属于高风险信号。",
+  "Some checks may require review, but this is not a strong privacy-network signal by itself.":
+    "部分检测可能需要复核，但这一信号本身并不代表强匿名网络风险。",
+  "Large organization and shared corporate networks can receive extra checks on some platforms.":
+    "大型组织或企业共享网络在部分平台上可能触发额外验证。",
+  "Normal for services and edge networks, but not ideal as a personal browsing or account registration IP.":
+    "这类网络用于服务或边缘节点很正常，但不适合作为个人浏览或注册账号的 IP。",
+  "Some platforms add review steps for shared cloud hosting IP ranges.":
+    "部分平台会对共享云托管 IP 段增加复核步骤。",
+  "Many platforms treat hosted infrastructure as less trustworthy than residential ISP traffic.":
+    "许多平台对托管基础设施 IP 的信任度低于住宅宽带 IP。",
+  "Some services may request additional verification.":
+    "部分服务可能要求额外验证。",
+  "Provider reputation data reported elevated risk.":
+    "声誉数据提供方报告了较高风险。",
+  "Some services may be harder to access from this network path.":
+    "通过当前网络路径访问部分服务可能更困难。",
 };
 
 export function localizeText(locale: Locale, value: string): string {
   if (locale === "en" || !value) return value;
   if (zh[value]) return zh[value];
 
+  const compound = value.match(/^(.+?) · (.+)$/);
+  if (compound) {
+    return `${localizeText(locale, compound[1])} · ${compound[2]}`;
+  }
+
   return value
-    .replace(/^Confidence: (.+)$/, (_, level) => `可信度：${zh[level] ?? level}`)
+    .replace(
+      /^Confidence: (.+)$/,
+      (_, level) => `可信度：${zh[level] ?? level}`,
+    )
     .replace(/^Abuse history: (.+)$/, "滥用记录：$1")
     .replace(/^Low IPQS risk score (.+)$/, "IPQS 风险评分较低：$1")
     .replace(/^IPQS risk score: (.+)$/, "IPQS 风险评分：$1")
-    .replace(/^Provider data identifies (.+) as a residential ISP\.$/, "数据提供方将 $1 识别为住宅宽带 ISP。")
+    .replace(
+      /^Provider data identifies (.+) as a residential ISP\.$/,
+      "数据提供方将 $1 识别为住宅宽带 ISP。",
+    )
+    .replace(
+      /^Provider data identifies (.+) as a mobile network\.$/,
+      "数据提供方将 $1 识别为移动网络。",
+    )
     .replace(/^ASN belongs to (.+) infrastructure\.$/, "ASN 属于 $1 基础设施。")
-    .replace(/^ASN belongs to (.+) public internet infrastructure\.$/, "ASN 属于 $1 公共互联网基础设施。")
-    .replace(/^IPQualityScore reports (\d+)\/100 reputation risk\.$/, "IPQualityScore 报告的声誉风险评分为 $1/100。")
-    .replace(/^Scamalytics reports (\d+)\/100 reputation risk\.$/, "Scamalytics 报告的声誉风险评分为 $1/100。")
-    .replace(/^(\d+) of (\d+) browser probes were unreachable\.$/, "$2 项浏览器探测中有 $1 项无法访问。")
-    .replace(/^(\d+) probes were verified reachable and (\d+) could not be fully verified by the browser\.$/, "已确认 $1 项可访问，另有 $2 项无法由浏览器完整验证。")
-    .replace(/Service compatibility probability is (\d+)%\./, "服务兼容概率为 $1%。");
+    .replace(
+      /^ASN belongs to (.+) public internet infrastructure\.$/,
+      "ASN 属于 $1 公共互联网基础设施。",
+    )
+    .replace(
+      /^IPQualityScore reports (\d+)\/100 reputation risk\.$/,
+      "IPQualityScore 报告的声誉风险评分为 $1/100。",
+    )
+    .replace(
+      /^Scamalytics reports (\d+)\/100 reputation risk\.$/,
+      "Scamalytics 报告的声誉风险评分为 $1/100。",
+    )
+    .replace(
+      /^(\d+) of (\d+) browser probes were unreachable\.$/,
+      "$2 项浏览器探测中有 $1 项无法访问。",
+    )
+    .replace(
+      /^(\d+) probes were verified reachable and (\d+) could not be fully verified by the browser\.$/,
+      "已确认 $1 项可访问，另有 $2 项无法由浏览器完整验证。",
+    )
+    .replace(
+      /Service compatibility probability is (\d+)%\./,
+      "服务兼容概率为 $1%。",
+    )
+    .replace(
+      /^Why this IP received a (\d+)\/100 IP Health Score\.$/,
+      "该 IP 获得 $1/100 健康评分的原因。",
+    )
+    .replace(
+      /^This IP has an IP quality score of (\d+)\/100, with no major reputation or abuse signals detected\.$/,
+      "该 IP 的质量评分为 $1/100，未检测到明显的声誉或滥用信号。",
+    )
+    .replace(
+      /^AbuseIPDB reports a high abuse confidence of (\d+)%\.$/,
+      "AbuseIPDB 报告的滥用可信度较高，为 $1%。",
+    )
+    .replace(
+      /^AbuseIPDB reports an elevated abuse confidence of (\d+)%\.$/,
+      "AbuseIPDB 报告的滥用可信度有所升高，为 $1%。",
+    )
+    .replace(
+      /^AbuseIPDB abuse confidence is (\d+)%\.$/,
+      "AbuseIPDB 滥用可信度为 $1%。",
+    )
+    .replace(
+      /^The usage type is (.+), which is commonly associated with hosting or infrastructure networks\.$/,
+      "使用类型为 $1，通常与托管服务或基础设施网络相关。",
+    )
+    .replace(/^The usage type is (.+)\.$/, "使用类型为 $1。")
+    .replace(
+      /^Detected privacy or infrastructure signals: (.+)\.$/,
+      "检测到隐私或基础设施信号：$1。",
+    )
+    .replace(
+      /^IPQS fraud score is (\d+) \((?:high|elevated) risk\)$/,
+      "IPQS 风险评分为 $1（需重点复核）",
+    )
+    .replace(/^IPQS fraud score is (\d+)$/, "IPQS 风险评分为 $1")
+    .replace(
+      /^AbuseIPDB confidence is (\d+)% \((?:high|elevated) risk\)$/,
+      "AbuseIPDB 可信度为 $1%（需重点复核）",
+    )
+    .replace(/^AbuseIPDB confidence is (\d+)%$/, "AbuseIPDB 可信度为 $1%")
+    .replace(/^AbuseIPDB ISP: (.+)$/, "AbuseIPDB ISP：$1")
+    .replace(/^AbuseIPDB domain: (.+)$/, "AbuseIPDB 域名：$1")
+    .replace(
+      /^(IP [AB]) avoids stronger abuse or Tor signals on the other IP\.$/,
+      "$1 避开了另一个 IP 上更强的滥用或 Tor 信号。",
+    )
+    .replace(
+      /^(IP [AB]) has fewer infrastructure signals and a cleaner usage profile\.$/,
+      "$1 的基础设施信号更少，使用类型更干净。",
+    )
+    .replace(
+      /^(IP [AB]) has a higher IP Health Score and lower abuse confidence\.$/,
+      "$1 的 IP 健康评分更高，滥用可信度更低。",
+    )
+    .replace(
+      /^(IP [AB]) has a higher IP Health Score\.$/,
+      "$1 的 IP 健康评分更高。",
+    )
+    .replace(
+      /^(IP [AB]) has lower abuse confidence\.$/,
+      "$1 的滥用可信度更低。",
+    )
+    .replace(
+      /^(IP [AB]) has the stronger overall comparison signals\.$/,
+      "$1 的综合对比信号更好。",
+    );
 }
 
 export function messages(locale: Locale) {

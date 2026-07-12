@@ -1,8 +1,16 @@
+import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 
 import { FooterLinks } from "@/components/footer-links";
 import { LanguageSwitcher } from "@/components/language-switcher";
+
+export const metadata: Metadata = {
+  alternates: {
+    canonical: "/sponsor",
+    languages: { en: "/sponsor", "zh-CN": "/zh/sponsor" },
+  },
+};
 
 const paymentOptions = [
   {

@@ -79,26 +79,26 @@ export default function ChineseSponsorPage() {
             支持方式
           </h2>
 
-          <div className="mt-6 grid items-start gap-5 md:grid-cols-2">
+          <div className="mt-6 grid gap-5 md:grid-cols-2">
             {paymentOptions.map((option) => (
               <article
                 key={option.name}
-                className="surface-card rounded-[28px] border bg-white p-5 text-center sm:p-6"
+                className="surface-card sponsor-payment-card rounded-[28px] border bg-white text-center"
               >
                 <h3 className="text-xl font-semibold text-neutral-950">
                   {option.name}
                 </h3>
-                <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-neutral-500">
+                <p className="mx-auto mt-[10px] max-w-sm text-sm leading-6 text-neutral-500">
                   {option.description}
                 </p>
-                <div className="mt-5 flex justify-center">
+                <div className="sponsor-qr-display overflow-hidden rounded-2xl border border-neutral-200 bg-white">
                   <Image
                     src={option.image}
                     alt={`${option.name}收款二维码`}
                     width={option.width}
                     height={option.height}
-                    className="h-auto w-full max-w-[280px] rounded-2xl border border-neutral-200 bg-white"
-                    sizes="(max-width: 767px) min(280px, calc(100vw - 80px)), 280px"
+                    className="block"
+                    sizes="(max-width: 767px) min(280px, calc(100vw - 80px)), 320px"
                   />
                 </div>
               </article>
@@ -108,7 +108,7 @@ export default function ChineseSponsorPage() {
 
         <div className="mt-5 grid gap-5 md:grid-cols-2">
           <section
-            className="rounded-[28px] border border-neutral-200 bg-neutral-50/70 p-6"
+            className="sponsor-lower-card rounded-[28px] border border-neutral-200 bg-neutral-50/70"
             aria-labelledby="international-support-zh"
           >
             <h2
@@ -132,7 +132,7 @@ export default function ChineseSponsorPage() {
           </section>
 
           <section
-            className="rounded-[28px] border border-neutral-200 bg-neutral-50/70 p-6"
+            className="sponsor-lower-card rounded-[28px] border border-neutral-200 bg-neutral-50/70"
             aria-labelledby="important-note-zh"
           >
             <h2

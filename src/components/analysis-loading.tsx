@@ -6,6 +6,7 @@ import type {
   AnalysisProgressStepId,
   AnalysisProgressStepStatus,
 } from "@/lib/analysis";
+import { messages, type Locale } from "@/lib/localization";
 
 type LoadingStepDefinition = {
   id: AnalysisProgressStepId;
@@ -65,6 +66,7 @@ type AnalysisLoadingProps = {
   completedSteps: readonly AnalysisProgressStepId[];
   errorSteps: readonly AnalysisProgressStepId[];
   isComplete: boolean;
+  locale?: Locale;
 };
 
 type LoadingStepProps = {
@@ -223,7 +225,9 @@ export function AnalysisLoading({
   completedSteps,
   errorSteps,
   isComplete,
+  locale = "en",
 }: AnalysisLoadingProps) {
+  const t = messages(locale);
   const completedStepSet = useMemo(
     () => new Set(completedSteps),
     [completedSteps],
@@ -247,8 +251,8 @@ export function AnalysisLoading({
         ),
       );
   const statusMessage = isComplete
-    ? "Analysis complete. Preparing your report..."
-    : activeStep?.status ?? "Finishing analysis...";
+    ? t("Analysis complete. Preparing your report...")
+    : t(activeStep?.status ?? "Finishing analysis...");
 
   function getStepStatus(
     stepId: AnalysisProgressStepId,
@@ -272,7 +276,7 @@ export function AnalysisLoading({
 
           <div className="min-w-0 flex-1">
             <h2 className="text-base font-semibold tracking-normal text-neutral-950">
-              {isComplete ? "Analysis complete" : "Analyzing your IP..."}
+              {isComplete ? t("Analysis complete") : t("Analyzing your IP...")}
             </h2>
             <p className="mt-1 text-sm leading-6 text-neutral-500">
               Checking reputation and network identity.
@@ -289,7 +293,7 @@ export function AnalysisLoading({
           {ANALYSIS_LOADING_STEPS.map((step) => (
             <LoadingStep
               key={step.id}
-              label={step.label}
+              label={t(step.label)}
               status={getStepStatus(step.id)}
             />
           ))}

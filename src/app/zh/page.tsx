@@ -53,7 +53,7 @@ export default function ChineseHome() {
             你可以在使用某个 IP 注册、登录、支付、远程办公或业务操作前，先了解它可能带来的风控风险。
           </p>
 
-          <IpAnalyzerContainer />
+          <IpAnalyzerContainer locale="zh" />
         </div>
       </section>
 

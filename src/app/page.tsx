@@ -29,7 +29,7 @@ export default function Home() {
             Check IP reputation and risk signals before logging in.
           </p>
 
-          <IpAnalyzerContainer />
+          <IpAnalyzerContainer locale="en" />
         </div>
       </section>
 

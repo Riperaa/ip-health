@@ -8,6 +8,7 @@ import {
   type FeedbackReason,
   trackAnalyticsEvent,
 } from "@/lib/analytics";
+import { messages, type Locale } from "@/lib/localization";
 
 const negativeReasons: FeedbackReason[] = [
   "Wrong IP type",
@@ -22,10 +23,13 @@ type FeedbackState = "idle" | "helpful" | "not-helpful";
 export function ResultFeedback({
   context,
   isQaMode = false,
+  locale = "en",
 }: {
   context: AnalysisContext;
   isQaMode?: boolean;
+  locale?: Locale;
 }) {
+  const t = messages(locale);
   const [feedbackState, setFeedbackState] =
     useState<FeedbackState>("idle");
   const [selectedReason, setSelectedReason] =
@@ -61,11 +65,11 @@ export function ResultFeedback({
   return (
     <section className="surface-card-soft w-full rounded-[24px] border bg-white p-5 text-left">
       <p className="text-sm font-semibold text-neutral-950">
-        Was this result useful?
+        {t("Was this result useful?")}
       </p>
       {isQaMode ? (
         <p className="mt-1 text-sm text-neutral-500">
-          Feedback is disabled in QA mode.
+          {t("Feedback is disabled in QA mode.")}
         </p>
       ) : null}
       <div className="mt-3 flex flex-wrap gap-2">
@@ -77,7 +81,7 @@ export function ResultFeedback({
           className="inline-flex h-10 items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-4 text-sm font-medium text-neutral-600 shadow-sm shadow-neutral-950/[0.03] transition hover:border-neutral-300 hover:bg-neutral-50 hover:text-neutral-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950 disabled:cursor-not-allowed disabled:opacity-50 aria-pressed:border-emerald-200 aria-pressed:bg-emerald-50 aria-pressed:text-emerald-700"
         >
           <ThumbsUp aria-hidden="true" size={16} />
-          Helpful
+          {t("Helpful")}
         </button>
         <button
           type="button"
@@ -87,14 +91,14 @@ export function ResultFeedback({
           className="inline-flex h-10 items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-4 text-sm font-medium text-neutral-600 shadow-sm shadow-neutral-950/[0.03] transition hover:border-neutral-300 hover:bg-neutral-50 hover:text-neutral-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950 disabled:cursor-not-allowed disabled:opacity-50 aria-pressed:border-red-200 aria-pressed:bg-red-50 aria-pressed:text-red-700"
         >
           <ThumbsDown aria-hidden="true" size={16} />
-          Not Helpful
+          {t("Not Helpful")}
         </button>
       </div>
 
       {feedbackState === "not-helpful" ? (
         <div className="mt-4">
           <p className="text-xs font-semibold uppercase tracking-normal text-neutral-400">
-            Reason
+            {t("Reason")}
           </p>
           <div className="mt-2 flex flex-wrap gap-2">
             {negativeReasons.map((reason) => (
@@ -105,7 +109,7 @@ export function ResultFeedback({
                 aria-pressed={selectedReason === reason}
                 className="rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-neutral-600 shadow-sm shadow-neutral-950/[0.02] transition hover:border-neutral-300 hover:bg-neutral-50 hover:text-neutral-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950 aria-pressed:border-neutral-950 aria-pressed:bg-neutral-950 aria-pressed:text-white"
               >
-                {reason}
+                {t(reason)}
               </button>
             ))}
           </div>
@@ -113,7 +117,7 @@ export function ResultFeedback({
       ) : null}
 
       {feedbackState === "helpful" || selectedReason ? (
-        <p className="mt-3 text-sm text-neutral-500">Thanks for the feedback.</p>
+        <p className="mt-3 text-sm text-neutral-500">{t("Thanks for the feedback.")}</p>
       ) : null}
     </section>
   );

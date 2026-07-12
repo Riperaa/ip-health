@@ -12,6 +12,7 @@ import { useState, type ReactNode } from "react";
 import { StatusBadge } from "@/components/status-badge";
 import type { StatusTone } from "@/lib/status-colors";
 import type { AnalysisResult } from "@/lib/analysis";
+import { localizeText, messages, type Locale } from "@/lib/localization";
 
 type OverallVerdict = NonNullable<
   AnalysisResult["finalDecision"]
@@ -622,7 +623,8 @@ export function DisclosureSection({
   );
 }
 
-function IpHealthScoreCard({ result }: { result: AnalysisResult }) {
+function IpHealthScoreCard({ result, locale }: { result: AnalysisResult; locale: Locale }) {
+  const t = messages(locale);
   const verdictDisplay = getVerdictDisplay(result);
   const qualityReport = result.qualityReport;
   const scoreDisplay = qualityReport.displayValue;
@@ -677,7 +679,7 @@ function IpHealthScoreCard({ result }: { result: AnalysisResult }) {
       <div className="grid gap-6 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
         <div className="min-w-0">
           <p className="text-xs font-semibold uppercase tracking-normal text-neutral-400">
-            IP Health Score
+            {t("IP Health Score")}
           </p>
           <p className="mt-3 flex items-end gap-1 text-7xl font-semibold leading-none text-neutral-950">
             {scoreDisplay}
@@ -691,25 +693,25 @@ function IpHealthScoreCard({ result }: { result: AnalysisResult }) {
                 tone={qualityReport.confidenceTone}
                 className="px-3 py-1.5 text-sm"
               >
-                Confidence: {qualityReport.confidence}
+                {t(`Confidence: ${qualityReport.confidence}`)}
               </StatusBadge>
             ) : (
               <StatusBadge tone="neutral" className="px-3 py-1.5 text-sm">
-                Confidence pending
+                {t("Confidence pending")}
               </StatusBadge>
             )}
             <span className="text-sm leading-6 text-neutral-500">
-              {summary}
+              {t(summary)}
             </span>
           </div>
         </div>
 
         <div className="min-w-0 rounded-2xl border border-neutral-100 bg-neutral-50/70 p-4 sm:w-64">
           <p className="text-xs font-semibold uppercase tracking-normal text-neutral-400">
-            Checked IP
+            {t("Checked IP")}
           </p>
           <p className="mt-2 break-all text-lg font-semibold leading-7 text-neutral-950">
-            {result.ip.address || "Not analyzed"}
+            {result.ip.address || t("Not analyzed")}
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
             {result.trustScore.hasAnalysis && verdictDisplay ? (
@@ -717,11 +719,11 @@ function IpHealthScoreCard({ result }: { result: AnalysisResult }) {
                 tone={verdictDisplay.tone}
                 className="px-3 py-1.5 text-sm"
               >
-                {verdictDisplay.label}
+                {t(verdictDisplay.label)}
               </StatusBadge>
             ) : (
               <StatusBadge tone="neutral" className="px-3 py-1.5 text-sm">
-                Pending
+                {t("Pending")}
               </StatusBadge>
             )}
           </div>
@@ -736,14 +738,14 @@ function IpHealthScoreCard({ result }: { result: AnalysisResult }) {
                 aria-hidden="true"
                 className="size-4 text-neutral-400"
               />
-              Evidence Quality
+              {t("Evidence Quality")}
             </p>
             <StatusBadge tone={dataQuality.tone} variant="quiet">
-              {dataQuality.level}
+              {t(dataQuality.level)}
             </StatusBadge>
           </div>
           <p className="mt-3 text-sm leading-6 text-neutral-500">
-            {dataQuality.reason}
+            {t(dataQuality.reason)}
           </p>
           {result.trustScore.hasAnalysis ? (
             <div className="mt-3 flex flex-wrap gap-2">
@@ -753,7 +755,7 @@ function IpHealthScoreCard({ result }: { result: AnalysisResult }) {
                   tone={provider.tone}
                   variant="quiet"
                 >
-                  {provider.label} {provider.value}
+                  {provider.label} {t(provider.value)}
                 </StatusBadge>
               ))}
             </div>
@@ -762,14 +764,14 @@ function IpHealthScoreCard({ result }: { result: AnalysisResult }) {
 
         <div className="rounded-2xl border border-neutral-100 bg-neutral-50/70 p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-sm font-semibold text-neutral-950">Assessment</p>
+            <p className="text-sm font-semibold text-neutral-950">{t("Assessment")}</p>
             <StatusBadge tone={assessment.tone} variant="quiet">
-              {assessment.label}
+              {t(assessment.label)}
             </StatusBadge>
           </div>
           <ul className="mt-3 grid gap-2 text-sm leading-6 text-neutral-600 sm:grid-cols-3">
             {assessment.items.map((item) => (
-              <li key={item}>{item}</li>
+              <li key={item}>{t(item)}</li>
             ))}
           </ul>
         </div>
@@ -791,13 +793,13 @@ function IpHealthScoreCard({ result }: { result: AnalysisResult }) {
                         ? "🌐"
                         : "✅"}
                   </span>
-                  <span>{dimension.label}</span>
+                  <span>{t(dimension.label)}</span>
                 </p>
                 <p className="mt-2 text-sm font-medium leading-6 text-neutral-800">
-                  {dimension.assessmentLabel}
+                  {t(dimension.assessmentLabel)}
                 </p>
                 <p className="mt-2 text-sm leading-6 text-neutral-500">
-                  {dimension.summary}
+                  {t(dimension.summary)}
                 </p>
               </div>
               <StatusBadge tone={dimension.tone} variant="quiet">
@@ -805,14 +807,14 @@ function IpHealthScoreCard({ result }: { result: AnalysisResult }) {
               </StatusBadge>
             </div>
             <p className="mt-3 text-xs leading-5 text-neutral-400">
-              {dimension.detail}
+              {t(dimension.detail)}
             </p>
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <StatusBadge tone={dimension.confidenceTone} variant="quiet">
-                Confidence: {dimension.confidence}
+                {t(`Confidence: ${dimension.confidence}`)}
               </StatusBadge>
               <span className="text-xs leading-5 text-neutral-400">
-                {dimension.confidenceReason}
+                {t(dimension.confidenceReason)}
               </span>
             </div>
           </div>
@@ -957,18 +959,20 @@ function EvidenceList({
   signals,
   emptyLabel,
   marker,
+  locale,
 }: {
   title: string;
   signals: EvidenceSignal[];
   emptyLabel: string;
   marker: "clean" | "review";
+  locale: Locale;
 }) {
   const visibleSignals =
     signals.length > 0 ? signals : [{ label: emptyLabel, tone: "neutral" }];
 
   return (
     <div className="rounded-2xl border border-neutral-100 bg-neutral-50/60 p-4">
-      <p className="text-sm font-semibold text-neutral-950">{title}</p>
+      <p className="text-sm font-semibold text-neutral-950">{localizeText(locale, title)}</p>
       <ul className="mt-3 space-y-2">
         {visibleSignals.map((signal) => (
           <li key={signal.label} className="flex gap-2 text-sm leading-6">
@@ -982,7 +986,7 @@ function EvidenceList({
               {marker === "clean" ? "✓" : "⚠"}
             </span>
             <span className="text-neutral-700">
-              {normalizePresentationText(signal.label)}
+              {localizeText(locale, normalizePresentationText(signal.label))}
             </span>
           </li>
         ))}
@@ -991,7 +995,8 @@ function EvidenceList({
   );
 }
 
-function ReputationSection({ result }: { result: AnalysisResult }) {
+function ReputationSection({ result, locale }: { result: AnalysisResult; locale: Locale }) {
+  const t = messages(locale);
   if (!result.finalDecision) {
     return null;
   }
@@ -1003,9 +1008,9 @@ function ReputationSection({ result }: { result: AnalysisResult }) {
   return (
     <section className="surface-card rounded-2xl border bg-white p-5">
       <div>
-        <p className="text-sm font-semibold text-neutral-950">Reputation</p>
+        <p className="text-sm font-semibold text-neutral-950">{t("Reputation")}</p>
         <p className="mt-1 text-sm leading-6 text-neutral-500">
-          Provider and history signals.
+          {t("Provider and history signals.")}
         </p>
       </div>
 
@@ -1015,25 +1020,27 @@ function ReputationSection({ result }: { result: AnalysisResult }) {
           signals={cleanSignals}
           emptyLabel="No clean signals confirmed"
           marker="clean"
+          locale={locale}
         />
         <EvidenceList
           title="Review Signals"
           signals={reviewSignals}
           emptyLabel="No review signals detected"
           marker="review"
+          locale={locale}
         />
       </div>
 
       <dl className="mt-4 grid gap-3 sm:grid-cols-3">
-        <ReportField label="Risk Score" value={reputation.fraudRisk} />
-        <ReportField label="Abuse History" value={reputation.abuseSignals} />
+        <ReportField label={t("Risk Score")} value={t(reputation.fraudRisk)} />
+        <ReportField label={t("Abuse History")} value={t(reputation.abuseSignals)} />
         <ReportField
-          label="Confidence"
-          value={reputationDimension.confidence}
+          label={t("Confidence")}
+          value={t(reputationDimension.confidence)}
         />
         <ReportField
-          label="Reason"
-          value={reputationDimension.confidenceReason}
+          label={t("Reason")}
+          value={t(reputationDimension.confidenceReason)}
         />
       </dl>
     </section>
@@ -1063,7 +1070,8 @@ function getNetworkIdentityDisplay(
   };
 }
 
-function IpIdentitySection({ result }: { result: AnalysisResult }) {
+function IpIdentitySection({ result, locale }: { result: AnalysisResult; locale: Locale }) {
+  const t = messages(locale);
   if (!result.finalDecision) {
     return null;
   }
@@ -1082,10 +1090,10 @@ function IpIdentitySection({ result }: { result: AnalysisResult }) {
                 aria-hidden="true"
                 className="size-4 text-neutral-400"
               />
-              Network Identity
+              {t("Network Identity")}
             </p>
             <StatusBadge tone={identity.tone} variant="quiet">
-              Network Identity
+              {t("Network Identity")}
             </StatusBadge>
           </div>
           <p className="mt-4 flex items-center gap-3 text-3xl font-semibold leading-tight text-neutral-950">
@@ -1094,27 +1102,27 @@ function IpIdentitySection({ result }: { result: AnalysisResult }) {
                 {networkIdentity.icon}
               </span>
             ) : null}
-            <span>{networkIdentity.label}</span>
+            <span>{t(networkIdentity.label)}</span>
           </p>
           <p className="mt-2 text-sm leading-6 text-neutral-500">
-            {networkIdentity.detail}
+            {t(networkIdentity.detail)}
           </p>
           <dl className="mt-4 grid gap-3 sm:grid-cols-3">
-            <ReportField label="Provider" value={identity.provider} />
+            <ReportField label={t("Provider")} value={identity.provider} />
             <ReportField
-              label="Confidence"
-              value={identity.identityConfidence}
+              label={t("Confidence")}
+              value={t(identity.identityConfidence)}
             />
-            <ReportField label="Reason" value={identity.reason} />
+            <ReportField label={t("Reason")} value={t(identity.reason)} />
           </dl>
         </div>
 
         <div className="rounded-2xl border border-neutral-100 bg-neutral-50/70 p-4">
-          <p className="text-sm font-semibold text-neutral-950">Location</p>
+          <p className="text-sm font-semibold text-neutral-950">{t("Location")}</p>
           <dl className="mt-4 grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
-            <ReportField label="Country" value={location.country} />
-            <ReportField label="City" value={location.city} />
-            <ReportField label="Region" value={location.region} />
+            <ReportField label={t("Country")} value={location.country} />
+            <ReportField label={t("City")} value={location.city} />
+            <ReportField label={t("Region")} value={location.region} />
           </dl>
         </div>
       </div>
@@ -1122,7 +1130,8 @@ function IpIdentitySection({ result }: { result: AnalysisResult }) {
   );
 }
 
-function SharingRiskSection({ result }: { result: AnalysisResult }) {
+function SharingRiskSection({ result, locale }: { result: AnalysisResult; locale: Locale }) {
+  const t = messages(locale);
   if (!result.finalDecision) {
     return null;
   }
@@ -1142,20 +1151,20 @@ function SharingRiskSection({ result }: { result: AnalysisResult }) {
               aria-hidden="true"
               className="size-4 text-neutral-400"
             />
-            Sharing Risk
+            {t("Sharing Risk")}
           </p>
           <p className="mt-2 text-sm leading-6 text-neutral-500">
-            {sharingRisk.reason}
+            {t(sharingRisk.reason)}
           </p>
         </div>
         <StatusBadge tone={sharingRisk.tone} className="shrink-0">
-          {sharingRisk.label}
+          {t(sharingRisk.label)}
         </StatusBadge>
       </div>
 
       <div className="mt-4 rounded-2xl border border-neutral-100 bg-neutral-50/60 p-4">
         <p className="text-xs font-semibold uppercase tracking-normal text-neutral-400">
-          Evidence
+          {t("Evidence")}
         </p>
         <ul className="mt-3 space-y-2">
           {evidence.map((item) => (
@@ -1165,7 +1174,7 @@ function SharingRiskSection({ result }: { result: AnalysisResult }) {
                 className="mt-2.5 size-1.5 shrink-0 rounded-full bg-neutral-400"
               />
               <span className="text-neutral-700">
-                {normalizePresentationText(item)}
+                {t(normalizePresentationText(item))}
               </span>
             </li>
           ))}
@@ -1175,7 +1184,8 @@ function SharingRiskSection({ result }: { result: AnalysisResult }) {
   );
 }
 
-function RecommendedUsageSection({ result }: { result: AnalysisResult }) {
+function RecommendedUsageSection({ result, locale }: { result: AnalysisResult; locale: Locale }) {
+  const t = messages(locale);
   const verdict = getReliabilityCappedVerdict(result);
 
   if (!verdict) {
@@ -1190,10 +1200,10 @@ function RecommendedUsageSection({ result }: { result: AnalysisResult }) {
             aria-hidden="true"
             className="size-4 text-neutral-400"
           />
-          Recommendation
+          {t("Recommendation")}
         </p>
         <p className="text-sm leading-6 text-neutral-500">
-          {result.qualityReport.recommendationExplanation}
+          {t(result.qualityReport.recommendationExplanation)}
         </p>
       </div>
 
@@ -1204,7 +1214,7 @@ function RecommendedUsageSection({ result }: { result: AnalysisResult }) {
             className="rounded-2xl border border-neutral-100 bg-neutral-50/60 p-4"
           >
             <p className="text-sm font-semibold text-neutral-950">
-              {group.title}
+              {t(group.title)}
             </p>
             <ul className="mt-3 space-y-2">
               {group.items.map((item) => (
@@ -1223,7 +1233,7 @@ function RecommendedUsageSection({ result }: { result: AnalysisResult }) {
                           : "bg-rose-700",
                     ].join(" ")}
                   />
-                  <span>{item}</span>
+                  <span>{t(item)}</span>
                 </li>
               ))}
             </ul>
@@ -1234,14 +1244,15 @@ function RecommendedUsageSection({ result }: { result: AnalysisResult }) {
   );
 }
 
-function NetworkIntegritySection({ result }: { result: AnalysisResult }) {
+function NetworkIntegritySection({ result, locale }: { result: AnalysisResult; locale: Locale }) {
+  const t = messages(locale);
   return (
     <section className="surface-card rounded-2xl border bg-white p-5">
       <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
         <div>
           <p className="text-sm font-semibold text-neutral-950">Cloudflare</p>
           <p className="mt-1 text-sm leading-6 text-neutral-500">
-            Trace, WARP, and consistency signals.
+            {t("Trace, WARP, and consistency signals.")}
           </p>
         </div>
         <StatusBadge
@@ -1253,8 +1264,8 @@ function NetworkIntegritySection({ result }: { result: AnalysisResult }) {
           className="mt-1 sm:mt-0"
         >
           {result.networkIntegrity.hasCloudflare
-            ? "Trace available"
-            : "Unavailable"}
+            ? t("Trace available")
+            : t("Unavailable")}
         </StatusBadge>
       </div>
 
@@ -1265,15 +1276,15 @@ function NetworkIntegritySection({ result }: { result: AnalysisResult }) {
             className="rounded-xl border border-neutral-100 bg-neutral-50/60 p-4"
           >
             <dt className="text-xs font-semibold uppercase tracking-normal text-neutral-400">
-              {item.label}
+              {t(item.label)}
             </dt>
             <dd className="mt-2">
               <StatusBadge tone={item.tone}>
-                {normalizePresentationText(item.value)}
+                {t(normalizePresentationText(item.value))}
               </StatusBadge>
             </dd>
             <dd className="mt-2 text-sm leading-6 text-neutral-500">
-              {normalizePresentationText(item.detail)}
+              {t(normalizePresentationText(item.detail))}
             </dd>
           </div>
         ))}
@@ -1283,7 +1294,7 @@ function NetworkIntegritySection({ result }: { result: AnalysisResult }) {
         hidden={result.networkIntegrity.hasCloudflare}
         className="mt-4 rounded-xl border border-neutral-100 bg-neutral-50 px-4 py-3 text-sm leading-6 text-neutral-500"
       >
-        {result.networkIntegrity.unavailableMessage}
+        {t(result.networkIntegrity.unavailableMessage)}
       </p>
     </section>
   );
@@ -1318,16 +1329,17 @@ function getConnectivityMethodLabel(method: ConnectivityProbe["method"]) {
   return "Browser probe";
 }
 
-function TechnicalConnectivitySection({ result }: { result: AnalysisResult }) {
+function TechnicalConnectivitySection({ result, locale }: { result: AnalysisResult; locale: Locale }) {
+  const t = messages(locale);
   const connectivity =
     result.connectivity ?? result.finalDecision?.decision.connectivity ?? null;
 
   if (!connectivity) {
     return (
       <section className="surface-card rounded-2xl border bg-white p-5">
-        <p className="text-sm font-semibold text-neutral-950">Connectivity</p>
+        <p className="text-sm font-semibold text-neutral-950">{t("Connectivity")}</p>
         <p className="mt-4 rounded-xl border border-neutral-100 bg-neutral-50 px-4 py-3 text-sm leading-6 text-neutral-500">
-          Connectivity probe data is unavailable.
+          {t("Connectivity probe data is unavailable.")}
         </p>
       </section>
     );
@@ -1342,9 +1354,9 @@ function TechnicalConnectivitySection({ result }: { result: AnalysisResult }) {
   return (
     <section className="surface-card rounded-2xl border bg-white p-5">
       <div className="flex flex-col gap-1">
-        <p className="text-sm font-semibold text-neutral-950">Connectivity</p>
+        <p className="text-sm font-semibold text-neutral-950">{t("Connectivity")}</p>
         <p className="text-sm leading-6 text-neutral-500">
-          Browser reachability probes.
+          {t("Browser reachability probes.")}
         </p>
       </div>
 
@@ -1361,10 +1373,10 @@ function TechnicalConnectivitySection({ result }: { result: AnalysisResult }) {
                 {probe.label}
               </dt>
               <dd className="mt-2">
-                <StatusBadge tone={display.tone}>{display.label}</StatusBadge>
+                <StatusBadge tone={display.tone}>{t(display.label)}</StatusBadge>
               </dd>
               <dd className="mt-2 text-sm leading-6 text-neutral-500">
-                {getConnectivityMethodLabel(probe.result.method)}
+                {t(getConnectivityMethodLabel(probe.result.method))}
               </dd>
             </div>
           );
@@ -1374,25 +1386,27 @@ function TechnicalConnectivitySection({ result }: { result: AnalysisResult }) {
   );
 }
 
-function TechnicalIpFactsSection({ result }: { result: AnalysisResult }) {
+function TechnicalIpFactsSection({ result, locale }: { result: AnalysisResult; locale: Locale }) {
+  const t = messages(locale);
   return (
     <section className="surface-card rounded-2xl border bg-white p-5">
       <p className="text-sm font-semibold text-neutral-950">IPInfo & ASN</p>
       <p className="mt-1 text-sm leading-6 text-neutral-500">
-        Network owner and location fields.
+        {t("Network owner and location fields.")}
       </p>
 
       <dl className="mt-4 grid gap-3 sm:grid-cols-3">
         <ReportField label="IP Address" value={result.ip.address} />
         {result.ip.facts.map((fact) => (
-          <ReportField key={fact.label} label={fact.label} value={fact.value} />
+          <ReportField key={fact.label} label={t(fact.label)} value={fact.value} />
         ))}
       </dl>
     </section>
   );
 }
 
-function TechnicalIpqsSection({ result }: { result: AnalysisResult }) {
+function TechnicalIpqsSection({ result, locale }: { result: AnalysisResult; locale: Locale }) {
+  const t = messages(locale);
   const ipqs = result.finalDecision?.decision.externalSignals.ipqs;
 
   return (
@@ -1400,35 +1414,36 @@ function TechnicalIpqsSection({ result }: { result: AnalysisResult }) {
       <div className="flex flex-col gap-1">
         <p className="text-sm font-semibold text-neutral-950">IPQS</p>
         <p className="text-sm leading-6 text-neutral-500">
-          Provider reputation fields.
+          {t("Provider reputation fields.")}
         </p>
       </div>
 
       {ipqs?.status === "available" ? (
         <dl className="mt-4 grid gap-3 sm:grid-cols-3">
-          <ReportField label="Risk Score" value={`${ipqs.fraud_score}/100`} />
+          <ReportField label={t("Risk Score")} value={`${ipqs.fraud_score}/100`} />
           <ReportField
-            label="Country"
-            value={ipqs.country || "Not identified"}
+            label={t("Country")}
+            value={ipqs.country || t("Not identified")}
           />
-          <ReportField label="VPN" value={ipqs.vpn ? "Yes" : "No"} />
-          <ReportField label="Proxy" value={ipqs.proxy ? "Yes" : "No"} />
-          <ReportField label="Tor" value={ipqs.tor ? "Yes" : "No"} />
+          <ReportField label="VPN" value={t(ipqs.vpn ? "Yes" : "No")} />
+          <ReportField label="Proxy" value={t(ipqs.proxy ? "Yes" : "No")} />
+          <ReportField label="Tor" value={t(ipqs.tor ? "Yes" : "No")} />
           <ReportField
-            label="Bot Signal"
-            value={ipqs.bot_status ? "Yes" : "No"}
+            label={t("Bot Signal")}
+            value={t(ipqs.bot_status ? "Yes" : "No")}
           />
         </dl>
       ) : (
         <p className="mt-4 rounded-xl border border-neutral-100 bg-neutral-50 px-4 py-3 text-sm leading-6 text-neutral-500">
-          {ipqs?.error ?? "IPQualityScore data is unavailable."}
+          {t(ipqs?.error ?? "IPQualityScore data is unavailable.")}
         </p>
       )}
     </section>
   );
 }
 
-function TechnicalScamalyticsSection({ result }: { result: AnalysisResult }) {
+function TechnicalScamalyticsSection({ result, locale }: { result: AnalysisResult; locale: Locale }) {
+  const t = messages(locale);
   const scamalytics =
     result.finalDecision?.decision.externalSignals.scamalytics;
 
@@ -1437,39 +1452,40 @@ function TechnicalScamalyticsSection({ result }: { result: AnalysisResult }) {
       <div className="flex flex-col gap-1">
         <p className="text-sm font-semibold text-neutral-950">Scamalytics</p>
         <p className="text-sm leading-6 text-neutral-500">
-          Secondary reputation provider fields.
+          {t("Secondary reputation provider fields.")}
         </p>
       </div>
 
       {scamalytics?.status === "available" ? (
         <dl className="mt-4 grid gap-3 sm:grid-cols-3">
-          <ReportField label="Risk Score" value={`${scamalytics.score}/100`} />
+          <ReportField label={t("Risk Score")} value={`${scamalytics.score}/100`} />
           <ReportField
-            label="Risk Level"
-            value={scamalytics.risk || "Not reported"}
+            label={t("Risk Level")}
+            value={t(scamalytics.risk || "Not reported")}
           />
           <ReportField
-            label="Country"
-            value={scamalytics.country || "Not identified"}
+            label={t("Country")}
+            value={scamalytics.country || t("Not identified")}
           />
-          <ReportField label="VPN" value={scamalytics.vpn ? "Yes" : "No"} />
-          <ReportField label="Proxy" value={scamalytics.proxy ? "Yes" : "No"} />
-          <ReportField label="Tor" value={scamalytics.tor ? "Yes" : "No"} />
+          <ReportField label="VPN" value={t(scamalytics.vpn ? "Yes" : "No")} />
+          <ReportField label="Proxy" value={t(scamalytics.proxy ? "Yes" : "No")} />
+          <ReportField label="Tor" value={t(scamalytics.tor ? "Yes" : "No")} />
           <ReportField
-            label="Server"
-            value={scamalytics.server ? "Yes" : "No"}
+            label={t("Server")}
+            value={t(scamalytics.server ? "Yes" : "No")}
           />
         </dl>
       ) : (
         <p className="mt-4 rounded-xl border border-neutral-100 bg-neutral-50 px-4 py-3 text-sm leading-6 text-neutral-500">
-          {scamalytics?.error ?? "Scamalytics data is unavailable."}
+          {t(scamalytics?.error ?? "Scamalytics data is unavailable.")}
         </p>
       )}
     </section>
   );
 }
 
-function TechnicalIpApiIsSection({ result }: { result: AnalysisResult }) {
+function TechnicalIpApiIsSection({ result, locale }: { result: AnalysisResult; locale: Locale }) {
+  const t = messages(locale);
   const ipApiIs = result.finalDecision?.decision.externalSignals.ipApiIs;
 
   return (
@@ -1477,57 +1493,58 @@ function TechnicalIpApiIsSection({ result }: { result: AnalysisResult }) {
       <div className="flex flex-col gap-1">
         <p className="text-sm font-semibold text-neutral-950">ipapi.is</p>
         <p className="text-sm leading-6 text-neutral-500">
-          Secondary IP intelligence provider fields.
+          {t("Secondary IP intelligence provider fields.")}
         </p>
       </div>
 
       {ipApiIs?.status === "available" ? (
         <dl className="mt-4 grid gap-3 sm:grid-cols-3">
-          <ReportField label="Status" value="Available" />
+          <ReportField label={t("Status")} value={t("Available")} />
           <ReportField
-            label="HTTP Status"
+            label={t("HTTP Status")}
             value={
               ipApiIs.providerStatus.httpStatusCode
                 ? String(ipApiIs.providerStatus.httpStatusCode)
-                : "Not reported"
+                : t("Not reported")
             }
           />
-          <ReportField label="VPN" value={ipApiIs.vpn ? "Yes" : "No"} />
-          <ReportField label="Proxy" value={ipApiIs.proxy ? "Yes" : "No"} />
-          <ReportField label="Tor" value={ipApiIs.tor ? "Yes" : "No"} />
+          <ReportField label="VPN" value={t(ipApiIs.vpn ? "Yes" : "No")} />
+          <ReportField label="Proxy" value={t(ipApiIs.proxy ? "Yes" : "No")} />
+          <ReportField label="Tor" value={t(ipApiIs.tor ? "Yes" : "No")} />
           <ReportField
-            label="Datacenter"
-            value={ipApiIs.datacenter ? "Yes" : "No"}
+            label={t("Datacenter")}
+            value={t(ipApiIs.datacenter ? "Yes" : "No")}
           />
-          <ReportField label="Hosting" value={ipApiIs.hosting ? "Yes" : "No"} />
-          <ReportField label="ASN" value={ipApiIs.asn || "Not identified"} />
+          <ReportField label={t("Hosting")} value={t(ipApiIs.hosting ? "Yes" : "No")} />
+          <ReportField label="ASN" value={ipApiIs.asn || t("Not identified")} />
           <ReportField
-            label="Organization"
-            value={ipApiIs.organization || ipApiIs.asnName || "Not identified"}
+            label={t("Organization")}
+            value={ipApiIs.organization || ipApiIs.asnName || t("Not identified")}
           />
           <ReportField
-            label="Location"
+            label={t("Location")}
             value={
               [ipApiIs.city, ipApiIs.region, ipApiIs.country]
                 .filter(Boolean)
-                .join(", ") || "Not identified"
+                .join(", ") || t("Not identified")
             }
           />
           <ReportField
-            label="Abuser Signal"
-            value={ipApiIs.abuser ? "Yes" : "No"}
+            label={t("Abuser Signal")}
+            value={t(ipApiIs.abuser ? "Yes" : "No")}
           />
         </dl>
       ) : (
         <p className="mt-4 rounded-xl border border-neutral-100 bg-neutral-50 px-4 py-3 text-sm leading-6 text-neutral-500">
-          {ipApiIs?.error ?? "ipapi.is data is unavailable."}
+          {t(ipApiIs?.error ?? "ipapi.is data is unavailable.")}
         </p>
       )}
     </section>
   );
 }
 
-function TechnicalDetailsSection({ result }: { result: AnalysisResult }) {
+function TechnicalDetailsSection({ result, locale }: { result: AnalysisResult; locale: Locale }) {
+  const t = messages(locale);
   const [isTechnicalDetailsVisible, setIsTechnicalDetailsVisible] =
     useState(false);
 
@@ -1537,14 +1554,14 @@ function TechnicalDetailsSection({ result }: { result: AnalysisResult }) {
 
   return (
     <DisclosureSection
-      title="Technical Details"
+      title={t("Technical Details")}
       titleIcon={
         <ListChecks
           aria-hidden="true"
           className="size-4 shrink-0 text-neutral-400"
         />
       }
-      summary="ASN, IPInfo, IPQS, Scamalytics, ipapi.is, connectivity, and Cloudflare"
+      summary={t("ASN, IPInfo, IPQS, Scamalytics, ipapi.is, connectivity, and Cloudflare")}
       isExpanded={isTechnicalDetailsVisible}
       onToggle={() =>
         setIsTechnicalDetailsVisible((currentVisibility) => !currentVisibility)
@@ -1552,31 +1569,30 @@ function TechnicalDetailsSection({ result }: { result: AnalysisResult }) {
       contentId="technical-details-content"
     >
       <div className="mt-3 flex flex-col gap-4">
-        <TechnicalIpFactsSection result={result} />
-        <TechnicalIpqsSection result={result} />
-        <TechnicalScamalyticsSection result={result} />
-        <TechnicalIpApiIsSection result={result} />
-        <TechnicalConnectivitySection result={result} />
-        <NetworkIntegritySection result={result} />
+        <TechnicalIpFactsSection result={result} locale={locale} />
+        <TechnicalIpqsSection result={result} locale={locale} />
+        <TechnicalScamalyticsSection result={result} locale={locale} />
+        <TechnicalIpApiIsSection result={result} locale={locale} />
+        <TechnicalConnectivitySection result={result} locale={locale} />
+        <NetworkIntegritySection result={result} locale={locale} />
       </div>
     </DisclosureSection>
   );
 }
 
-export function IpAnalyzer({ result }: { result: AnalysisResult }) {
+export function IpAnalyzer({ result, locale = "en" }: { result: AnalysisResult; locale?: Locale }) {
+  const t = messages(locale);
   return (
     <div className="mt-6 flex w-full flex-col gap-4 text-left">
-      <IpHealthScoreCard result={result} />
-      <IpIdentitySection result={result} />
-      <SharingRiskSection result={result} />
-      <ReputationSection result={result} />
-      <RecommendedUsageSection result={result} />
-      <TechnicalDetailsSection result={result} />
+      <IpHealthScoreCard result={result} locale={locale} />
+      <IpIdentitySection result={result} locale={locale} />
+      <SharingRiskSection result={result} locale={locale} />
+      <ReputationSection result={result} locale={locale} />
+      <RecommendedUsageSection result={result} locale={locale} />
+      <TechnicalDetailsSection result={result} locale={locale} />
 
       <p className="text-xs leading-5 text-neutral-400">
-        IP Health provides reputation-based guidance only. Services may also
-        consider account history, device signals, payment method, browser
-        fingerprint, and behavior.
+        {t("IP Health provides reputation-based guidance only. Services may also consider account history, device signals, payment method, browser fingerprint, and behavior.")}
       </p>
     </div>
   );

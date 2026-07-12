@@ -34,6 +34,7 @@ import {
   getAnalysisContext,
   trackAnalyticsEvent,
 } from "@/lib/analytics";
+import { localizeText, type Locale } from "@/lib/localization";
 
 const checkBeforeCards = [
   {
@@ -86,7 +87,11 @@ function LoadingSpinner() {
   );
 }
 
-export function IpAnalyzerContainer() {
+export function IpAnalyzerContainer({ locale = "en" }: { locale?: Locale }) {
+  const t = useCallback(
+    (value: string) => localizeText(locale, value),
+    [locale],
+  );
   const [isQaMode, setIsQaMode] = useState(false);
   const [ipAddress, setIpAddress] = useState("");
   const [error, setError] = useState("");
@@ -112,7 +117,7 @@ export function IpAnalyzerContainer() {
     const trimmedIpAddress = nextIpAddress.trim();
 
     if (!trimmedIpAddress) {
-      setError(INVALID_IP_ADDRESS_MESSAGE);
+      setError(t(INVALID_IP_ADDRESS_MESSAGE));
       setAnalysisErrorIp("");
       setAnalysisResult(getEmptyAnalysisResult(trimmedIpAddress));
       setAnalysisStarted(false);
@@ -120,7 +125,7 @@ export function IpAnalyzerContainer() {
     }
 
     if (!isValidIpv4Address(trimmedIpAddress)) {
-      setError(INVALID_IP_ADDRESS_MESSAGE);
+      setError(t(INVALID_IP_ADDRESS_MESSAGE));
       setAnalysisErrorIp("");
       setAnalysisResult(getEmptyAnalysisResult(trimmedIpAddress));
       setAnalysisStarted(false);
@@ -201,7 +206,7 @@ export function IpAnalyzerContainer() {
       isAnalysisInFlight.current = false;
       setIsAnalyzing(false);
     }
-  }, []);
+  }, [t]);
 
   const handleDetectPublicIp = useCallback(async () => {
     setError("");
@@ -214,11 +219,11 @@ export function IpAnalyzerContainer() {
       setIpAddress(detectedIp);
       setAnalysisResult(getEmptyAnalysisResult(detectedIp));
     } catch {
-      setError("Unable to detect your IP. You can enter it manually.");
+      setError(t("Unable to detect your IP. You can enter it manually."));
     } finally {
       setIsDetecting(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void handleDetectPublicIp();
@@ -260,12 +265,12 @@ export function IpAnalyzerContainer() {
       >
         {isQaMode ? (
           <p className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">
-            QA mode: checks are not saved.
+            {t("QA mode: checks are not saved.")}
           </p>
         ) : null}
         <div className="surface-card flex w-full flex-col gap-3 rounded-[28px] border bg-white p-2 transition focus-within:border-neutral-300 sm:flex-row sm:items-center">
           <label htmlFor="ip-address" className="sr-only">
-            IP address
+            {t("IP address")}
           </label>
           <input
             id="ip-address"
@@ -275,7 +280,7 @@ export function IpAnalyzerContainer() {
             autoComplete="off"
             value={ipAddress}
             onChange={(event) => setIpAddress(event.target.value)}
-            placeholder="Enter an IPv4 address"
+            placeholder={t("Enter an IPv4 address")}
             className="h-12 min-w-0 flex-1 rounded-full bg-transparent px-5 text-base text-neutral-950 outline-none placeholder:text-neutral-400"
           />
           <button
@@ -286,10 +291,10 @@ export function IpAnalyzerContainer() {
             {isAnalyzing ? (
               <>
                 <LoadingSpinner />
-                <span>Analyzing IP...</span>
+                <span>{t("Analyzing IP...")}</span>
               </>
             ) : (
-              "Analyze"
+              t("Analyze")
             )}
           </button>
         </div>
@@ -301,13 +306,13 @@ export function IpAnalyzerContainer() {
             disabled={isDetecting}
             className="h-10 rounded-full border border-neutral-200 bg-white px-5 text-sm font-medium text-neutral-600 shadow-sm shadow-neutral-950/[0.03] transition hover:border-neutral-300 hover:bg-neutral-50 hover:text-neutral-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {isDetecting ? "Detecting..." : "Auto Detect My IP"}
+            {isDetecting ? t("Detecting...") : t("Auto Detect My IP")}
           </button>
           <Link
             href="/compare"
             className="flex h-10 items-center rounded-full border border-neutral-200 bg-white px-5 text-sm font-medium text-neutral-600 shadow-sm shadow-neutral-950/[0.03] transition hover:border-neutral-300 hover:bg-neutral-50 hover:text-neutral-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950"
           >
-            Compare IPs
+            {t("Compare IPs")}
           </Link>
         </div>
       </form>
@@ -317,16 +322,17 @@ export function IpAnalyzerContainer() {
           completedSteps={analysisLoadingState.completedSteps}
           errorSteps={analysisLoadingState.errorSteps}
           isComplete={analysisLoadingState.isComplete}
+          locale={locale}
         />
       ) : null}
 
       {analysisErrorIp ? (
         <div className="w-full rounded-2xl border border-red-100 bg-red-50 p-4 text-left">
-          <p className="text-sm font-semibold text-red-700">Analysis failed</p>
+          <p className="text-sm font-semibold text-red-700">{t("Analysis failed")}</p>
           <p className="mt-1 text-sm leading-6 text-red-600">
-            Unable to retrieve IP information.
+            {t("Unable to retrieve IP information.")}
             <br />
-            Please try again in a moment.
+            {t("Please try again in a moment.")}
           </p>
           <button
             type="button"
@@ -334,7 +340,7 @@ export function IpAnalyzerContainer() {
             disabled={isAnalyzing}
             className="mt-3 h-10 rounded-full bg-red-700 px-5 text-sm font-semibold text-white shadow-sm shadow-red-950/10 transition hover:bg-red-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700 disabled:cursor-not-allowed disabled:opacity-70"
           >
-            Retry
+            {t("Retry")}
           </button>
         </div>
       ) : error ? (
@@ -343,11 +349,12 @@ export function IpAnalyzerContainer() {
 
       {!isAnalysisLoadingVisible && analysisStarted && !analysisErrorIp ? (
         <div className="w-full">
-          <IpAnalyzer result={analysisResult} />
+          <IpAnalyzer result={analysisResult} locale={locale} />
           {analysisResult.trustScore.hasAnalysis ? (
             <ResultFeedback
               context={getAnalysisContext(analysisResult)}
               isQaMode={isQaMode}
+              locale={locale}
             />
           ) : null}
         </div>
@@ -356,8 +363,8 @@ export function IpAnalyzerContainer() {
       {analysisStarted && !isAnalysisLoadingVisible ? (
         <div className="w-full text-left">
           <DisclosureSection
-            title="Recent Checks"
-            summary="Saved in this browser only"
+            title={t("Recent Checks")}
+            summary={t("Saved in this browser only")}
             isExpanded={isRecentChecksVisible}
             onToggle={() =>
               setIsRecentChecksVisible(
@@ -382,7 +389,7 @@ export function IpAnalyzerContainer() {
               </div>
             ) : (
               <p className="mt-3 text-sm text-neutral-400">
-                No recent checks yet.
+                {t("No recent checks yet.")}
               </p>
             )}
           </DisclosureSection>
@@ -391,7 +398,7 @@ export function IpAnalyzerContainer() {
 
       <section className="w-full text-left">
         <p className="text-sm font-semibold text-neutral-950">
-          Why check your IP?
+          {t("Why check your IP?")}
         </p>
         <div className="mt-3 grid gap-3 sm:grid-cols-3">
           {checkBeforeCards.map((card) => (
@@ -400,10 +407,10 @@ export function IpAnalyzerContainer() {
               className="surface-card-soft rounded-2xl border bg-white p-4"
             >
               <h2 className="text-sm font-semibold text-neutral-950">
-                {card.title}
+                {t(card.title)}
               </h2>
               <p className="mt-2 text-sm leading-6 text-neutral-500">
-                {card.description}
+                {t(card.description)}
               </p>
             </div>
           ))}

@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import { messages, type Locale } from "@/lib/localization";
+
 const footerLinks = [
   { href: "/about", label: "About" },
   { href: "/privacy", label: "Privacy" },
@@ -7,7 +9,9 @@ const footerLinks = [
   { href: "/sponsor", label: "Sponsor" },
 ];
 
-export function FooterLinks() {
+export function FooterLinks({ locale = "en" }: { locale?: Locale }) {
+  const t = messages(locale);
+
   return (
     <footer className="px-5 pb-6 text-center text-sm text-neutral-400">
       <nav aria-label="Footer" className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1">
@@ -18,7 +22,7 @@ export function FooterLinks() {
               href={link.href}
               className="font-medium transition hover:text-neutral-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950"
             >
-              {link.label}
+              {t(link.label)}
             </Link>
           </span>
         ))}

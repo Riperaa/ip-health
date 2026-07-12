@@ -57,7 +57,7 @@ export default function ChineseHome() {
         </div>
       </section>
 
-      <FooterLinks />
+      <FooterLinks locale="zh" />
     </main>
   );
 }

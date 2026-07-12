@@ -279,7 +279,7 @@ export function AnalysisLoading({
               {isComplete ? t("Analysis complete") : t("Analyzing your IP...")}
             </h2>
             <p className="mt-1 text-sm leading-6 text-neutral-500">
-              Checking reputation and network identity.
+              {t("Checking reputation and network identity.")}
             </p>
           </div>
         </div>

@@ -149,7 +149,7 @@ export default function ChineseSponsorPage() {
         </div>
       </section>
 
-      <FooterLinks />
+      <FooterLinks locale="zh" />
     </main>
   );
 }

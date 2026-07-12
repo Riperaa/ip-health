@@ -1108,7 +1108,7 @@ function IpIdentitySection({ result, locale }: { result: AnalysisResult; locale:
             {t(networkIdentity.detail)}
           </p>
           <dl className="mt-4 grid gap-3 sm:grid-cols-3">
-            <ReportField label={t("Provider")} value={identity.provider} />
+            <ReportField label={t("Provider")} value={t(identity.provider)} />
             <ReportField
               label={t("Confidence")}
               value={t(identity.identityConfidence)}

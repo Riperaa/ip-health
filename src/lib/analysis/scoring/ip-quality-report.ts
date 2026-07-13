@@ -345,7 +345,7 @@ function getReputationConfidence(
     return {
       confidence: "Medium" as const,
       confidenceReason:
-        "IPQS reputation data was unavailable; Scamalytics was available.",
+        "A reputation data source was unavailable; Scamalytics was available.",
       maxScore: 85,
     };
   }
@@ -354,7 +354,7 @@ function getReputationConfidence(
     return {
       confidence: "Medium" as const,
       confidenceReason:
-        "IPQS and Scamalytics reputation data were unavailable; ipapi.is was available.",
+        "Some reputation data sources were unavailable; ipapi.is was available.",
       maxScore: 82,
     };
   }
@@ -372,7 +372,7 @@ function getReputationConfidence(
     confidenceReason:
       hasIpqs || hasScamalytics || hasIpApiIs
         ? "Abuse history data was unavailable."
-        : "IPQS, Scamalytics, and ipapi.is reputation data were unavailable.",
+        : "Important reputation providers were unavailable.",
     maxScore: hasIpqs ? 90 : 85,
   };
 }
@@ -511,7 +511,7 @@ function buildReputationScore(
       assessmentLabel,
       summary: "Clean reputation signals, limited confidence",
       detail:
-        "Clean reputation signals, but confidence is limited because IPQS data was unavailable.",
+        "Clean reputation signals, but confidence is limited because a reputation data source was unavailable.",
       tone: getScoreTone(score),
       confidence: providerConfidence.confidence,
       confidenceReason: providerConfidence.confidenceReason,
@@ -1192,10 +1192,10 @@ function buildDataQuality({
   if (!isIpqsAvailable(ipqs)) {
     reasons.push(
       isScamalyticsAvailable(scamalytics)
-        ? "IPQS reputation data was unavailable; Scamalytics was available."
+        ? "A reputation data source was unavailable; Scamalytics was available."
         : isIpApiIsAvailable(ipApiIs)
-          ? "IPQS reputation data was unavailable; ipapi.is was available."
-          : "IPQS reputation data was unavailable.",
+          ? "A reputation data source was unavailable; ipapi.is was available."
+          : "A reputation data source was unavailable.",
     );
   }
 

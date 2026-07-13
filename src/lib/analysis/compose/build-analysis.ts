@@ -507,11 +507,11 @@ function getScoreExplanationItems(
     items.push(`Abuse history is high at ${abuseConfidence}% confidence.`);
   }
 
-  if (ipqs?.status === "unavailable") {
-    items.push(
-      "IPQS reputation data is unavailable, so analysis continued without it.",
-    );
-  } else if (ipqs?.fraudScore !== null && ipqs?.fraudScore !== undefined) {
+  if (
+    ipqs?.status !== "unavailable" &&
+    ipqs?.fraudScore !== null &&
+    ipqs?.fraudScore !== undefined
+  ) {
     items.push(`IPQS fraud score is ${ipqs.fraudScore}/100.`);
   }
 

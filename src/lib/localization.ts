@@ -229,11 +229,20 @@ const zh: Record<string, string> = {
   "Cloudflare trace data was unavailable.": "Cloudflare Trace 数据不可用。",
   "Important reputation providers were unavailable.":
     "重要声誉数据提供方不可用。",
+  "A reputation data source was unavailable.": "一个声誉数据源不可用。",
+  "A reputation data source was unavailable; Scamalytics was available.":
+    "一个声誉数据源不可用；Scamalytics 可用。",
+  "A reputation data source was unavailable; ipapi.is was available.":
+    "一个声誉数据源不可用；ipapi.is 可用。",
+  "Some reputation data sources were unavailable; ipapi.is was available.":
+    "部分声誉数据源不可用；ipapi.is 可用。",
   "Provider reputation data shows low to moderate review signals.":
     "声誉数据提供方显示轻度至中度复核信号。",
   "Clean reputation signals, limited confidence": "声誉信号良好，但可信度有限",
   "Clean reputation signals, but confidence is limited because IPQS data was unavailable.":
     "声誉信号良好，但由于 IPQS 数据不可用，可信度有限。",
+  "Clean reputation signals, but confidence is limited because a reputation data source was unavailable.":
+    "声誉信号良好，但由于一个声誉数据源不可用，可信度有限。",
   "Compatibility needs review before sensitive use.":
     "用于敏感场景前需要复核兼容性。",
   "Restricted Compatibility": "兼容性受限",
@@ -341,6 +350,8 @@ const zh: Record<string, string> = {
     "这类公共 DNS、CDN 和边缘基础设施用于服务很正常，但不适合作为个人浏览或注册账号的 IP。",
   "ASN, IPInfo, IPQS, Scamalytics, ipapi.is, connectivity, and Cloudflare":
     "ASN、IPInfo、IPQS、Scamalytics、ipapi.is、连通性与 Cloudflare",
+  "ASN, IPInfo, Scamalytics, ipapi.is, connectivity, and Cloudflare":
+    "ASN、IPInfo、Scamalytics、ipapi.is、连通性与 Cloudflare",
   "IP Health provides reputation-based guidance only. Services may also consider account history, device signals, payment method, browser fingerprint, and behavior.":
     "IP Health 仅提供基于声誉数据的参考建议。服务平台还可能综合账号历史、设备信号、支付方式、浏览器指纹和行为等因素。",
   "Residential ISP detected": "检测到住宅宽带",
@@ -583,6 +594,15 @@ const zhFragments: ReadonlyArray<readonly [string, string]> = [
     "该 IP 的主要问题是声誉风险。",
   ],
   ["Some data sources unavailable: ", "部分数据源不可用："],
+  ["Important data sources were unavailable: ", "部分重要数据源不可用："],
+  [
+    "Insufficient evidence for a high-confidence assessment. ",
+    "证据不足，无法做出高可信度评估。",
+  ],
+  [
+    "A reputation data source was unavailable; ",
+    "一个声誉数据源不可用；",
+  ],
   ["IPQS reputation data was unavailable; ", "IPQS 声誉数据不可用；"],
   ["Scamalytics was available. ", "Scamalytics 可用。"],
   [

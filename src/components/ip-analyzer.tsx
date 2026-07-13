@@ -159,6 +159,12 @@ function normalizePresentationText(value: string) {
     .replace(/\bHealthy\b/g, "Evidence clear");
 }
 
+function hasAvailableIpqs(result: AnalysisResult) {
+  return (
+    result.finalDecision?.decision.externalSignals.ipqs.status === "available"
+  );
+}
+
 function getRiskSignalExplanation(signal: {
   label: string;
   detail: string;
@@ -640,17 +646,15 @@ function IpHealthScoreCard({
   const assessment = qualityReport.assessment;
   const externalSignals = result.finalDecision?.decision.externalSignals;
   const providerStatuses = [
-    {
-      label: "IPQS",
-      value:
-        externalSignals?.ipqs.status === "available"
-          ? "available"
-          : "unavailable",
-      tone:
-        externalSignals?.ipqs.status === "available"
-          ? ("good" as const)
-          : ("caution" as const),
-    },
+    ...(externalSignals?.ipqs.status === "available"
+      ? [
+          {
+            label: "IPQS",
+            value: "available",
+            tone: "good" as const,
+          },
+        ]
+      : []),
     {
       label: "Scamalytics",
       value:
@@ -1020,6 +1024,7 @@ function ReputationSection({
   const reputation = result.endUserReport.reputation;
   const reputationDimension = result.qualityReport.dimensions.reputation;
   const { cleanSignals, reviewSignals } = getReputationEvidence(result);
+  const ipqsAvailable = hasAvailableIpqs(result);
 
   return (
     <section className="surface-card rounded-2xl border bg-white p-5">
@@ -1050,7 +1055,12 @@ function ReputationSection({
       </div>
 
       <dl className="mt-4 grid gap-3 sm:grid-cols-3">
-        <ReportField label={t("Risk Score")} value={t(reputation.fraudRisk)} />
+        {ipqsAvailable ? (
+          <ReportField
+            label={t("Risk Score")}
+            value={t(reputation.fraudRisk)}
+          />
+        ) : null}
         <ReportField
           label={t("Abuse History")}
           value={t(reputation.abuseSignals)}
@@ -1476,6 +1486,10 @@ function TechnicalIpqsSection({
   const t = messages(locale);
   const ipqs = result.finalDecision?.decision.externalSignals.ipqs;
 
+  if (ipqs?.status !== "available") {
+    return null;
+  }
+
   return (
     <section className="surface-card rounded-2xl border bg-white p-5">
       <div className="flex flex-col gap-1">
@@ -1485,29 +1499,23 @@ function TechnicalIpqsSection({
         </p>
       </div>
 
-      {ipqs?.status === "available" ? (
-        <dl className="mt-4 grid gap-3 sm:grid-cols-3">
-          <ReportField
-            label={t("Risk Score")}
-            value={`${ipqs.fraud_score}/100`}
-          />
-          <ReportField
-            label={t("Country")}
-            value={ipqs.country || t("Not identified")}
-          />
-          <ReportField label="VPN" value={t(ipqs.vpn ? "Yes" : "No")} />
-          <ReportField label="Proxy" value={t(ipqs.proxy ? "Yes" : "No")} />
-          <ReportField label="Tor" value={t(ipqs.tor ? "Yes" : "No")} />
-          <ReportField
-            label={t("Bot Signal")}
-            value={t(ipqs.bot_status ? "Yes" : "No")}
-          />
-        </dl>
-      ) : (
-        <p className="mt-4 rounded-xl border border-neutral-100 bg-neutral-50 px-4 py-3 text-sm leading-6 text-neutral-500">
-          {t(ipqs?.error ?? "IPQualityScore data is unavailable.")}
-        </p>
-      )}
+      <dl className="mt-4 grid gap-3 sm:grid-cols-3">
+        <ReportField
+          label={t("Risk Score")}
+          value={`${ipqs.fraud_score}/100`}
+        />
+        <ReportField
+          label={t("Country")}
+          value={ipqs.country || t("Not identified")}
+        />
+        <ReportField label="VPN" value={t(ipqs.vpn ? "Yes" : "No")} />
+        <ReportField label="Proxy" value={t(ipqs.proxy ? "Yes" : "No")} />
+        <ReportField label="Tor" value={t(ipqs.tor ? "Yes" : "No")} />
+        <ReportField
+          label={t("Bot Signal")}
+          value={t(ipqs.bot_status ? "Yes" : "No")}
+        />
+      </dl>
     </section>
   );
 }
@@ -1646,6 +1654,7 @@ function TechnicalDetailsSection({
   const t = messages(locale);
   const [isTechnicalDetailsVisible, setIsTechnicalDetailsVisible] =
     useState(false);
+  const ipqsAvailable = hasAvailableIpqs(result);
 
   if (!result.finalDecision) {
     return null;
@@ -1662,7 +1671,9 @@ function TechnicalDetailsSection({
         />
       }
       summary={t(
-        "ASN, IPInfo, IPQS, Scamalytics, ipapi.is, connectivity, and Cloudflare",
+        ipqsAvailable
+          ? "ASN, IPInfo, IPQS, Scamalytics, ipapi.is, connectivity, and Cloudflare"
+          : "ASN, IPInfo, Scamalytics, ipapi.is, connectivity, and Cloudflare",
       )}
       isExpanded={isTechnicalDetailsVisible}
       onToggle={() =>
@@ -1672,7 +1683,9 @@ function TechnicalDetailsSection({
     >
       <div className="mt-3 flex flex-col gap-4">
         <TechnicalIpFactsSection result={result} locale={locale} />
-        <TechnicalIpqsSection result={result} locale={locale} />
+        {ipqsAvailable ? (
+          <TechnicalIpqsSection result={result} locale={locale} />
+        ) : null}
         <TechnicalScamalyticsSection result={result} locale={locale} />
         <TechnicalIpApiIsSection result={result} locale={locale} />
         <TechnicalConnectivitySection result={result} locale={locale} />

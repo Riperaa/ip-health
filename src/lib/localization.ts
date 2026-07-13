@@ -2,6 +2,7 @@ export type Locale = "en" | "zh";
 
 const zh: Record<string, string> = {
   Footer: "页脚导航",
+  Methodology: "方法说明",
   "Better choice": "更佳选择",
   "Compare two IP addresses side by side.": "并排比较两个 IP 地址。",
   Compare: "开始对比",

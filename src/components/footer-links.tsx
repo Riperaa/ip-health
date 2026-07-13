@@ -4,6 +4,7 @@ import { messages, type Locale } from "@/lib/localization";
 
 const footerLinks = [
   { href: "/about", label: "About" },
+  { href: "/methodology", label: "Methodology" },
   { href: "/privacy", label: "Privacy" },
   { href: "/disclaimer", label: "Disclaimer" },
   { href: "/sponsor", label: "Sponsor" },

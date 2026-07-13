@@ -685,6 +685,19 @@ function buildNetworkQualityScore({
   }
 
   if (hasVpn || hasProxy || hasRelay || isCloudflareWarpOn(cloudflare)) {
+    if (identityCategory === "Public Infrastructure") {
+      return {
+        score,
+        assessmentLabel,
+        summary: "Public infrastructure review signal",
+        detail:
+          "A provider applied a VPN or proxy label, but this IP is a known public service endpoint rather than evidence of a personal VPN connection.",
+        tone: "infrastructure",
+        confidence: providerConfidence.confidence,
+        confidenceReason: providerConfidence.confidenceReason,
+      };
+    }
+
     if (isConsumerAccessIdentity(identityCategory)) {
       return {
         score,

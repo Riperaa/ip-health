@@ -530,6 +530,10 @@ function getScoreExplanationItems(
   } else if (ipApiIs?.vpn || ipApiIs?.proxy || ipApiIs?.tor) {
     if (identityCategory === "Tor Exit") {
       items.push("ipapi.is reported a Tor exit signal.");
+    } else if (identityCategory === "Public Infrastructure") {
+      items.push(
+        "ipapi.is applied a VPN or proxy label, but the primary classification remains known public service infrastructure.",
+      );
     } else if (isConsumerAccessIdentity(identityCategory)) {
       items.push(
         "ipapi.is reported a secondary review signal; the primary classification remains a normal access network.",
@@ -746,6 +750,13 @@ function getRiskSignals(
         detail:
           "A secondary provider reported a privacy review signal. Large organization and shared corporate traffic can receive extra checks.",
         tone: "caution",
+      });
+    } else if (identityCategory === "Public Infrastructure") {
+      signals.push({
+        label: "Public infrastructure provider label",
+        detail:
+          "A provider applied a VPN or proxy label, but this known public service endpoint should not be interpreted as a personal VPN connection.",
+        tone: "infrastructure",
       });
     } else {
       signals.push({

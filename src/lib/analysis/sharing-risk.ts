@@ -4,6 +4,7 @@ import {
   isCloudflareWarpOn,
   isInfrastructureUsage,
 } from "@/lib/trust-engine";
+import { isKnownPublicInfrastructureIp } from "@/lib/analysis/network-identity";
 import type {
   AbuseIpDbResponse,
   CloudflareTraceResponse,
@@ -108,23 +109,30 @@ export function buildNetworkSharingRisk({
 }: SharingRiskInput): EndUserReport["sharingRisk"] {
   const evidence: string[] = [];
   const privacy = ipInfo.privacy;
+  const isKnownPublicInfrastructure = isKnownPublicInfrastructureIp(ipInfo.ip);
   const hasTorSignal =
     privacy?.tor === true ||
     ipqs?.tor === true ||
     scamalytics?.tor === true ||
     ipApiIs?.tor === true;
-  const hasStrongVpnProxySignal =
+  const hasPrimaryVpnProxySignal =
     privacy?.vpn === true ||
     privacy?.proxy === true ||
     privacy?.relay === true ||
     ipqs?.vpn === true ||
     ipqs?.activeVpn === true ||
     ipqs?.proxy === true ||
-    ipApiIs?.vpn === true ||
-    ipApiIs?.proxy === true ||
     isCloudflareWarpOn(cloudflare);
+  const hasIpApiVpnProxySignal =
+    ipApiIs?.vpn === true || ipApiIs?.proxy === true;
+  const hasStrongVpnProxySignal =
+    !isKnownPublicInfrastructure &&
+    (hasPrimaryVpnProxySignal || hasIpApiVpnProxySignal);
   const hasReviewVpnProxySignal =
-    scamalytics?.vpn === true || scamalytics?.proxy === true;
+    scamalytics?.vpn === true ||
+    scamalytics?.proxy === true ||
+    (isKnownPublicInfrastructure &&
+      (hasPrimaryVpnProxySignal || hasIpApiVpnProxySignal));
   const hasDatacenterSignal =
     ipApiIs?.datacenter === true ||
     identity.networkIdentity === "Datacenter" ||
@@ -187,7 +195,12 @@ export function buildNetworkSharingRisk({
   }
 
   if (hasReviewVpnProxySignal) {
-    addEvidence(evidence, "Secondary privacy review signal");
+    addEvidence(
+      evidence,
+      isKnownPublicInfrastructure
+        ? "Provider VPN/proxy label treated as infrastructure metadata"
+        : "Secondary privacy review signal",
+    );
   }
 
   if ((hasDatacenterSignal || hasHostingSignal) && hasMismatchSignal) {

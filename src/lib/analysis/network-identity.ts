@@ -75,6 +75,10 @@ const PUBLIC_INFRASTRUCTURE_IPS: Record<
   },
 };
 
+export function isKnownPublicInfrastructureIp(ip?: string | null) {
+  return Boolean(ip?.trim() && PUBLIC_INFRASTRUCTURE_IPS[ip.trim()]);
+}
+
 const CLOUD_PROVIDER_MATCHERS: ProviderMatcher[] = [
   {
     provider: "Amazon AWS",
@@ -783,6 +787,23 @@ function getPublicInfrastructureIdentity(
   return null;
 }
 
+function getKnownPublicInfrastructureIdentity(
+  signals: SignalContext,
+): EndUserReport["identity"] | null {
+  const ipMatch = getPublicInfrastructureIpMatch(signals);
+
+  if (!ipMatch) {
+    return null;
+  }
+
+  return buildIdentity({
+    category: "Public Infrastructure",
+    provider: ipMatch.provider,
+    identityConfidence: "High",
+    reason: ipMatch.reason,
+  });
+}
+
 function getDatacenterIdentity(
   input: NetworkIdentityInput,
   signals: SignalContext,
@@ -807,6 +828,7 @@ export function classifyNetworkIdentity(
 
   return (
     getTorIdentity(input) ??
+    getKnownPublicInfrastructureIdentity(signals) ??
     getVpnProxyIdentity(input) ??
     getResidentialIdentity(signals) ??
     getMobileIdentity(signals) ??

@@ -167,6 +167,10 @@ const zh: Record<string, string> = {
   "Mobile Network": "移动网络（Mobile Network）",
   "Enterprise Network": "企业网络（Enterprise Network）",
   "Public Infrastructure": "公共基础设施（Public Infrastructure）",
+  "Public infrastructure review signal": "公共基础设施复核信号",
+  "Provider VPN/proxy label treated as infrastructure metadata":
+    "数据提供方的 VPN/代理标签已按基础设施元数据处理",
+  "Public infrastructure provider label": "公共基础设施提供方标签",
   "Cloud Provider": "云服务商（Cloud Provider）",
   "VPN / Proxy": "VPN / 代理（Proxy）",
   "Tor Exit": "Tor 出口节点（Tor Exit）",
@@ -527,6 +531,12 @@ const zh: Record<string, string> = {
     "ipapi.is 将此 IP 标记为 Tor 出口流量。",
   "ipapi.is marks this IP as VPN or proxy traffic.":
     "ipapi.is 将此 IP 标记为 VPN 或代理流量。",
+  "A provider applied a VPN or proxy label, but this IP is a known public service endpoint rather than evidence of a personal VPN connection.":
+    "数据提供方为此 IP 添加了 VPN 或代理标签，但该 IP 是已知公共服务端点，并不能证明用户正在使用个人 VPN。",
+  "ipapi.is applied a VPN or proxy label, but the primary classification remains known public service infrastructure.":
+    "ipapi.is 添加了 VPN 或代理标签，但主要分类仍为已知公共服务基础设施。",
+  "A provider applied a VPN or proxy label, but this known public service endpoint should not be interpreted as a personal VPN connection.":
+    "数据提供方添加了 VPN 或代理标签，但这个已知公共服务端点不应被理解为个人 VPN 连接。",
   "IPQS reputation data is unavailable, so analysis continued without it.":
     "IPQS 声誉数据不可用，分析已在缺少该数据的情况下继续。",
   "Scamalytics reputation data is unavailable, so analysis continued without it.":

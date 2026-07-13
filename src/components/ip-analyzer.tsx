@@ -1338,7 +1338,17 @@ function NetworkIntegritySection({
   );
 }
 
-type ConnectivityProbe = NonNullable<AnalysisResult["connectivity"]>["google"];
+type ConnectivityResult = NonNullable<AnalysisResult["connectivity"]>;
+type ConnectivityProbe = ConnectivityResult["google"];
+
+function hasDefinitiveConnectivityResult(
+  connectivity: ConnectivityResult | null,
+) {
+  return Object.values(connectivity ?? {}).some(
+    (probe) =>
+      probe.status === "verified_reachable" || probe.status === "unreachable",
+  );
+}
 
 function getConnectivityStatusDisplay(status: ConnectivityProbe["status"]): {
   label: string;
@@ -1378,17 +1388,8 @@ function TechnicalConnectivitySection({
   const connectivity =
     result.connectivity ?? result.finalDecision?.decision.connectivity ?? null;
 
-  if (!connectivity) {
-    return (
-      <section className="surface-card rounded-2xl border bg-white p-5">
-        <p className="text-sm font-semibold text-neutral-950">
-          {t("Connectivity")}
-        </p>
-        <p className="mt-4 rounded-xl border border-neutral-100 bg-neutral-50 px-4 py-3 text-sm leading-6 text-neutral-500">
-          {t("Connectivity probe data is unavailable.")}
-        </p>
-      </section>
-    );
+  if (!connectivity || !hasDefinitiveConnectivityResult(connectivity)) {
+    return null;
   }
 
   const probes = [

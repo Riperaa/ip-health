@@ -1,7 +1,18 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 
 import { FooterLinks } from "@/components/footer-links";
 import { IpCompare } from "@/components/ip-compare";
+import { buildPageMetadata } from "@/lib/site-metadata";
+
+export const metadata: Metadata = buildPageMetadata({
+  title: "IP 地址对比 | IP Health",
+  description:
+    "并排对比两个 IP 地址的声誉、网络身份、共享风险、证据质量与兼容性信号。",
+  path: "/zh/compare",
+  alternatePath: "/compare",
+  locale: "zh",
+});
 
 export default function ChineseComparePage() {
   return (

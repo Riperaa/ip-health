@@ -2,28 +2,19 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { MethodologyPage } from "@/components/methodology-page";
+import { buildPageMetadata } from "@/lib/site-metadata";
 
 const title = "How IP Health Works";
 const description =
   "Learn how IP Health combines reputation, network quality, compatibility, evidence quality, network identity, and sharing risk into a practical IP assessment.";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = buildPageMetadata({
   title,
   description,
-  alternates: {
-    canonical: "/methodology",
-    languages: { en: "/methodology", "zh-CN": "/zh/methodology" },
-  },
-  openGraph: {
-    title,
-    description,
-    siteName: "IP Health",
-    type: "website",
-    url: "/methodology",
-    locale: "en_US",
-  },
-  twitter: { card: "summary_large_image", title, description },
-};
+  path: "/methodology",
+  alternatePath: "/zh/methodology",
+  locale: "en",
+});
 
 export default function MethodologyRoute() {
   return (

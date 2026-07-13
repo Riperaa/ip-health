@@ -1,7 +1,18 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 
 import { FooterLinks } from "@/components/footer-links";
 import { IpCompare } from "@/components/ip-compare";
+import { buildPageMetadata } from "@/lib/site-metadata";
+
+export const metadata: Metadata = buildPageMetadata({
+  title: "Compare IP Addresses | IP Health",
+  description:
+    "Compare two IP addresses side by side across reputation, network identity, sharing risk, evidence quality, and compatibility signals.",
+  path: "/compare",
+  alternatePath: "/zh/compare",
+  locale: "en",
+});
 
 export default function ComparePage() {
   return (

@@ -7,6 +7,17 @@ const title = "IP Health – Check IP Trust, Risk, and Compatibility";
 const description =
   "Know whether you can trust an IP in 5 seconds. Check IP reputation, risk signals, service compatibility, and compare IPs.";
 
+const googleVerification = process.env.GOOGLE_SITE_VERIFICATION?.trim();
+const bingVerification = process.env.BING_SITE_VERIFICATION?.trim();
+const baiduVerification = process.env.BAIDU_SITE_VERIFICATION?.trim();
+
+const otherVerification = {
+  ...(bingVerification ? { "msvalidate.01": bingVerification } : {}),
+  ...(baiduVerification
+    ? { "baidu-site-verification": baiduVerification }
+    : {}),
+};
+
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title,
@@ -14,6 +25,7 @@ export const metadata: Metadata = {
   applicationName: "IP Health",
   alternates: {
     canonical: "/",
+    languages: { en: "/", "zh-CN": "/zh", "x-default": "/" },
   },
   openGraph: {
     title,
@@ -21,6 +33,8 @@ export const metadata: Metadata = {
     siteName: "IP Health",
     type: "website",
     url: siteUrl,
+    locale: "en_US",
+    alternateLocale: ["zh_CN"],
   },
   twitter: {
     card: "summary_large_image",
@@ -31,6 +45,15 @@ export const metadata: Metadata = {
     icon: "/icon.svg",
     shortcut: "/icon.svg",
   },
+  verification:
+    googleVerification || Object.keys(otherVerification).length > 0
+      ? {
+          ...(googleVerification ? { google: googleVerification } : {}),
+          ...(Object.keys(otherVerification).length > 0
+            ? { other: otherVerification }
+            : {}),
+        }
+      : undefined,
 };
 
 export const viewport: Viewport = {

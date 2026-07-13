@@ -2,28 +2,19 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { MethodologyPage } from "@/components/methodology-page";
+import { buildPageMetadata } from "@/lib/site-metadata";
 
 const title = "IP Health 如何工作";
 const description =
   "了解 IP Health 如何综合声誉、网络质量、兼容性、证据质量、网络身份与共享风险，形成实用的 IP 评估。";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = buildPageMetadata({
   title,
   description,
-  alternates: {
-    canonical: "/zh/methodology",
-    languages: { en: "/methodology", "zh-CN": "/zh/methodology" },
-  },
-  openGraph: {
-    title,
-    description,
-    siteName: "IP Health",
-    type: "website",
-    url: "/zh/methodology",
-    locale: "zh_CN",
-  },
-  twitter: { card: "summary_large_image", title, description },
-};
+  path: "/zh/methodology",
+  alternatePath: "/methodology",
+  locale: "zh",
+});
 
 export default function ChineseMethodologyRoute() {
   return (

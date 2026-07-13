@@ -18,18 +18,21 @@ These settings are also captured in `vercel.json`.
 
 Set these variables in the Vercel project settings before deploying.
 
-| Name                     | Required                      | Purpose                                                                                                                                              |
-| ------------------------ | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ABUSEIPDB_API_KEY`      | Yes                           | Server-side AbuseIPDB API key for `/api/abuseipdb`.                                                                                                  |
-| `IPINFO_TOKEN`           | Optional                      | Server-side IPinfo token for `/api/ipinfo`. If missing, the app can use the fallback provider after IPinfo rate limits.                              |
-| `IPQS_API_KEY`           | Optional / currently disabled | Server-side IPQualityScore API key for `/api/ipqs`. Leave unset while IPQS is disabled; the client skips IPQS results when the route is unavailable. |
-| `SCAMALYTICS_USER`       | Optional                      | Server-side Scamalytics account user for `/api/scamalytics`. Required with `SCAMALYTICS_API_KEY` before Scamalytics requests are made.               |
-| `SCAMALYTICS_API_KEY`    | Optional                      | Server-side Scamalytics API key for `/api/scamalytics`. Required with `SCAMALYTICS_USER`; used as the second reputation provider when configured.    |
-| `ABUSEIPDB_TIMEOUT_MS`   | Optional                      | Timeout for AbuseIPDB requests. Defaults to `5000`.                                                                                                  |
-| `ABUSEIPDB_MAX_AGE_DAYS` | Optional                      | AbuseIPDB report lookback window. Defaults to `90`.                                                                                                  |
-| `IPQS_TIMEOUT_MS`        | Optional                      | Timeout for IPQualityScore requests. Defaults to `5000`.                                                                                             |
-| `SCAMALYTICS_TIMEOUT_MS` | Optional                      | Timeout for Scamalytics requests. Defaults to `5000`.                                                                                                |
-| `ADMIN_ANALYTICS_TOKEN`  | Yes for admin analytics       | A long, random server-side secret used to protect `/admin/analytics` and `/api/admin/analytics`. If omitted, admin analytics fails closed.           |
+| Name                       | Required                      | Purpose                                                                                                                                              |
+| -------------------------- | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ABUSEIPDB_API_KEY`        | Yes                           | Server-side AbuseIPDB API key for `/api/abuseipdb`.                                                                                                  |
+| `IPINFO_TOKEN`             | Optional                      | Server-side IPinfo token for `/api/ipinfo`. If missing, the app can use the fallback provider after IPinfo rate limits.                              |
+| `IPQS_API_KEY`             | Optional / currently disabled | Server-side IPQualityScore API key for `/api/ipqs`. Leave unset while IPQS is disabled; the client skips IPQS results when the route is unavailable. |
+| `SCAMALYTICS_USER`         | Optional                      | Server-side Scamalytics account user for `/api/scamalytics`. Required with `SCAMALYTICS_API_KEY` before Scamalytics requests are made.               |
+| `SCAMALYTICS_API_KEY`      | Optional                      | Server-side Scamalytics API key for `/api/scamalytics`. Required with `SCAMALYTICS_USER`; used as the second reputation provider when configured.    |
+| `ABUSEIPDB_TIMEOUT_MS`     | Optional                      | Timeout for AbuseIPDB requests. Defaults to `5000`.                                                                                                  |
+| `ABUSEIPDB_MAX_AGE_DAYS`   | Optional                      | AbuseIPDB report lookback window. Defaults to `90`.                                                                                                  |
+| `IPQS_TIMEOUT_MS`          | Optional                      | Timeout for IPQualityScore requests. Defaults to `5000`.                                                                                             |
+| `SCAMALYTICS_TIMEOUT_MS`   | Optional                      | Timeout for Scamalytics requests. Defaults to `5000`.                                                                                                |
+| `ADMIN_ANALYTICS_TOKEN`    | Yes for admin analytics       | A long, random server-side secret used to protect `/admin/analytics` and `/api/admin/analytics`. If omitted, admin analytics fails closed.           |
+| `GOOGLE_SITE_VERIFICATION` | Optional                      | Google Search Console HTML meta-tag verification token.                                                                                              |
+| `BING_SITE_VERIFICATION`   | Optional                      | Bing Webmaster Tools `msvalidate.01` HTML meta-tag verification token.                                                                               |
+| `BAIDU_SITE_VERIFICATION`  | Optional                      | Baidu Search Resource Platform HTML meta-tag verification token.                                                                                     |
 
 Do not configure `NEXT_PUBLIC_IPINFO_TOKEN` for production unless a public browser-readable token is intentional. Prefer `IPINFO_TOKEN`.
 Keep `.env.local` local only. It is already covered by `.gitignore` and must not be committed.
@@ -132,3 +135,28 @@ When Scamalytics is configured, the response should include:
 ```
 
 When Scamalytics is unavailable or not configured, the app shows that status separately from IPQS and continues with the remaining providers.
+
+## Search Engine Registration
+
+The optional verification variables above render only their corresponding
+public verification meta tags. Leave a variable unset until its search-engine
+property supplies a real token, then redeploy and complete verification in that
+platform. Never commit tokens to the repository.
+
+- Google Search Console: add the `https://iphealth.app` URL-prefix property,
+  configure `GOOGLE_SITE_VERIFICATION`, submit
+  `https://iphealth.app/sitemap.xml`, and inspect the priority URLs below.
+- Bing Webmaster Tools: add or import `https://iphealth.app`, configure
+  `BING_SITE_VERIFICATION`, and submit the same sitemap.
+- Baidu Search Resource Platform: add `https://iphealth.app`, configure
+  `BAIDU_SITE_VERIFICATION`, submit the sitemap when the account supports it,
+  and submit the priority Chinese URLs using the platform's current supported
+  submission method.
+
+Priority URLs:
+
+- `/` and `/zh`
+- `/methodology` and `/zh/methodology`
+- `/is-my-ip-clean` and `/zh/is-my-ip-clean`
+- `/vpn-ip-check` and `/zh/vpn-ip-check`
+- `/why-is-my-ip-risky` and `/zh/why-is-my-ip-risky`

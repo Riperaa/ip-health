@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { FooterLinks } from "@/components/footer-links";
+import { GuideLinks } from "@/components/guide-links";
 import { IpAnalyzerContainer } from "@/components/ip-analyzer-container";
 import { LanguageSwitcher } from "@/components/language-switcher";
 
@@ -33,6 +34,7 @@ export default function Home() {
         </div>
       </section>
 
+      <GuideLinks />
       <FooterLinks />
     </main>
   );

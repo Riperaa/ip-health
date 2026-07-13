@@ -1,4 +1,16 @@
+import type { Metadata } from "next";
+
 import { InfoPage } from "@/components/info-page";
+import { buildPageMetadata } from "@/lib/site-metadata";
+
+export const metadata: Metadata = buildPageMetadata({
+  title: "隐私政策 | IP Health",
+  description:
+    "了解 IP Health 如何处理待分析的 IP 地址、本地浏览器历史、数据提供方请求和匿名产品分析数据。",
+  path: "/zh/privacy",
+  alternatePath: "/privacy",
+  locale: "zh",
+});
 
 export default function ChinesePrivacyPage() {
   return (

@@ -2,30 +2,22 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { FooterLinks } from "@/components/footer-links";
+import { GuideLinks } from "@/components/guide-links";
 import { IpAnalyzerContainer } from "@/components/ip-analyzer-container";
 import { LanguageSwitcher } from "@/components/language-switcher";
+import { buildPageMetadata } from "@/lib/site-metadata";
 
 const title = "IP Health – 检查 IP 声誉、网络身份和风险信号";
 const description =
   "免费检查 IP 声誉、网络身份和风险信号，在注册、登录、支付、远程办公或业务操作前了解潜在风控风险。";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = buildPageMetadata({
   title,
   description,
-  alternates: {
-    canonical: "/zh",
-    languages: { en: "/", "zh-CN": "/zh" },
-  },
-  openGraph: {
-    title,
-    description,
-    siteName: "IP Health",
-    type: "website",
-    url: "/zh",
-    locale: "zh_CN",
-  },
-  twitter: { card: "summary_large_image", title, description },
-};
+  path: "/zh",
+  alternatePath: "/",
+  locale: "zh",
+});
 
 export default function ChineseHome() {
   return (
@@ -50,13 +42,15 @@ export default function ChineseHome() {
           </h1>
           <p className="mx-auto mt-5 max-w-2xl text-pretty text-base leading-7 text-neutral-600 sm:text-lg">
             IP Health 是一个用于检查 IP 声誉、网络身份和风险信号的免费工具。
-            你可以在使用某个 IP 注册、登录、支付、远程办公或业务操作前，先了解它可能带来的风控风险。
+            你可以在使用某个 IP
+            注册、登录、支付、远程办公或业务操作前，先了解它可能带来的风控风险。
           </p>
 
           <IpAnalyzerContainer locale="zh" />
         </div>
       </section>
 
+      <GuideLinks locale="zh" />
       <FooterLinks locale="zh" />
     </main>
   );

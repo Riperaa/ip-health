@@ -1,4 +1,16 @@
+import type { Metadata } from "next";
+
 import { InfoPage } from "@/components/info-page";
+import { buildPageMetadata } from "@/lib/site-metadata";
+
+export const metadata: Metadata = buildPageMetadata({
+  title: "Privacy | IP Health",
+  description:
+    "Learn how IP Health handles analyzed IP addresses, local browser history, provider requests, and anonymous product analytics.",
+  path: "/privacy",
+  alternatePath: "/zh/privacy",
+  locale: "en",
+});
 
 export default function PrivacyPage() {
   return (

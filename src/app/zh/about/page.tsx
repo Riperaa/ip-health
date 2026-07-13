@@ -1,4 +1,16 @@
+import type { Metadata } from "next";
+
 import { InfoPage } from "@/components/info-page";
+import { buildPageMetadata } from "@/lib/site-metadata";
+
+export const metadata: Metadata = buildPageMetadata({
+  title: "关于 IP Health",
+  description:
+    "了解 IP Health：一款注重隐私、用于检查 IP 声誉、网络身份、兼容性和风险信号的工具。",
+  path: "/zh/about",
+  alternatePath: "/about",
+  locale: "zh",
+});
 
 export default function ChineseAboutPage() {
   return (

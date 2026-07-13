@@ -1,4 +1,16 @@
+import type { Metadata } from "next";
+
 import { InfoPage } from "@/components/info-page";
+import { buildPageMetadata } from "@/lib/site-metadata";
+
+export const metadata: Metadata = buildPageMetadata({
+  title: "免责声明 | IP Health",
+  description:
+    "了解 IP Health 检测结果、IP 声誉信号、兼容性建议和服务访问预测的适用范围与限制。",
+  path: "/zh/disclaimer",
+  alternatePath: "/disclaimer",
+  locale: "zh",
+});
 
 export default function ChineseDisclaimerPage() {
   return (

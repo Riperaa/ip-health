@@ -10,6 +10,9 @@
     <loc>https://iphealth.app/compare</loc>
   </url>
   <url>
+    <loc>https://iphealth.app/zh/compare</loc>
+  </url>
+  <url>
     <loc>https://iphealth.app/sponsor</loc>
   </url>
   <url>
@@ -17,6 +20,9 @@
   </url>
   <url>
     <loc>https://iphealth.app/about</loc>
+  </url>
+  <url>
+    <loc>https://iphealth.app/zh/about</loc>
   </url>
   <url>
     <loc>https://iphealth.app/methodology</loc>
@@ -28,7 +34,13 @@
     <loc>https://iphealth.app/privacy</loc>
   </url>
   <url>
+    <loc>https://iphealth.app/zh/privacy</loc>
+  </url>
+  <url>
     <loc>https://iphealth.app/disclaimer</loc>
+  </url>
+  <url>
+    <loc>https://iphealth.app/zh/disclaimer</loc>
   </url>
   <url>
     <loc>https://iphealth.app/is-my-ip-clean</loc>

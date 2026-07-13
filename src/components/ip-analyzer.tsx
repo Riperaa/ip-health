@@ -6,6 +6,13 @@ import { useState, type ReactNode } from "react";
 import { StatusBadge } from "@/components/status-badge";
 import type { StatusTone } from "@/lib/status-colors";
 import type { AnalysisResult } from "@/lib/analysis";
+import {
+  getPublicDimensionDetail,
+  getPublicRecommendationExplanation,
+  getPublicResultSummary,
+  LIMITED_EVIDENCE_WARNING,
+  shouldShowLimitedEvidenceWarning,
+} from "@/lib/analysis/result-presentation";
 import { localizeText, messages, type Locale } from "@/lib/localization";
 
 type OverallVerdict = NonNullable<
@@ -641,43 +648,9 @@ function IpHealthScoreCard({
   const qualityReport = result.qualityReport;
   const scoreDisplay = qualityReport.displayValue;
   const scoreSuffix = "/100";
-  const summary = qualityReport.summary;
-  const dataQuality = qualityReport.dataQuality;
+  const summary = getPublicResultSummary(result);
+  const showLimitedEvidenceWarning = shouldShowLimitedEvidenceWarning(result);
   const assessment = qualityReport.assessment;
-  const externalSignals = result.finalDecision?.decision.externalSignals;
-  const providerStatuses = [
-    ...(externalSignals?.ipqs.status === "available"
-      ? [
-          {
-            label: "IPQS",
-            value: "available",
-            tone: "good" as const,
-          },
-        ]
-      : []),
-    {
-      label: "Scamalytics",
-      value:
-        externalSignals?.scamalytics.status === "available"
-          ? "available"
-          : "unavailable",
-      tone:
-        externalSignals?.scamalytics.status === "available"
-          ? ("good" as const)
-          : ("caution" as const),
-    },
-    {
-      label: "ipapi.is",
-      value:
-        externalSignals?.ipApiIs.status === "available"
-          ? "available"
-          : "unavailable",
-      tone:
-        externalSignals?.ipApiIs.status === "available"
-          ? ("good" as const)
-          : ("caution" as const),
-    },
-  ];
   const dimensions = [
     qualityReport.dimensions.reputation,
     qualityReport.dimensions.networkQuality,
@@ -710,10 +683,17 @@ function IpHealthScoreCard({
                 {t("Confidence pending")}
               </StatusBadge>
             )}
-            <span className="text-sm leading-6 text-neutral-500">
-              {t(summary)}
-            </span>
+            {summary ? (
+              <span className="text-sm leading-6 text-neutral-500">
+                {t(summary)}
+              </span>
+            ) : null}
           </div>
+          {showLimitedEvidenceWarning ? (
+            <p className="mt-3 text-sm leading-6 text-amber-800">
+              {t(LIMITED_EVIDENCE_WARNING)}
+            </p>
+          ) : null}
         </div>
 
         <div className="min-w-0 rounded-2xl border border-neutral-100 bg-neutral-50/70 p-4 sm:w-64">
@@ -740,53 +720,20 @@ function IpHealthScoreCard({
         </div>
       </div>
 
-      <div className="mt-6 grid gap-3 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-        <div className="rounded-2xl border border-neutral-100 bg-neutral-50/70 p-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="inline-flex items-center gap-2 text-sm font-semibold text-neutral-950">
-              <ShieldCheck
-                aria-hidden="true"
-                className="size-4 text-neutral-400"
-              />
-              {t("Evidence Quality")}
-            </p>
-            <StatusBadge tone={dataQuality.tone} variant="quiet">
-              {t(dataQuality.level)}
-            </StatusBadge>
-          </div>
-          <p className="mt-3 text-sm leading-6 text-neutral-500">
-            {t(dataQuality.reason)}
+      <div className="mt-6 rounded-2xl border border-neutral-100 bg-neutral-50/70 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-sm font-semibold text-neutral-950">
+            {t("Assessment")}
           </p>
-          {result.trustScore.hasAnalysis ? (
-            <div className="mt-3 flex flex-wrap gap-2">
-              {providerStatuses.map((provider) => (
-                <StatusBadge
-                  key={provider.label}
-                  tone={provider.tone}
-                  variant="quiet"
-                >
-                  {provider.label} {t(provider.value)}
-                </StatusBadge>
-              ))}
-            </div>
-          ) : null}
+          <StatusBadge tone={assessment.tone} variant="quiet">
+            {t(assessment.label)}
+          </StatusBadge>
         </div>
-
-        <div className="rounded-2xl border border-neutral-100 bg-neutral-50/70 p-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-sm font-semibold text-neutral-950">
-              {t("Assessment")}
-            </p>
-            <StatusBadge tone={assessment.tone} variant="quiet">
-              {t(assessment.label)}
-            </StatusBadge>
-          </div>
-          <ul className="mt-3 grid gap-2 text-sm leading-6 text-neutral-600 sm:grid-cols-3">
-            {assessment.items.map((item) => (
-              <li key={item}>{t(item)}</li>
-            ))}
-          </ul>
-        </div>
+        <ul className="mt-3 grid gap-2 text-sm leading-6 text-neutral-600 sm:grid-cols-3">
+          {assessment.items.map((item) => (
+            <li key={item}>{t(item)}</li>
+          ))}
+        </ul>
       </div>
 
       <div className="mt-6 grid gap-3 lg:grid-cols-3">
@@ -818,16 +765,15 @@ function IpHealthScoreCard({
                 {dimension.displayValue}/100
               </StatusBadge>
             </div>
-            <p className="mt-3 text-xs leading-5 text-neutral-400">
-              {t(dimension.detail)}
-            </p>
-            <div className="mt-3 flex flex-wrap items-center gap-2">
+            {getPublicDimensionDetail(dimension.detail) ? (
+              <p className="mt-3 text-xs leading-5 text-neutral-400">
+                {t(getPublicDimensionDetail(dimension.detail) ?? "")}
+              </p>
+            ) : null}
+            <div className="mt-3">
               <StatusBadge tone={dimension.confidenceTone} variant="quiet">
                 {t(`Confidence: ${dimension.confidence}`)}
               </StatusBadge>
-              <span className="text-xs leading-5 text-neutral-400">
-                {t(dimension.confidenceReason)}
-              </span>
             </div>
           </div>
         ))}
@@ -1054,7 +1000,7 @@ function ReputationSection({
         />
       </div>
 
-      <dl className="mt-4 grid gap-3 sm:grid-cols-3">
+      <dl className="mt-4 grid gap-3 sm:grid-cols-2">
         {ipqsAvailable ? (
           <ReportField
             label={t("Risk Score")}
@@ -1068,10 +1014,6 @@ function ReputationSection({
         <ReportField
           label={t("Confidence")}
           value={t(reputationDimension.confidence)}
-        />
-        <ReportField
-          label={t("Reason")}
-          value={t(reputationDimension.confidenceReason)}
         />
       </dl>
     </section>
@@ -1232,6 +1174,7 @@ function RecommendedUsageSection({
 }) {
   const t = messages(locale);
   const verdict = getReliabilityCappedVerdict(result);
+  const explanation = getPublicRecommendationExplanation(result);
 
   if (!verdict) {
     return null;
@@ -1244,9 +1187,9 @@ function RecommendedUsageSection({
           <Compass aria-hidden="true" className="size-4 text-neutral-400" />
           {t("Recommendation")}
         </p>
-        <p className="text-sm leading-6 text-neutral-500">
-          {t(result.qualityReport.recommendationExplanation)}
-        </p>
+        {explanation ? (
+          <p className="text-sm leading-6 text-neutral-500">{t(explanation)}</p>
+        ) : null}
       </div>
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -1294,27 +1237,18 @@ function NetworkIntegritySection({
   locale: Locale;
 }) {
   const t = messages(locale);
+
+  if (!result.networkIntegrity.hasCloudflare) {
+    return null;
+  }
+
   return (
     <section className="surface-card rounded-2xl border bg-white p-5">
-      <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-        <div>
-          <p className="text-sm font-semibold text-neutral-950">Cloudflare</p>
-          <p className="mt-1 text-sm leading-6 text-neutral-500">
-            {t("Trace, WARP, and consistency signals.")}
-          </p>
-        </div>
-        <StatusBadge
-          tone={
-            result.networkIntegrity.hasCloudflare
-              ? result.networkIntegrity.tone
-              : "neutral"
-          }
-          className="mt-1 sm:mt-0"
-        >
-          {result.networkIntegrity.hasCloudflare
-            ? t("Trace available")
-            : t("Unavailable")}
-        </StatusBadge>
+      <div>
+        <p className="text-sm font-semibold text-neutral-950">Cloudflare</p>
+        <p className="mt-1 text-sm leading-6 text-neutral-500">
+          {t("Trace, WARP, and consistency signals.")}
+        </p>
       </div>
 
       <dl className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -1337,13 +1271,6 @@ function NetworkIntegritySection({
           </div>
         ))}
       </dl>
-
-      <p
-        hidden={result.networkIntegrity.hasCloudflare}
-        className="mt-4 rounded-xl border border-neutral-100 bg-neutral-50 px-4 py-3 text-sm leading-6 text-neutral-500"
-      >
-        {t(result.networkIntegrity.unavailableMessage)}
-      </p>
     </section>
   );
 }
@@ -1531,6 +1458,10 @@ function TechnicalScamalyticsSection({
   const scamalytics =
     result.finalDecision?.decision.externalSignals.scamalytics;
 
+  if (scamalytics?.status !== "available") {
+    return null;
+  }
+
   return (
     <section className="surface-card rounded-2xl border bg-white p-5">
       <div className="flex flex-col gap-1">
@@ -1540,36 +1471,30 @@ function TechnicalScamalyticsSection({
         </p>
       </div>
 
-      {scamalytics?.status === "available" ? (
-        <dl className="mt-4 grid gap-3 sm:grid-cols-3">
-          <ReportField
-            label={t("Risk Score")}
-            value={`${scamalytics.score}/100`}
-          />
-          <ReportField
-            label={t("Risk Level")}
-            value={t(scamalytics.risk || "Not reported")}
-          />
-          <ReportField
-            label={t("Country")}
-            value={scamalytics.country || t("Not identified")}
-          />
-          <ReportField label="VPN" value={t(scamalytics.vpn ? "Yes" : "No")} />
-          <ReportField
-            label="Proxy"
-            value={t(scamalytics.proxy ? "Yes" : "No")}
-          />
-          <ReportField label="Tor" value={t(scamalytics.tor ? "Yes" : "No")} />
-          <ReportField
-            label={t("Server")}
-            value={t(scamalytics.server ? "Yes" : "No")}
-          />
-        </dl>
-      ) : (
-        <p className="mt-4 rounded-xl border border-neutral-100 bg-neutral-50 px-4 py-3 text-sm leading-6 text-neutral-500">
-          {t(scamalytics?.error ?? "Scamalytics data is unavailable.")}
-        </p>
-      )}
+      <dl className="mt-4 grid gap-3 sm:grid-cols-3">
+        <ReportField
+          label={t("Risk Score")}
+          value={`${scamalytics.score}/100`}
+        />
+        <ReportField
+          label={t("Risk Level")}
+          value={t(scamalytics.risk || "Not reported")}
+        />
+        <ReportField
+          label={t("Country")}
+          value={scamalytics.country || t("Not identified")}
+        />
+        <ReportField label="VPN" value={t(scamalytics.vpn ? "Yes" : "No")} />
+        <ReportField
+          label="Proxy"
+          value={t(scamalytics.proxy ? "Yes" : "No")}
+        />
+        <ReportField label="Tor" value={t(scamalytics.tor ? "Yes" : "No")} />
+        <ReportField
+          label={t("Server")}
+          value={t(scamalytics.server ? "Yes" : "No")}
+        />
+      </dl>
     </section>
   );
 }
@@ -1584,6 +1509,10 @@ function TechnicalIpApiIsSection({
   const t = messages(locale);
   const ipApiIs = result.finalDecision?.decision.externalSignals.ipApiIs;
 
+  if (ipApiIs?.status !== "available") {
+    return null;
+  }
+
   return (
     <section className="surface-card rounded-2xl border bg-white p-5">
       <div className="flex flex-col gap-1">
@@ -1593,53 +1522,36 @@ function TechnicalIpApiIsSection({
         </p>
       </div>
 
-      {ipApiIs?.status === "available" ? (
-        <dl className="mt-4 grid gap-3 sm:grid-cols-3">
-          <ReportField label={t("Status")} value={t("Available")} />
-          <ReportField
-            label={t("HTTP Status")}
-            value={
-              ipApiIs.providerStatus.httpStatusCode
-                ? String(ipApiIs.providerStatus.httpStatusCode)
-                : t("Not reported")
-            }
-          />
-          <ReportField label="VPN" value={t(ipApiIs.vpn ? "Yes" : "No")} />
-          <ReportField label="Proxy" value={t(ipApiIs.proxy ? "Yes" : "No")} />
-          <ReportField label="Tor" value={t(ipApiIs.tor ? "Yes" : "No")} />
-          <ReportField
-            label={t("Datacenter")}
-            value={t(ipApiIs.datacenter ? "Yes" : "No")}
-          />
-          <ReportField
-            label={t("Hosting")}
-            value={t(ipApiIs.hosting ? "Yes" : "No")}
-          />
-          <ReportField label="ASN" value={ipApiIs.asn || t("Not identified")} />
-          <ReportField
-            label={t("Organization")}
-            value={
-              ipApiIs.organization || ipApiIs.asnName || t("Not identified")
-            }
-          />
-          <ReportField
-            label={t("Location")}
-            value={
-              [ipApiIs.city, ipApiIs.region, ipApiIs.country]
-                .filter(Boolean)
-                .join(", ") || t("Not identified")
-            }
-          />
-          <ReportField
-            label={t("Abuser Signal")}
-            value={t(ipApiIs.abuser ? "Yes" : "No")}
-          />
-        </dl>
-      ) : (
-        <p className="mt-4 rounded-xl border border-neutral-100 bg-neutral-50 px-4 py-3 text-sm leading-6 text-neutral-500">
-          {t(ipApiIs?.error ?? "ipapi.is data is unavailable.")}
-        </p>
-      )}
+      <dl className="mt-4 grid gap-3 sm:grid-cols-3">
+        <ReportField label="VPN" value={t(ipApiIs.vpn ? "Yes" : "No")} />
+        <ReportField label="Proxy" value={t(ipApiIs.proxy ? "Yes" : "No")} />
+        <ReportField label="Tor" value={t(ipApiIs.tor ? "Yes" : "No")} />
+        <ReportField
+          label={t("Datacenter")}
+          value={t(ipApiIs.datacenter ? "Yes" : "No")}
+        />
+        <ReportField
+          label={t("Hosting")}
+          value={t(ipApiIs.hosting ? "Yes" : "No")}
+        />
+        <ReportField label="ASN" value={ipApiIs.asn || t("Not identified")} />
+        <ReportField
+          label={t("Organization")}
+          value={ipApiIs.organization || ipApiIs.asnName || t("Not identified")}
+        />
+        <ReportField
+          label={t("Location")}
+          value={
+            [ipApiIs.city, ipApiIs.region, ipApiIs.country]
+              .filter(Boolean)
+              .join(", ") || t("Not identified")
+          }
+        />
+        <ReportField
+          label={t("Abuser Signal")}
+          value={t(ipApiIs.abuser ? "Yes" : "No")}
+        />
+      </dl>
     </section>
   );
 }

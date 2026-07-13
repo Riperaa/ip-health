@@ -87,7 +87,8 @@ const zh: Record<string, string> = {
   "Thanks for the feedback.": "感谢你的反馈。",
   "IP Health Score": "IP 健康评分",
   "Checked IP": "已检测 IP",
-  "Evidence Quality": "证据质量",
+  "Limited data was available, so this result should be treated as indicative.":
+    "部分数据不足，本次结果仅供参考。",
   Assessment: "综合评估",
   Reputation: "声誉",
   "Network Quality": "网络质量",

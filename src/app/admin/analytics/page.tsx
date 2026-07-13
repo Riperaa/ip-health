@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { cookies } from "next/headers";
+import { notFound, redirect } from "next/navigation";
 import type { ReactNode } from "react";
 
 import {
@@ -8,6 +9,11 @@ import {
   type AnalyticsDayBucket,
   type AnalyticsSummary,
 } from "@/lib/analytics-storage";
+import {
+  ADMIN_SESSION_COOKIE,
+  isAdminAnalyticsConfigured,
+  verifyAdminSession,
+} from "@/lib/admin-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -17,12 +23,6 @@ export const metadata: Metadata = {
     index: false,
     follow: false,
   },
-};
-
-type AdminAnalyticsPageProps = {
-  searchParams?: Promise<{
-    token?: string | string[];
-  }>;
 };
 
 const numberFormatter = new Intl.NumberFormat("en-US");
@@ -101,10 +101,6 @@ const evidenceQualityLabels: Record<string, string> = {
   Pending: "⚪ Pending",
 };
 
-function getSingleSearchParam(value: string | string[] | undefined) {
-  return Array.isArray(value) ? value[0] : value;
-}
-
 function formatNumber(value: number) {
   return numberFormatter.format(value);
 }
@@ -149,9 +145,7 @@ function getCountryFlag(countryCode: string) {
   }
 
   return Array.from(countryCode)
-    .map((letter) =>
-      String.fromCodePoint(127397 + letter.charCodeAt(0)),
-    )
+    .map((letter) => String.fromCodePoint(127397 + letter.charCodeAt(0)))
     .join("");
 }
 
@@ -523,14 +517,16 @@ function Dashboard({ summary }: { summary: AnalyticsSummary }) {
   );
 }
 
-export default async function AdminAnalyticsPage({
-  searchParams,
-}: AdminAnalyticsPageProps) {
-  const params = searchParams ? await searchParams : {};
-  const adminToken = process.env.ADMIN_ANALYTICS_TOKEN;
-
-  if (adminToken && getSingleSearchParam(params.token) !== adminToken) {
+export default async function AdminAnalyticsPage() {
+  if (!isAdminAnalyticsConfigured()) {
     notFound();
+  }
+
+  const cookieStore = await cookies();
+  const sessionCookie = cookieStore.get(ADMIN_SESSION_COOKIE)?.value;
+
+  if (!verifyAdminSession(sessionCookie)) {
+    redirect("/admin/login");
   }
 
   const summary = await getAnalyticsSummary();

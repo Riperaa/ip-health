@@ -18,20 +18,30 @@ These settings are also captured in `vercel.json`.
 
 Set these variables in the Vercel project settings before deploying.
 
-| Name | Required | Purpose |
-| --- | --- | --- |
-| `ABUSEIPDB_API_KEY` | Yes | Server-side AbuseIPDB API key for `/api/abuseipdb`. |
-| `IPINFO_TOKEN` | Optional | Server-side IPinfo token for `/api/ipinfo`. If missing, the app can use the fallback provider after IPinfo rate limits. |
-| `IPQS_API_KEY` | Optional / currently disabled | Server-side IPQualityScore API key for `/api/ipqs`. Leave unset while IPQS is disabled; the client skips IPQS results when the route is unavailable. |
-| `SCAMALYTICS_USER` | Optional | Server-side Scamalytics account user for `/api/scamalytics`. Required with `SCAMALYTICS_API_KEY` before Scamalytics requests are made. |
-| `SCAMALYTICS_API_KEY` | Optional | Server-side Scamalytics API key for `/api/scamalytics`. Required with `SCAMALYTICS_USER`; used as the second reputation provider when configured. |
-| `ABUSEIPDB_TIMEOUT_MS` | Optional | Timeout for AbuseIPDB requests. Defaults to `5000`. |
-| `ABUSEIPDB_MAX_AGE_DAYS` | Optional | AbuseIPDB report lookback window. Defaults to `90`. |
-| `IPQS_TIMEOUT_MS` | Optional | Timeout for IPQualityScore requests. Defaults to `5000`. |
-| `SCAMALYTICS_TIMEOUT_MS` | Optional | Timeout for Scamalytics requests. Defaults to `5000`. |
+| Name                     | Required                      | Purpose                                                                                                                                              |
+| ------------------------ | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ABUSEIPDB_API_KEY`      | Yes                           | Server-side AbuseIPDB API key for `/api/abuseipdb`.                                                                                                  |
+| `IPINFO_TOKEN`           | Optional                      | Server-side IPinfo token for `/api/ipinfo`. If missing, the app can use the fallback provider after IPinfo rate limits.                              |
+| `IPQS_API_KEY`           | Optional / currently disabled | Server-side IPQualityScore API key for `/api/ipqs`. Leave unset while IPQS is disabled; the client skips IPQS results when the route is unavailable. |
+| `SCAMALYTICS_USER`       | Optional                      | Server-side Scamalytics account user for `/api/scamalytics`. Required with `SCAMALYTICS_API_KEY` before Scamalytics requests are made.               |
+| `SCAMALYTICS_API_KEY`    | Optional                      | Server-side Scamalytics API key for `/api/scamalytics`. Required with `SCAMALYTICS_USER`; used as the second reputation provider when configured.    |
+| `ABUSEIPDB_TIMEOUT_MS`   | Optional                      | Timeout for AbuseIPDB requests. Defaults to `5000`.                                                                                                  |
+| `ABUSEIPDB_MAX_AGE_DAYS` | Optional                      | AbuseIPDB report lookback window. Defaults to `90`.                                                                                                  |
+| `IPQS_TIMEOUT_MS`        | Optional                      | Timeout for IPQualityScore requests. Defaults to `5000`.                                                                                             |
+| `SCAMALYTICS_TIMEOUT_MS` | Optional                      | Timeout for Scamalytics requests. Defaults to `5000`.                                                                                                |
+| `ADMIN_ANALYTICS_TOKEN`  | Yes for admin analytics       | A long, random server-side secret used to protect `/admin/analytics` and `/api/admin/analytics`. If omitted, admin analytics fails closed.           |
 
 Do not configure `NEXT_PUBLIC_IPINFO_TOKEN` for production unless a public browser-readable token is intentional. Prefer `IPINFO_TOKEN`.
 Keep `.env.local` local only. It is already covered by `.gitignore` and must not be committed.
+
+Open `/admin/login` to access the browser dashboard. The login form creates an
+eight-hour `HttpOnly`, `SameSite=Strict` session cookie; the token is never put in
+the URL. Programmatic access uses an authorization header:
+
+```bash
+curl -H "Authorization: Bearer $ADMIN_ANALYTICS_TOKEN" \
+  https://your-domain.example/api/admin/analytics
+```
 
 ## Preflight
 

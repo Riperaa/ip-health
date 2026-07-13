@@ -4,22 +4,32 @@ import {
   AnalyticsSupabaseConfigurationError,
   getAnalyticsSummary,
 } from "@/lib/analytics-storage";
+import {
+  ADMIN_SESSION_COOKIE,
+  isAdminAnalyticsConfigured,
+  isAdminRequestAuthorized,
+} from "@/lib/admin-auth";
 
 export const dynamic = "force-dynamic";
 
-function isAuthorized(request: NextRequest) {
-  const adminToken = process.env.ADMIN_ANALYTICS_TOKEN;
-
-  if (!adminToken) {
-    return true;
+export async function GET(request: NextRequest) {
+  if (!isAdminAnalyticsConfigured()) {
+    return NextResponse.json(
+      { error: "Admin analytics is not configured" },
+      { status: 503, headers: { "Cache-Control": "no-store" } },
+    );
   }
 
-  return request.nextUrl.searchParams.get("token") === adminToken;
-}
-
-export async function GET(request: NextRequest) {
-  if (!isAuthorized(request)) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (
+    !isAdminRequestAuthorized({
+      authorizationHeader: request.headers.get("authorization"),
+      sessionCookie: request.cookies.get(ADMIN_SESSION_COOKIE)?.value,
+    })
+  ) {
+    return NextResponse.json(
+      { error: "Not found" },
+      { status: 404, headers: { "Cache-Control": "no-store" } },
+    );
   }
 
   try {

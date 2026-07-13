@@ -6,6 +6,11 @@ import {
 } from "../connectivity/probe";
 import { classifyNetworkIdentity } from "../network-identity";
 import { parseOrg, pickDetail } from "../normalize/common";
+import {
+  filterPublicSummaryFragments,
+  joinEnglishSummaryFragments,
+  type SummaryFragment,
+} from "../summary-presentation";
 import type {
   AbuseIpDbResponse,
   CloudflareTraceResponse,
@@ -1178,9 +1183,11 @@ function buildDataQuality({
   | "ipApiIs"
   | "connectivity"
 >) {
-  const reasons: string[] = [];
+  const internalReasons: string[] = [];
+  const presentationCandidates: SummaryFragment[] = [];
   const ipInfoCoverage = getIpInfoCoverage(ipInfo);
   const connectivityConfidence = getConnectivityConfidence(connectivity);
+  const connectivityCounts = getConnectivityCounts(connectivity);
   const hasFallbackReputation =
     Boolean(abuseIpDb) &&
     (isScamalyticsAvailable(scamalytics) || isIpApiIsAvailable(ipApiIs));
@@ -1190,46 +1197,72 @@ function buildDataQuality({
     isIpApiIsAvailable(ipApiIs);
 
   if (!isIpqsAvailable(ipqs)) {
-    reasons.push(
-      isScamalyticsAvailable(scamalytics)
-        ? "A reputation data source was unavailable; Scamalytics was available."
-        : isIpApiIsAvailable(ipApiIs)
-          ? "A reputation data source was unavailable; ipapi.is was available."
-          : "A reputation data source was unavailable.",
-    );
+    internalReasons.push("IPQS reputation data was unavailable.");
+    presentationCandidates.push({
+      text: "IPQS reputation data was unavailable.",
+      source: "ipqs-unavailable",
+    });
   }
 
   if (!isScamalyticsAvailable(scamalytics) && !isIpApiIsAvailable(ipApiIs)) {
-    reasons.push("Scamalytics and ipapi.is secondary data were unavailable.");
+    const reason = "Scamalytics and ipapi.is secondary data were unavailable.";
+    internalReasons.push(reason);
+    presentationCandidates.push({ text: reason });
   }
 
   if (ipInfoCoverage === "unavailable") {
-    reasons.push("IPInfo network data was unavailable.");
+    const reason = "IPInfo network data was unavailable.";
+    internalReasons.push(reason);
+    presentationCandidates.push({ text: reason });
   } else if (ipInfoCoverage === "partial") {
-    reasons.push("IPInfo ownership data was incomplete.");
+    const reason = "IPInfo ownership data was incomplete.";
+    internalReasons.push(reason);
+    presentationCandidates.push({ text: reason });
   }
 
   if (!abuseIpDb) {
-    reasons.push("AbuseIPDB abuse history was unavailable.");
+    const reason = "AbuseIPDB abuse history was unavailable.";
+    internalReasons.push(reason);
+    presentationCandidates.push({ text: reason });
   }
 
   if (!cloudflare) {
-    reasons.push("Cloudflare trace data was unavailable.");
+    const reason = "Cloudflare trace data was unavailable.";
+    internalReasons.push(reason);
+    presentationCandidates.push({ text: reason });
   }
 
   if (connectivityConfidence.confidence === "Low") {
-    reasons.push("Connectivity probes were unavailable.");
+    internalReasons.push("Connectivity probes were unavailable.");
   } else if (connectivityConfidence.confidence === "Medium") {
-    reasons.push("Connectivity probes were partially verified.");
+    const reason = "Connectivity probes were partially verified.";
+    internalReasons.push(reason);
+    presentationCandidates.push({
+      text: reason,
+      source: "connectivity-status",
+      hasDefinitiveConnectivity:
+        connectivityCounts.reachable > 0 || connectivityCounts.unreachable > 0,
+    });
   }
 
   const level: Exclude<IpQualityConfidence, "Pending"> =
-    reasons.length === 0
+    internalReasons.length === 0
       ? "High"
-      : reasons.length === 1 || (hasFallbackReputation && hasNetworkContext)
+      : internalReasons.length === 1 ||
+          (hasFallbackReputation && hasNetworkContext)
         ? "Medium"
         : "Low";
-  const reason = joinReasons(reasons);
+  const publicReasons = filterPublicSummaryFragments(
+    presentationCandidates,
+  ).map(({ text }) => text);
+  const publicReason = joinReasons(publicReasons);
+  const availabilityContext = !isIpqsAvailable(ipqs)
+    ? isScamalyticsAvailable(scamalytics)
+      ? "Scamalytics was available."
+      : isIpApiIsAvailable(ipApiIs)
+        ? "ipapi.is was available."
+        : ""
+    : "";
 
   return {
     level,
@@ -1237,9 +1270,11 @@ function buildDataQuality({
     reason:
       level === "High"
         ? "IPQS, IPInfo, ipapi.is, and connectivity probes were available."
-        : level === "Medium"
-          ? `Some data sources unavailable: ${reason}`
-          : `Important data sources were unavailable: ${reason}`,
+        : publicReasons.length > 0
+          ? level === "Medium"
+            ? `Some data sources unavailable: ${publicReason}`
+            : `Important data sources were unavailable: ${publicReason}`
+          : availabilityContext,
   } satisfies IpQualityReport["dataQuality"];
 }
 
@@ -1341,7 +1376,10 @@ function buildOverallAssessment(
   } satisfies IpQualityReport["assessment"];
 }
 
-function buildBaseOverallSummary(dimensions: IpQualityReport["dimensions"]) {
+function buildBaseOverallSummary(
+  dimensions: IpQualityReport["dimensions"],
+  hasDefinitiveConnectivity: boolean,
+) {
   const reputation = dimensions.reputation;
   const network = dimensions.networkQuality;
   const compatibility = dimensions.compatibility;
@@ -1366,20 +1404,35 @@ function buildBaseOverallSummary(dimensions: IpQualityReport["dimensions"]) {
     return "Compatibility needs review before sensitive use.";
   }
 
-  return `${reputation.summary}. ${network.summary}. ${compatibility.summary}.`;
+  return joinEnglishSummaryFragments([
+    { text: reputation.summary },
+    { text: network.summary },
+    {
+      text: compatibility.summary,
+      source: "connectivity-status",
+      hasDefinitiveConnectivity,
+    },
+  ]);
 }
 
 function buildOverallSummary(
   dimensions: IpQualityReport["dimensions"],
   dataQuality: IpQualityReport["dataQuality"],
+  hasDefinitiveConnectivity = true,
 ) {
-  const baseSummary = buildBaseOverallSummary(dimensions);
+  const baseSummary = buildBaseOverallSummary(
+    dimensions,
+    hasDefinitiveConnectivity,
+  );
 
-  if (dataQuality.level === "Low") {
+  if (
+    dataQuality.level === "Low" &&
+    dataQuality.reason.startsWith("Important data sources were unavailable:")
+  ) {
     return `Insufficient evidence for a high-confidence assessment. ${dataQuality.reason}`;
   }
 
-  if (dataQuality.level === "Medium") {
+  if (dataQuality.level !== "High" && dataQuality.reason) {
     return `${baseSummary} ${dataQuality.reason}`;
   }
 
@@ -1586,6 +1639,9 @@ export function buildIpQualityReport({
   });
   const confidence = dataQuality.level;
   const assessment = buildOverallAssessment(dimensions, confidence);
+  const connectivityCounts = getConnectivityCounts(connectivity);
+  const hasDefinitiveConnectivity =
+    connectivityCounts.reachable > 0 || connectivityCounts.unreachable > 0;
 
   return {
     overallScore,
@@ -1594,7 +1650,11 @@ export function buildIpQualityReport({
     confidenceTone: getConfidenceTone(confidence),
     dataQuality,
     assessment,
-    summary: buildOverallSummary(dimensions, dataQuality),
+    summary: buildOverallSummary(
+      dimensions,
+      dataQuality,
+      hasDefinitiveConnectivity,
+    ),
     recommendationExplanation: buildRecommendationExplanation({
       dimensions,
       dataQuality,

@@ -33,6 +33,35 @@ const coverageMatrix = {
   ],
   "risk levels": ["High", "Medium", "Low"],
   "evidence quality": ["High", "Medium", "Low", "Partial", "Unavailable"],
+  "result summary": [
+    "Clean IP history",
+    "Clean reputation signals, limited confidence",
+    "Some reputation signals found",
+    "High reputation risk detected",
+    "Insufficient reputation evidence",
+    "Tor network detected",
+    "VPN or proxy network detected",
+    "Cloud or hosting infrastructure detected",
+    "Enterprise network detected",
+    "Enterprise network review signal",
+    "Enterprise network review signals",
+    "Hosted infrastructure review signal",
+    "Minor network review signals",
+    "Minor review signal",
+    "Network type not fully identified",
+    "Public infrastructure detected",
+    "Public infrastructure review signal",
+    "Regional restriction detected",
+    "Residential ISP detected",
+    "Secondary network review signal",
+    "Connectivity failure detected",
+    "Connectivity not fully verified",
+    "Connectivity verified",
+    "Most tested services reachable",
+    "Clean IP with strong compatibility",
+    "Compatibility needs review before sensitive use.",
+    "Reputation risk is the main issue for this IP.",
+  ],
   "result states": [
     "Analyzing IP...",
     "Analysis failed",
@@ -114,20 +143,19 @@ const dynamicCases = [
     "该 IP 的主要问题是声誉风险。",
   ],
   [
-    "Some data sources unavailable: IPQS reputation data was unavailable; Scamalytics was available. Connectivity probes were partially verified.",
-    "部分数据源不可用：IPQS 声誉数据不可用；Scamalytics 可用。连通性探测已完成部分验证。",
+    "Some reputation signals found. Cloud or hosting infrastructure detected. Scamalytics was available.",
+    "检测到部分声誉风险信号。检测到云服务或托管基础设施。Scamalytics 可用。",
   ],
   [
-    "Reputation risk is the main issue for this IP. Some data sources unavailable: IPQS reputation data was unavailable; Scamalytics was available. Connectivity probes were partially verified.",
-    "该 IP 的主要问题是声誉风险。部分数据源不可用：IPQS 声誉数据不可用；Scamalytics 可用。连通性探测已完成部分验证。",
+    "Some reputation signals found. Cloud or hosting infrastructure detected. Most tested services reachable. Connectivity probes were partially verified.",
+    "检测到部分声誉风险信号。检测到云服务或托管基础设施。大多数已测试服务均可访问。连通性探测已完成部分验证。",
   ],
-  ["Some data sources unavailable:", "部分数据源不可用："],
-  ["IPQS reputation data was unavailable", "IPQS 声誉数据不可用"],
+  [
+    "Some data sources unavailable: AbuseIPDB abuse history was unavailable.",
+    "部分数据源不可用：AbuseIPDB 滥用历史数据不可用。",
+  ],
   ["Scamalytics was available", "Scamalytics 可用"],
-  [
-    "Connectivity probes were partially verified",
-    "连通性探测已完成部分验证",
-  ],
+  ["Connectivity probes were partially verified", "连通性探测已完成部分验证"],
   [
     "This is normal for public DNS, CDN, and edge services, but it is not ideal as a personal browsing or account registration IP.",
     "这类公共 DNS、CDN 和边缘服务用于服务很正常，但不适合作为个人浏览或注册账号的 IP。",
@@ -165,13 +193,87 @@ const changedEnglishCases = dynamicCases.flatMap(([english]) =>
   localizeText("en", english) === english ? [] : [english],
 );
 
-if (failedDynamicCases.length || changedEnglishCases.length) {
+const presentationSource = fs.readFileSync(
+  "src/lib/analysis/summary-presentation.ts",
+  "utf8",
+);
+const presentationCompiled = ts.transpileModule(presentationSource, {
+  compilerOptions: {
+    module: ts.ModuleKind.ESNext,
+    target: ts.ScriptTarget.ES2022,
+  },
+}).outputText;
+const { joinEnglishSummaryFragments } = await import(
+  `data:text/javascript;base64,${Buffer.from(presentationCompiled).toString("base64")}`
+);
+
+const allUnverifiedSummary = joinEnglishSummaryFragments([
+  { text: "Some reputation signals found" },
+  { text: "Cloud or hosting infrastructure detected" },
+  {
+    text: "IPQS reputation data was unavailable",
+    source: "ipqs-unavailable",
+  },
+  { text: "Scamalytics was available" },
+  {
+    text: "Connectivity not fully verified",
+    source: "connectivity-status",
+    hasDefinitiveConnectivity: false,
+  },
+]);
+const partiallyVerifiedSummary = joinEnglishSummaryFragments([
+  { text: "Some reputation signals found" },
+  {
+    text: "Connectivity probes were partially verified",
+    source: "connectivity-status",
+    hasDefinitiveConnectivity: true,
+  },
+]);
+const localizedAllUnverifiedSummary = localizeText("zh", allUnverifiedSummary);
+const summaryRegressionFailures = [
+  allUnverifiedSummary ===
+  "Some reputation signals found. Cloud or hosting infrastructure detected. Scamalytics was available."
+    ? null
+    : `Unexpected all-unverified summary: ${allUnverifiedSummary}`,
+  !allUnverifiedSummary.includes("IPQS")
+    ? null
+    : "Hidden IPQS wording remained",
+  !allUnverifiedSummary.includes("Connectivity")
+    ? null
+    : "All-unverified connectivity wording remained",
+  partiallyVerifiedSummary.includes(
+    "Connectivity probes were partially verified.",
+  )
+    ? null
+    : "Definitive partial-connectivity wording was removed",
+  localizedAllUnverifiedSummary ===
+  "检测到部分声誉风险信号。检测到云服务或托管基础设施。Scamalytics 可用。"
+    ? null
+    : `Unexpected Chinese summary: ${localizedAllUnverifiedSummary}`,
+  /[A-Za-z]+\s+(?:reputation|signals|infrastructure|connectivity|detected|found)/i.test(
+    localizedAllUnverifiedSummary,
+  )
+    ? "Mixed English explanatory copy remained in Chinese summary"
+    : null,
+  /[.；]|。\s|：\s|。。/.test(localizedAllUnverifiedSummary)
+    ? `Dangling or mixed punctuation remained: ${localizedAllUnverifiedSummary}`
+    : null,
+].filter(Boolean);
+
+if (
+  failedDynamicCases.length ||
+  changedEnglishCases.length ||
+  summaryRegressionFailures.length
+) {
   console.error(
     [
       ...failedDynamicCases.map(
         (item) => `Dynamic Chinese localization failed: ${item}`,
       ),
       ...changedEnglishCases.map((item) => `English wording changed: ${item}`),
+      ...summaryRegressionFailures.map(
+        (item) => `Summary presentation regression: ${item}`,
+      ),
     ].join("\n"),
   );
   process.exit(1);

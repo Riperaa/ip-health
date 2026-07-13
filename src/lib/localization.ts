@@ -239,6 +239,12 @@ const zh: Record<string, string> = {
   "Provider reputation data shows low to moderate review signals.":
     "声誉数据提供方显示轻度至中度复核信号。",
   "Clean reputation signals, limited confidence": "声誉信号良好，但可信度有限",
+  "Insufficient reputation evidence": "声誉证据不足",
+  "Some reputation signals found": "检测到部分声誉风险信号",
+  "Insufficient evidence for a high-confidence assessment":
+    "证据不足，无法做出高可信度评估",
+  "IPQS, IPInfo, ipapi.is, and connectivity probes were available":
+    "IPQS、IPInfo、ipapi.is 与连通性探测均可用",
   "Clean reputation signals, but confidence is limited because IPQS data was unavailable.":
     "声誉信号良好，但由于 IPQS 数据不可用，可信度有限。",
   "Clean reputation signals, but confidence is limited because a reputation data source was unavailable.":
@@ -374,7 +380,7 @@ const zh: Record<string, string> = {
   "Network integrity is unavailable right now.": "当前无法获取网络完整性数据。",
   "Tor network detected": "检测到 Tor 网络",
   "VPN or proxy network detected": "检测到 VPN 或代理网络",
-  "Cloud or hosting infrastructure detected": "检测到云端或托管基础设施",
+  "Cloud or hosting infrastructure detected": "检测到云服务或托管基础设施",
   "Enterprise network detected": "检测到企业网络",
   "Enterprise network detected. This IP belongs to an organization-operated network.":
     "检测到企业网络。该 IP 属于由组织运营的网络。",
@@ -392,6 +398,7 @@ const zh: Record<string, string> = {
   "Datacenter infrastructure detected. Often treated differently from residential ISP traffic.":
     "检测到数据中心基础设施。此类流量通常会被平台区别于住宅宽带流量对待。",
   "Hosted infrastructure review signal": "托管基础设施复核信号",
+  "Secondary network review signal": "次要网络复核信号",
   "ipapi.is reported datacenter or hosting evidence.":
     "ipapi.is 报告了数据中心或托管基础设施证据。",
   "No hosting infrastructure signal was detected.":
@@ -408,6 +415,8 @@ const zh: Record<string, string> = {
   "Regional restriction detected": "检测到区域限制",
   "Connectivity failure detected": "检测到连通性故障",
   "Connectivity verified": "连通性已验证",
+  "Most tested services reachable": "大多数已测试服务均可访问",
+  "Clean IP with strong compatibility": "IP 状态良好，兼容性较强",
   "All tested service probes were reachable.": "所有已测试的服务探测均可访问。",
   "Checking reputation and network identity.": "正在检查 IP 声誉与网络身份。",
   About: "关于",
@@ -461,8 +470,12 @@ const zh: Record<string, string> = {
   "Reputation risk is the main issue for this IP.":
     "该 IP 的主要问题是声誉风险。",
   "Some data sources unavailable:": "部分数据源不可用：",
+  "Important data sources were unavailable:": "部分重要数据源不可用：",
   "IPQS reputation data was unavailable": "IPQS 声誉数据不可用",
   "Scamalytics was available": "Scamalytics 可用",
+  "ipapi.is was available": "ipapi.is 可用",
+  "Scamalytics and ipapi.is secondary data were unavailable":
+    "Scamalytics 与 ipapi.is 辅助数据不可用",
   "Connectivity probes were partially verified": "连通性探测已完成部分验证",
   "Limited Network Quality": "网络质量受限",
   "Confidence pending": "可信度待定",
@@ -599,10 +612,7 @@ const zhFragments: ReadonlyArray<readonly [string, string]> = [
     "Insufficient evidence for a high-confidence assessment. ",
     "证据不足，无法做出高可信度评估。",
   ],
-  [
-    "A reputation data source was unavailable; ",
-    "一个声誉数据源不可用；",
-  ],
+  ["A reputation data source was unavailable; ", "一个声誉数据源不可用；"],
   ["IPQS reputation data was unavailable; ", "IPQS 声誉数据不可用；"],
   ["Scamalytics was available. ", "Scamalytics 可用。"],
   [
@@ -614,6 +624,34 @@ const zhFragments: ReadonlyArray<readonly [string, string]> = [
 export function localizeText(locale: Locale, value: string): string {
   if (locale === "en" || !value) return value;
   if (zh[value]) return zh[value];
+
+  const sentences = value.split(/(?<=\.)\s+/).filter(Boolean);
+  if (sentences.length > 1) {
+    return sentences.map((sentence) => localizeText(locale, sentence)).join("");
+  }
+
+  if (value.endsWith(".") && zh[value.slice(0, -1)]) {
+    return `${zh[value.slice(0, -1)]}。`;
+  }
+
+  const unavailableSummary = value.match(
+    /^(Some data sources unavailable:|Important data sources were unavailable:)\s+(.+)$/,
+  );
+  if (unavailableSummary) {
+    return `${localizeText(locale, unavailableSummary[1])}${localizeText(locale, unavailableSummary[2])}`;
+  }
+
+  const cleanReputationSummary = value.match(
+    /^Reputation signals are clean, but (.+)\.$/,
+  );
+  if (cleanReputationSummary) {
+    const networkSummary = cleanReputationSummary[1];
+    const localizedNetworkSummary = localizeText(
+      locale,
+      networkSummary.charAt(0).toUpperCase() + networkSummary.slice(1),
+    );
+    return `声誉信号良好，但${localizedNetworkSummary}。`;
+  }
 
   const compound = value.match(/^(.+?) · (.+)$/);
   if (compound) {

@@ -6,7 +6,7 @@ import { LanguageSwitcher } from "@/components/language-switcher";
 
 export default function Home() {
   return (
-    <main className="flex min-h-dvh flex-col bg-white text-neutral-950">
+    <main className="public-page-background flex min-h-dvh flex-col text-neutral-950">
       <div className="fixed right-4 top-4 z-10 flex items-center gap-2 sm:right-8 sm:top-7">
         <LanguageSwitcher href="/zh" label="中文" />
         <Link

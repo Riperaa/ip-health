@@ -7,7 +7,7 @@ export default function ChineseComparePage() {
   return (
     <main
       lang="zh-CN"
-      className="flex min-h-dvh flex-col bg-[#f7f8fb] text-neutral-950"
+      className="public-page-background flex min-h-dvh flex-col text-neutral-950"
     >
       <Link
         href="/zh"

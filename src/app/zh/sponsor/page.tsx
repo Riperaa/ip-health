@@ -48,7 +48,7 @@ export default function ChineseSponsorPage() {
   return (
     <main
       lang="zh-CN"
-      className="flex min-h-dvh flex-col bg-white text-neutral-950"
+      className="public-page-background flex min-h-dvh flex-col text-neutral-950"
     >
       <Link
         href="/zh"

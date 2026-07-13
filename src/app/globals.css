@@ -31,6 +31,27 @@ body {
   margin: 0;
 }
 
+.public-page-background {
+  background-color: #fafbfc;
+  background-image:
+    radial-gradient(
+      circle at 14% 9%,
+      rgb(112 143 181 / 0.065),
+      transparent 36%
+    ),
+    radial-gradient(
+      circle at 86% 17%,
+      rgb(132 142 196 / 0.045),
+      transparent 32%
+    ),
+    radial-gradient(
+      circle at 50% 92%,
+      rgb(148 158 174 / 0.028),
+      transparent 38%
+    );
+  background-repeat: no-repeat;
+}
+
 button,
 input {
   font: inherit;

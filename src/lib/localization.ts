@@ -95,6 +95,9 @@ const zh: Record<string, string> = {
   "Sharing Risk": "共享风险",
   Recommendation: "使用建议",
   "Technical Details": "技术详情",
+  "Evidence and network details": "证据与网络详情",
+  "Network identity, sharing risk, and reputation evidence":
+    "网络身份、共享风险与声誉证据",
   Confidence: "可信度",
   Reason: "原因",
   Provider: "网络提供商",
@@ -564,11 +567,17 @@ const zh: Record<string, string> = {
 };
 
 const zhFragments: ReadonlyArray<readonly [string, string]> = [
-  ["Reputation risk is the main issue for this IP. ", "该 IP 的主要问题是声誉风险。"],
+  [
+    "Reputation risk is the main issue for this IP. ",
+    "该 IP 的主要问题是声誉风险。",
+  ],
   ["Some data sources unavailable: ", "部分数据源不可用："],
   ["IPQS reputation data was unavailable; ", "IPQS 声誉数据不可用；"],
   ["Scamalytics was available. ", "Scamalytics 可用。"],
-  ["Connectivity probes were partially verified.", "连通性探测已完成部分验证。"],
+  [
+    "Connectivity probes were partially verified.",
+    "连通性探测已完成部分验证。",
+  ],
 ];
 
 export function localizeText(locale: Locale, value: string): string {

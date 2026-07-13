@@ -591,7 +591,10 @@ export function DisclosureSection({
           type="button"
           aria-controls={contentId}
           aria-expanded={isExpanded}
-          aria-label={localizeText(locale, isExpanded ? "Collapse" : "Expand")}
+          aria-label={`${localizeText(
+            locale,
+            isExpanded ? "Collapse" : "Expand",
+          )}: ${title}`}
           onClick={onToggle}
           className="flex min-h-12 w-full flex-col gap-1 px-4 py-3 text-left text-sm font-semibold text-neutral-950 transition hover:bg-[#f3f4f7] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
         >
@@ -1678,6 +1681,49 @@ function TechnicalDetailsSection({
   );
 }
 
+function SupportingEvidenceSection({
+  result,
+  locale,
+}: {
+  result: AnalysisResult;
+  locale: Locale;
+}) {
+  const t = messages(locale);
+  const [isSupportingEvidenceVisible, setIsSupportingEvidenceVisible] =
+    useState(false);
+
+  if (!result.finalDecision) {
+    return null;
+  }
+
+  return (
+    <DisclosureSection
+      locale={locale}
+      title={t("Evidence and network details")}
+      titleIcon={
+        <ShieldCheck
+          aria-hidden="true"
+          className="size-4 shrink-0 text-neutral-400"
+        />
+      }
+      summary={t("Network identity, sharing risk, and reputation evidence")}
+      isExpanded={isSupportingEvidenceVisible}
+      onToggle={() =>
+        setIsSupportingEvidenceVisible(
+          (currentVisibility) => !currentVisibility,
+        )
+      }
+      contentId="supporting-evidence-content"
+    >
+      <div className="mt-3 flex flex-col gap-4">
+        <IpIdentitySection result={result} locale={locale} />
+        <SharingRiskSection result={result} locale={locale} />
+        <ReputationSection result={result} locale={locale} />
+      </div>
+    </DisclosureSection>
+  );
+}
+
 export function IpAnalyzer({
   result,
   locale = "en",
@@ -1689,10 +1735,8 @@ export function IpAnalyzer({
   return (
     <div className="mt-6 flex w-full flex-col gap-4 text-left">
       <IpHealthScoreCard result={result} locale={locale} />
-      <IpIdentitySection result={result} locale={locale} />
-      <SharingRiskSection result={result} locale={locale} />
-      <ReputationSection result={result} locale={locale} />
       <RecommendedUsageSection result={result} locale={locale} />
+      <SupportingEvidenceSection result={result} locale={locale} />
       <TechnicalDetailsSection result={result} locale={locale} />
 
       <p className="text-xs leading-5 text-neutral-400">

@@ -30,4 +30,22 @@
   <url>
     <loc>https://iphealth.app/disclaimer</loc>
   </url>
+  <url>
+    <loc>https://iphealth.app/is-my-ip-clean</loc>
+  </url>
+  <url>
+    <loc>https://iphealth.app/zh/is-my-ip-clean</loc>
+  </url>
+  <url>
+    <loc>https://iphealth.app/vpn-ip-check</loc>
+  </url>
+  <url>
+    <loc>https://iphealth.app/zh/vpn-ip-check</loc>
+  </url>
+  <url>
+    <loc>https://iphealth.app/why-is-my-ip-risky</loc>
+  </url>
+  <url>
+    <loc>https://iphealth.app/zh/why-is-my-ip-risky</loc>
+  </url>
 </urlset>

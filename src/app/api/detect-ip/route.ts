@@ -58,34 +58,14 @@ function isPrivateIpv4(ip: string) {
   );
 }
 
-function isPrivateIpv6(ip: string) {
-  const normalizedIp = ip.toLowerCase();
-
-  return (
-    normalizedIp === "::" ||
-    normalizedIp === "::1" ||
-    normalizedIp.startsWith("fc") ||
-    normalizedIp.startsWith("fd") ||
-    normalizedIp.startsWith("fe8") ||
-    normalizedIp.startsWith("fe9") ||
-    normalizedIp.startsWith("fea") ||
-    normalizedIp.startsWith("feb")
-  );
-}
-
-function isPublicIp(value: string) {
+function isPublicIpv4(value: string) {
   const normalizedIp = normalizeIpCandidate(value);
-  const ipVersion = isIP(normalizedIp);
 
-  if (!ipVersion || normalizedIp.toLowerCase() === "unknown") {
+  if (isIP(normalizedIp) !== 4) {
     return false;
   }
 
-  if (ipVersion === 4) {
-    return !isPrivateIpv4(normalizedIp);
-  }
-
-  return !isPrivateIpv6(normalizedIp);
+  return !isPrivateIpv4(normalizedIp);
 }
 
 function getForwardedCandidates(value: string) {
@@ -124,7 +104,7 @@ function detectPublicIp(request: NextRequest) {
     for (const candidate of getHeaderCandidates(headerName, headerValue)) {
       const normalizedIp = normalizeIpCandidate(candidate);
 
-      if (isPublicIp(normalizedIp)) {
+      if (isPublicIpv4(normalizedIp)) {
         return normalizedIp;
       }
     }

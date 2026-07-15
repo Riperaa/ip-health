@@ -264,11 +264,13 @@ export function IpAnalyzerContainer({ locale = "en" }: { locale?: Locale }) {
   }
 
   const isAnalysisLoadingVisible = analysisStarted && isAnalyzing;
+  const hasValidationError = error === t(INVALID_IP_ADDRESS_MESSAGE);
 
   return (
     <div className="mx-auto mt-8 flex w-full max-w-3xl flex-col items-center gap-4">
       <form
         onSubmit={handleSubmit}
+        aria-busy={isAnalyzing}
         className="flex w-full flex-col items-center gap-3"
       >
         {isQaMode ? (
@@ -287,7 +289,14 @@ export function IpAnalyzerContainer({ locale = "en" }: { locale?: Locale }) {
             inputMode="text"
             autoComplete="off"
             value={ipAddress}
-            onChange={(event) => setIpAddress(event.target.value)}
+            onChange={(event) => {
+              setIpAddress(event.target.value);
+              if (error) {
+                setError("");
+              }
+            }}
+            aria-invalid={hasValidationError || undefined}
+            aria-describedby={error ? "ip-address-error" : undefined}
             placeholder={t("Enter an IPv4 address")}
             className="h-12 min-w-0 flex-1 rounded-full bg-transparent px-5 text-base text-neutral-950 outline-none placeholder:text-neutral-400"
           />
@@ -335,8 +344,15 @@ export function IpAnalyzerContainer({ locale = "en" }: { locale?: Locale }) {
       ) : null}
 
       {analysisErrorIp ? (
-        <div className="w-full rounded-2xl border border-red-100 bg-red-50 p-4 text-left">
-          <p className="text-sm font-semibold text-red-700">
+        <div
+          role="alert"
+          aria-labelledby="analysis-error-title"
+          className="w-full rounded-2xl border border-red-100 bg-red-50 p-4 text-left"
+        >
+          <p
+            id="analysis-error-title"
+            className="text-sm font-semibold text-red-700"
+          >
             {t("Analysis failed")}
           </p>
           <p className="mt-1 text-sm leading-6 text-red-600">
@@ -354,7 +370,13 @@ export function IpAnalyzerContainer({ locale = "en" }: { locale?: Locale }) {
           </button>
         </div>
       ) : error ? (
-        <p className="text-sm font-medium text-neutral-500">{error}</p>
+        <p
+          id="ip-address-error"
+          role="alert"
+          className="text-sm font-medium text-red-600"
+        >
+          {error}
+        </p>
       ) : null}
 
       {!isAnalysisLoadingVisible && analysisStarted && !analysisErrorIp ? (

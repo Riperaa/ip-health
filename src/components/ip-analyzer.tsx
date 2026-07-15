@@ -597,36 +597,40 @@ export function DisclosureSection({
   children: ReactNode;
   locale?: Locale;
 }) {
+  const headingId = `${contentId}-heading`;
+
   return (
-    <section>
+    <section aria-labelledby={headingId}>
       <div className="disclosure-card overflow-hidden rounded-2xl border bg-white">
-        <button
-          type="button"
-          aria-controls={contentId}
-          aria-expanded={isExpanded}
-          aria-label={`${localizeText(
-            locale,
-            isExpanded ? "Collapse" : "Expand",
-          )}: ${title}`}
-          onClick={onToggle}
-          className="flex min-h-12 w-full flex-col gap-1 px-4 py-3 text-left text-sm font-semibold text-neutral-950 transition hover:bg-[#f3f4f7] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
-        >
-          <span className="flex min-w-0 items-center gap-2">
-            <span
-              className="w-4 shrink-0 text-xs text-neutral-400"
-              aria-hidden="true"
-            >
-              {isExpanded ? "v" : ">"}
+        <h2 id={headingId} className="m-0">
+          <button
+            type="button"
+            aria-controls={contentId}
+            aria-expanded={isExpanded}
+            aria-label={`${localizeText(
+              locale,
+              isExpanded ? "Collapse" : "Expand",
+            )}: ${title}`}
+            onClick={onToggle}
+            className="flex min-h-12 w-full flex-col gap-1 px-4 py-3 text-left text-sm font-semibold text-neutral-950 transition hover:bg-[#f3f4f7] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
+          >
+            <span className="flex min-w-0 items-center gap-2">
+              <span
+                className="w-4 shrink-0 text-xs text-neutral-400"
+                aria-hidden="true"
+              >
+                {isExpanded ? "v" : ">"}
+              </span>
+              {titleIcon}
+              <span>{title}</span>
             </span>
-            {titleIcon}
-            <span>{title}</span>
-          </span>
-          {summary ? (
-            <span className="pl-6 text-xs font-medium leading-5 text-neutral-400 sm:pl-0 sm:text-right">
-              {summary}
-            </span>
-          ) : null}
-        </button>
+            {summary ? (
+              <span className="pl-6 text-xs font-medium leading-5 text-neutral-400 sm:pl-0 sm:text-right">
+                {summary}
+              </span>
+            ) : null}
+          </button>
+        </h2>
       </div>
 
       <div id={contentId} hidden={!isExpanded}>
@@ -658,12 +662,18 @@ function IpHealthScoreCard({
   ];
 
   return (
-    <section className="surface-card-primary rounded-[28px] border bg-white p-5 sm:p-6">
+    <section
+      aria-labelledby="ip-health-score-heading"
+      className="surface-card-primary rounded-[28px] border bg-white p-5 sm:p-6"
+    >
       <div className="grid gap-6 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
         <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-normal text-neutral-400">
+          <h2
+            id="ip-health-score-heading"
+            className="text-xs font-semibold uppercase tracking-normal text-neutral-400"
+          >
             {t("IP Health Score")}
-          </p>
+          </h2>
           <p className="mt-3 flex items-end gap-1 text-7xl font-semibold leading-none text-neutral-950">
             {scoreDisplay}
             <span className="pb-2 text-xl font-semibold text-neutral-400">
@@ -722,9 +732,9 @@ function IpHealthScoreCard({
 
       <div className="mt-6 rounded-2xl border border-neutral-100 bg-neutral-50/70 p-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="text-sm font-semibold text-neutral-950">
+          <h3 className="text-sm font-semibold text-neutral-950">
             {t("Assessment")}
-          </p>
+          </h3>
           <StatusBadge tone={assessment.tone} variant="quiet">
             {t(assessment.label)}
           </StatusBadge>
@@ -744,7 +754,7 @@ function IpHealthScoreCard({
           >
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <p className="flex items-center gap-2 text-sm font-semibold text-neutral-950">
+                <h3 className="flex items-center gap-2 text-sm font-semibold text-neutral-950">
                   <span aria-hidden="true">
                     {dimension.key === "reputation"
                       ? "🛡"
@@ -753,7 +763,7 @@ function IpHealthScoreCard({
                         : "✅"}
                   </span>
                   <span>{t(dimension.label)}</span>
-                </p>
+                </h3>
                 <p className="mt-2 text-sm font-medium leading-6 text-neutral-800">
                   {t(dimension.assessmentLabel)}
                 </p>
@@ -930,9 +940,9 @@ function EvidenceList({
 
   return (
     <div className="rounded-2xl border border-neutral-100 bg-neutral-50/60 p-4">
-      <p className="text-sm font-semibold text-neutral-950">
+      <h4 className="text-sm font-semibold text-neutral-950">
         {localizeText(locale, title)}
-      </p>
+      </h4>
       <ul className="mt-3 space-y-2">
         {visibleSignals.map((signal) => (
           <li key={signal.label} className="flex gap-2 text-sm leading-6">
@@ -975,9 +985,9 @@ function ReputationSection({
   return (
     <section className="surface-card rounded-2xl border bg-white p-5">
       <div>
-        <p className="text-sm font-semibold text-neutral-950">
+        <h3 className="text-sm font-semibold text-neutral-950">
           {t("Reputation")}
-        </p>
+        </h3>
         <p className="mt-1 text-sm leading-6 text-neutral-500">
           {t("Provider and history signals.")}
         </p>
@@ -1064,10 +1074,10 @@ function IpIdentitySection({
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.8fr)]">
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            <p className="inline-flex items-center gap-2 text-sm font-semibold text-neutral-950">
+            <h3 className="inline-flex items-center gap-2 text-sm font-semibold text-neutral-950">
               <Network aria-hidden="true" className="size-4 text-neutral-400" />
               {t("Network Identity")}
-            </p>
+            </h3>
             <StatusBadge tone={identity.tone} variant="quiet">
               {t("Network Identity")}
             </StatusBadge>
@@ -1094,9 +1104,9 @@ function IpIdentitySection({
         </div>
 
         <div className="rounded-2xl border border-neutral-100 bg-neutral-50/70 p-4">
-          <p className="text-sm font-semibold text-neutral-950">
+          <h4 className="text-sm font-semibold text-neutral-950">
             {t("Location")}
-          </p>
+          </h4>
           <dl className="mt-4 grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
             <ReportField label={t("Country")} value={location.country} />
             <ReportField label={t("City")} value={location.city} />
@@ -1130,10 +1140,10 @@ function SharingRiskSection({
     <section className="surface-card rounded-2xl border bg-white p-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <p className="inline-flex items-center gap-2 text-sm font-semibold text-neutral-950">
+          <h3 className="inline-flex items-center gap-2 text-sm font-semibold text-neutral-950">
             <Users aria-hidden="true" className="size-4 text-neutral-400" />
             {t("Sharing Risk")}
-          </p>
+          </h3>
           <p className="mt-2 text-sm leading-6 text-neutral-500">
             {t(sharingRisk.reason)}
           </p>
@@ -1144,9 +1154,9 @@ function SharingRiskSection({
       </div>
 
       <div className="mt-4 rounded-2xl border border-neutral-100 bg-neutral-50/60 p-4">
-        <p className="text-xs font-semibold uppercase tracking-normal text-neutral-400">
+        <h4 className="text-xs font-semibold uppercase tracking-normal text-neutral-400">
           {t("Evidence")}
-        </p>
+        </h4>
         <ul className="mt-3 space-y-2">
           {evidence.map((item) => (
             <li key={item} className="flex gap-2 text-sm leading-6">
@@ -1181,12 +1191,18 @@ function RecommendedUsageSection({
   }
 
   return (
-    <section className="surface-card rounded-2xl border bg-white p-5">
+    <section
+      aria-labelledby="recommendation-heading"
+      className="surface-card rounded-2xl border bg-white p-5"
+    >
       <div className="flex flex-col gap-1">
-        <p className="inline-flex items-center gap-2 text-sm font-semibold text-neutral-950">
+        <h2
+          id="recommendation-heading"
+          className="inline-flex items-center gap-2 text-sm font-semibold text-neutral-950"
+        >
           <Compass aria-hidden="true" className="size-4 text-neutral-400" />
           {t("Recommendation")}
-        </p>
+        </h2>
         {explanation ? (
           <p className="text-sm leading-6 text-neutral-500">{t(explanation)}</p>
         ) : null}
@@ -1198,9 +1214,9 @@ function RecommendedUsageSection({
             key={group.title}
             className="rounded-2xl border border-neutral-100 bg-neutral-50/60 p-4"
           >
-            <p className="text-sm font-semibold text-neutral-950">
+            <h3 className="text-sm font-semibold text-neutral-950">
               {t(group.title)}
-            </p>
+            </h3>
             <ul className="mt-3 space-y-2">
               {group.items.map((item) => (
                 <li
@@ -1245,7 +1261,7 @@ function NetworkIntegritySection({
   return (
     <section className="surface-card rounded-2xl border bg-white p-5">
       <div>
-        <p className="text-sm font-semibold text-neutral-950">Cloudflare</p>
+        <h3 className="text-sm font-semibold text-neutral-950">Cloudflare</h3>
         <p className="mt-1 text-sm leading-6 text-neutral-500">
           {t("Trace, WARP, and consistency signals.")}
         </p>
@@ -1338,9 +1354,9 @@ function TechnicalConnectivitySection({
   return (
     <section className="surface-card rounded-2xl border bg-white p-5">
       <div className="flex flex-col gap-1">
-        <p className="text-sm font-semibold text-neutral-950">
+        <h3 className="text-sm font-semibold text-neutral-950">
           {t("Connectivity")}
-        </p>
+        </h3>
         <p className="text-sm leading-6 text-neutral-500">
           {t("Browser reachability probes.")}
         </p>
@@ -1384,7 +1400,7 @@ function TechnicalIpFactsSection({
   const t = messages(locale);
   return (
     <section className="surface-card rounded-2xl border bg-white p-5">
-      <p className="text-sm font-semibold text-neutral-950">IPInfo & ASN</p>
+      <h3 className="text-sm font-semibold text-neutral-950">IPInfo & ASN</h3>
       <p className="mt-1 text-sm leading-6 text-neutral-500">
         {t("Network owner and location fields.")}
       </p>
@@ -1420,7 +1436,7 @@ function TechnicalIpqsSection({
   return (
     <section className="surface-card rounded-2xl border bg-white p-5">
       <div className="flex flex-col gap-1">
-        <p className="text-sm font-semibold text-neutral-950">IPQS</p>
+        <h3 className="text-sm font-semibold text-neutral-950">IPQS</h3>
         <p className="text-sm leading-6 text-neutral-500">
           {t("Provider reputation fields.")}
         </p>
@@ -1465,7 +1481,7 @@ function TechnicalScamalyticsSection({
   return (
     <section className="surface-card rounded-2xl border bg-white p-5">
       <div className="flex flex-col gap-1">
-        <p className="text-sm font-semibold text-neutral-950">Scamalytics</p>
+        <h3 className="text-sm font-semibold text-neutral-950">Scamalytics</h3>
         <p className="text-sm leading-6 text-neutral-500">
           {t("Secondary reputation provider fields.")}
         </p>
@@ -1516,7 +1532,7 @@ function TechnicalIpApiIsSection({
   return (
     <section className="surface-card rounded-2xl border bg-white p-5">
       <div className="flex flex-col gap-1">
-        <p className="text-sm font-semibold text-neutral-950">ipapi.is</p>
+        <h3 className="text-sm font-semibold text-neutral-950">ipapi.is</h3>
         <p className="text-sm leading-6 text-neutral-500">
           {t("Secondary IP intelligence provider fields.")}
         </p>

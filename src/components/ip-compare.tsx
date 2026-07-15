@@ -33,11 +33,11 @@ function VerdictSummary({
 }) {
   const t = messages(locale);
   return (
-    <div className="surface-card-soft mt-2 rounded-[24px] border bg-white p-5 text-left sm:flex sm:items-start sm:justify-between sm:gap-6">
+    <section className="surface-card-soft mt-2 rounded-[24px] border bg-white p-5 text-left sm:flex sm:items-start sm:justify-between sm:gap-6">
       <div>
-        <p className="text-xs font-semibold uppercase tracking-normal text-neutral-400">
+        <h2 className="text-xs font-semibold uppercase tracking-normal text-neutral-400">
           {t("Better choice")}
-        </p>
+        </h2>
         <p className="mt-1 text-2xl font-semibold text-neutral-950">
           {t(verdict)}
         </p>
@@ -45,7 +45,7 @@ function VerdictSummary({
       <p className="mt-3 text-sm leading-6 text-neutral-600 sm:mt-1 sm:max-w-xl">
         {t(reason)}
       </p>
-    </div>
+    </section>
   );
 }
 
@@ -60,6 +60,7 @@ function ResultCard({
 }) {
   const t = messages(locale);
   const trustTone = getTrustScoreTone(result.score);
+  const headingId = `comparison-${label.toLowerCase().replace(" ", "-")}-heading`;
   const rows = [
     { label: "IP", value: result.ip },
     { label: "IP Health Score", value: `${result.score}/100` },
@@ -84,12 +85,18 @@ function ResultCard({
   ];
 
   return (
-    <div className="surface-card flex h-full flex-col rounded-[28px] border bg-white p-5 text-left">
+    <section
+      aria-labelledby={headingId}
+      className="surface-card flex h-full flex-col rounded-[28px] border bg-white p-5 text-left"
+    >
       <div className="flex items-start justify-between gap-4 border-b border-neutral-100 pb-4">
         <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-normal text-neutral-400">
+          <h2
+            id={headingId}
+            className="text-xs font-semibold uppercase tracking-normal text-neutral-400"
+          >
             {t(label)}
-          </p>
+          </h2>
           <p className="mt-1 break-all text-lg font-semibold text-neutral-950">
             {result.input}
           </p>
@@ -145,7 +152,7 @@ function ResultCard({
           );
         })}
       </dl>
-    </div>
+    </section>
   );
 }
 
@@ -156,6 +163,8 @@ export function IpCompare({ locale = "en" }: { locale?: Locale }) {
   const [error, setError] = useState("");
   const [results, setResults] = useState<IpComparisonResult | null>(null);
   const [isComparing, setIsComparing] = useState(false);
+  const ipAInvalid = Boolean(error) && !isValidIpv4Address(ipA.trim());
+  const ipBInvalid = Boolean(error) && !isValidIpv4Address(ipB.trim());
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -201,6 +210,7 @@ export function IpCompare({ locale = "en" }: { locale?: Locale }) {
 
         <form
           onSubmit={handleSubmit}
+          aria-busy={isComparing}
           className="mx-auto mt-10 flex w-full flex-col gap-3"
         >
           <div className="grid gap-3 sm:grid-cols-2">
@@ -211,7 +221,14 @@ export function IpCompare({ locale = "en" }: { locale?: Locale }) {
                 inputMode="text"
                 autoComplete="off"
                 value={ipA}
-                onChange={(event) => setIpA(event.target.value)}
+                onChange={(event) => {
+                  setIpA(event.target.value);
+                  if (error) {
+                    setError("");
+                  }
+                }}
+                aria-invalid={ipAInvalid || undefined}
+                aria-describedby={error ? "ip-compare-error" : undefined}
                 placeholder={t("IP A")}
                 className="h-14 w-full rounded-full border border-neutral-200 bg-white px-5 text-base text-neutral-950 shadow-sm shadow-neutral-950/[0.03] outline-none transition placeholder:text-neutral-400 focus:border-neutral-300"
               />
@@ -223,7 +240,14 @@ export function IpCompare({ locale = "en" }: { locale?: Locale }) {
                 inputMode="text"
                 autoComplete="off"
                 value={ipB}
-                onChange={(event) => setIpB(event.target.value)}
+                onChange={(event) => {
+                  setIpB(event.target.value);
+                  if (error) {
+                    setError("");
+                  }
+                }}
+                aria-invalid={ipBInvalid || undefined}
+                aria-describedby={error ? "ip-compare-error" : undefined}
                 placeholder={t("IP B")}
                 className="h-14 w-full rounded-full border border-neutral-200 bg-white px-5 text-base text-neutral-950 shadow-sm shadow-neutral-950/[0.03] outline-none transition placeholder:text-neutral-400 focus:border-neutral-300"
               />
@@ -239,7 +263,13 @@ export function IpCompare({ locale = "en" }: { locale?: Locale }) {
         </form>
 
         {error ? (
-          <p className="mt-3 text-sm font-medium text-red-600">{error}</p>
+          <p
+            id="ip-compare-error"
+            role="alert"
+            className="mt-3 text-sm font-medium text-red-600"
+          >
+            {error}
+          </p>
         ) : null}
       </div>
 

@@ -1,5 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { Analytics } from "@vercel/analytics/next";
+
+import { SOCIAL_IMAGE } from "@/lib/site-metadata";
+
 import "./globals.css";
 
 const siteUrl = "https://iphealth.app";
@@ -35,11 +38,13 @@ export const metadata: Metadata = {
     url: siteUrl,
     locale: "en_US",
     alternateLocale: ["zh_CN"],
+    images: [SOCIAL_IMAGE],
   },
   twitter: {
     card: "summary_large_image",
     title,
     description,
+    images: [SOCIAL_IMAGE],
   },
   icons: {
     icon: "/icon.svg",

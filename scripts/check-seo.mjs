@@ -1,5 +1,6 @@
 const baseUrl = (process.argv[2] ?? "http://127.0.0.1:3000").replace(/\/$/, "");
 const productionOrigin = "https://iphealth.app";
+const socialImage = `${productionOrigin}/social/ip-health-og.png`;
 
 const routePairs = [
   ["/", "/zh"],
@@ -103,6 +104,15 @@ for (const route of routes) {
     `${route}: missing Open Graph locale`,
   );
   assert(
+    metaContent(html, "property", "og:image") === socialImage,
+    `${route}: Open Graph image does not match`,
+  );
+  assert(
+    metaContent(html, "property", "og:image:width") === "1200" &&
+      metaContent(html, "property", "og:image:height") === "630",
+    `${route}: Open Graph image dimensions do not match`,
+  );
+  assert(
     Boolean(metaContent(html, "name", "twitter:card")),
     `${route}: missing Twitter card metadata`,
   );
@@ -113,6 +123,10 @@ for (const route of routes) {
   assert(
     Boolean(metaContent(html, "name", "twitter:description")),
     `${route}: missing Twitter description`,
+  );
+  assert(
+    metaContent(html, "name", "twitter:image") === socialImage,
+    `${route}: Twitter image does not match`,
   );
   assert(
     jsonLdCount === (seoRoutes.has(route) ? 1 : 0),

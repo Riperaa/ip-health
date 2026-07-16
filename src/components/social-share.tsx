@@ -1,14 +1,21 @@
 "use client";
 
 import { Check, Copy, Share2 } from "lucide-react";
+import {
+  FaFacebookF,
+  FaTelegram,
+  FaWeibo,
+  FaWhatsapp,
+  FaXTwitter,
+} from "react-icons/fa6";
 import { useState } from "react";
 
 import { messages, type Locale } from "@/lib/localization";
 
 type ShareStatus = "idle" | "copied" | "shared" | "error";
 
-const platformClassName =
-  "inline-flex h-10 items-center justify-center rounded-full border border-neutral-200 bg-white px-4 text-sm font-medium text-neutral-600 shadow-sm shadow-neutral-950/[0.03] transition hover:border-neutral-300 hover:bg-neutral-50 hover:text-neutral-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950";
+const iconClassName =
+  "inline-flex size-9 items-center justify-center rounded-full text-neutral-700 transition hover:bg-white/50 hover:text-neutral-950 focus-visible:bg-white/60 focus-visible:text-neutral-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-700";
 
 async function copyText(value: string) {
   if (navigator.clipboard?.writeText) {
@@ -60,29 +67,29 @@ export function SocialShare({ locale = "en" }: { locale?: Locale }) {
   const encodedTextWithUrl = encodeURIComponent(`${shareText} ${shareUrl}`);
   const platforms = [
     {
-      label: "X",
-      ariaLabel: t("Share on X"),
+      label: t("Share on X"),
       href: `https://twitter.com/intent/tweet?text=${encodedTextWithUrl}`,
+      icon: FaXTwitter,
     },
     {
-      label: "Facebook",
-      ariaLabel: t("Share on Facebook"),
+      label: t("Share on Facebook"),
       href: `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`,
+      icon: FaFacebookF,
     },
     {
-      label: "Telegram",
-      ariaLabel: t("Share on Telegram"),
+      label: t("Share on Telegram"),
       href: `https://t.me/share/url?url=${encodedUrl}&text=${encodedText}`,
+      icon: FaTelegram,
     },
     {
-      label: "WhatsApp",
-      ariaLabel: t("Share on WhatsApp"),
+      label: t("Share on WhatsApp"),
       href: `https://wa.me/?text=${encodedTextWithUrl}`,
+      icon: FaWhatsapp,
     },
     {
-      label: t("Weibo"),
-      ariaLabel: t("Share on Weibo"),
+      label: t("Share on Weibo"),
       href: `https://service.weibo.com/share/share.php?url=${encodedUrl}&title=${encodedText}`,
+      icon: FaWeibo,
     },
   ];
 
@@ -128,75 +135,69 @@ export function SocialShare({ locale = "en" }: { locale?: Locale }) {
           : "";
 
   return (
-    <section
-      aria-labelledby={`social-share-${locale}-heading`}
-      className="surface-card-soft mt-6 rounded-[24px] border bg-white p-5 text-left"
-    >
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h2
-            id={`social-share-${locale}-heading`}
-            className="text-sm font-semibold text-neutral-950"
-          >
-            {t("Share IP Health")}
-          </h2>
-          <p className="mt-1 text-sm leading-6 text-neutral-500">
-            {t("Help others check IP reputation before logging in.")}
+    <div className="fixed bottom-[calc(env(safe-area-inset-bottom)+1rem)] left-4 z-30 sm:left-6">
+      {statusMessage ? (
+        <div className="surface-card absolute bottom-full left-0 mb-2 min-w-52 rounded-xl border bg-white px-3 py-2 text-left">
+          <p aria-live="polite" className="text-xs text-neutral-600">
+            {statusMessage}
           </p>
+          {status === "error" ? (
+            <input
+              type="text"
+              readOnly
+              value={shareUrl}
+              aria-label={t("Share link")}
+              onFocus={(event) => event.currentTarget.select()}
+              className="mt-2 h-8 w-full rounded-full border border-neutral-200 bg-neutral-50 px-3 text-xs text-neutral-700 outline-none focus:border-neutral-400"
+            />
+          ) : null}
         </div>
-
-        <div className="flex shrink-0 flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={handleShare}
-            className="inline-flex h-10 items-center gap-1.5 rounded-full bg-neutral-950 px-4 text-sm font-semibold text-white shadow-sm shadow-neutral-950/20 transition hover:bg-neutral-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950"
-          >
-            <Share2 aria-hidden="true" size={16} />
-            {t("Share")}
-          </button>
-          <button
-            type="button"
-            onClick={handleCopy}
-            className={platformClassName}
-          >
-            {status === "copied" ? (
-              <Check aria-hidden="true" size={16} />
-            ) : (
-              <Copy aria-hidden="true" size={16} />
-            )}
-            <span className="ml-1.5">{t("Copy link")}</span>
-          </button>
-        </div>
-      </div>
-
-      <div className="mt-4 flex flex-wrap gap-2">
-        {platforms.map((platform) => (
-          <a
-            key={platform.label}
-            href={platform.href}
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label={platform.ariaLabel}
-            className={platformClassName}
-          >
-            {platform.label}
-          </a>
-        ))}
-      </div>
-
-      <p aria-live="polite" className="mt-3 min-h-5 text-sm text-neutral-500">
-        {statusMessage}
-      </p>
-      {status === "error" ? (
-        <input
-          type="text"
-          readOnly
-          value={shareUrl}
-          aria-label={t("Share link")}
-          onFocus={(event) => event.currentTarget.select()}
-          className="mt-2 h-10 w-full rounded-full border border-neutral-200 bg-neutral-50 px-4 text-sm text-neutral-700 outline-none focus:border-neutral-400"
-        />
       ) : null}
-    </section>
+
+      <nav
+        aria-label={t("Share IP Health")}
+        className="flex items-center gap-0.5 opacity-60 transition-opacity hover:opacity-100 focus-within:opacity-100"
+      >
+        <button
+          type="button"
+          onClick={handleShare}
+          aria-label={t("Share")}
+          title={t("Share")}
+          className={iconClassName}
+        >
+          <Share2 aria-hidden="true" size={18} />
+        </button>
+        <button
+          type="button"
+          onClick={handleCopy}
+          aria-label={t("Copy link")}
+          title={t("Copy link")}
+          className={iconClassName}
+        >
+          {status === "copied" ? (
+            <Check aria-hidden="true" size={18} />
+          ) : (
+            <Copy aria-hidden="true" size={18} />
+          )}
+        </button>
+        {platforms.map((platform) => {
+          const Icon = platform.icon;
+
+          return (
+            <a
+              key={platform.label}
+              href={platform.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={platform.label}
+              title={platform.label}
+              className={iconClassName}
+            >
+              <Icon aria-hidden="true" size={18} />
+            </a>
+          );
+        })}
+      </nav>
+    </div>
   );
 }

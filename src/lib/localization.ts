@@ -53,6 +53,22 @@ const zh: Record<string, string> = {
   "Online Security": "网络安全",
   "See how websites may evaluate your network identity.":
     "了解网站可能如何判断你的网络身份。",
+  "Share IP Health": "分享 IP Health",
+  "Help others check IP reputation before logging in.":
+    "帮助其他人在注册或登录前检查 IP 声誉。",
+  Share: "系统分享",
+  "Copy link": "复制链接",
+  "Link copied": "链接已复制",
+  Shared: "分享面板已打开",
+  "Automatic copy failed. Select the link below.":
+    "无法自动复制，请手动选择下方链接。",
+  "Share link": "分享链接",
+  "Share on X": "分享到 X",
+  "Share on Facebook": "分享到 Facebook",
+  "Share on Telegram": "分享到 Telegram",
+  "Share on WhatsApp": "分享到 WhatsApp",
+  Weibo: "微博",
+  "Share on Weibo": "分享到微博",
   "Detecting your IP": "正在检测你的 IP",
   "Preparing IP check...": "正在准备 IP 检测…",
   "Querying AbuseIPDB": "正在查询 AbuseIPDB",

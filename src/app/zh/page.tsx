@@ -5,6 +5,7 @@ import { FooterLinks } from "@/components/footer-links";
 import { GuideLinks } from "@/components/guide-links";
 import { IpAnalyzerContainer } from "@/components/ip-analyzer-container";
 import { LanguageSwitcher } from "@/components/language-switcher";
+import { SocialShare } from "@/components/social-share";
 import { buildPageMetadata } from "@/lib/site-metadata";
 
 const title = "IP Health – 检查 IP 声誉、网络身份和风险信号";
@@ -47,6 +48,7 @@ export default function ChineseHome() {
           </p>
 
           <IpAnalyzerContainer locale="zh" />
+          <SocialShare locale="zh" />
         </div>
       </section>
 

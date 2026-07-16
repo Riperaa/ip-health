@@ -4,6 +4,7 @@ import { FooterLinks } from "@/components/footer-links";
 import { GuideLinks } from "@/components/guide-links";
 import { IpAnalyzerContainer } from "@/components/ip-analyzer-container";
 import { LanguageSwitcher } from "@/components/language-switcher";
+import { SocialShare } from "@/components/social-share";
 
 export default function Home() {
   return (
@@ -31,6 +32,7 @@ export default function Home() {
           </p>
 
           <IpAnalyzerContainer locale="en" />
+          <SocialShare locale="en" />
         </div>
       </section>
 

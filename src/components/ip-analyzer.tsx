@@ -1600,8 +1600,8 @@ function TechnicalDetailsSection({
       }
       summary={t(
         ipqsAvailable
-          ? "ASN, IPInfo, IPQS, Scamalytics, ipapi.is, connectivity, and Cloudflare"
-          : "ASN, IPInfo, Scamalytics, ipapi.is, connectivity, and Cloudflare",
+          ? "ASN, IPInfo, IPQS, Scamalytics, ipapi.is, and connectivity"
+          : "ASN, IPInfo, Scamalytics, ipapi.is, and connectivity",
       )}
       isExpanded={isTechnicalDetailsVisible}
       onToggle={() =>

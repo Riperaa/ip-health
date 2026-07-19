@@ -371,10 +371,10 @@ const zh: Record<string, string> = {
   "None detected": "未发现",
   "This is normal for public DNS, CDN, and edge infrastructure, but it is not ideal as a personal browsing or account registration IP.":
     "这类公共 DNS、CDN 和边缘基础设施用于服务很正常，但不适合作为个人浏览或注册账号的 IP。",
-  "ASN, IPInfo, IPQS, Scamalytics, ipapi.is, connectivity, and Cloudflare":
-    "ASN、IPInfo、IPQS、Scamalytics、ipapi.is、连通性与 Cloudflare",
-  "ASN, IPInfo, Scamalytics, ipapi.is, connectivity, and Cloudflare":
-    "ASN、IPInfo、Scamalytics、ipapi.is、连通性与 Cloudflare",
+  "ASN, IPInfo, IPQS, Scamalytics, ipapi.is, and connectivity":
+    "ASN、IPInfo、IPQS、Scamalytics、ipapi.is 与连通性",
+  "ASN, IPInfo, Scamalytics, ipapi.is, and connectivity":
+    "ASN、IPInfo、Scamalytics、ipapi.is 与连通性",
   "IP Health provides reputation-based guidance only. Services may also consider account history, device signals, payment method, browser fingerprint, and behavior.":
     "IP Health 仅提供基于声誉数据的参考建议。服务平台还可能综合账号历史、设备信号、支付方式、浏览器指纹和行为等因素。",
   "Residential ISP detected": "检测到住宅宽带",

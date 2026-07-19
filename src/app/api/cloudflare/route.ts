@@ -1,20 +1,29 @@
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 
-import { lookup } from "@/lib/providers/cloudflare";
-import { isProviderLookupError } from "@/lib/providers/errors";
+import {
+  getCloudflareColo,
+  getRequestCountry,
+  getRequestIp,
+} from "@/lib/request-ip";
 
 function errorResponse(message: string, status: number) {
   return NextResponse.json({ error: message }, { status });
 }
 
-export async function GET() {
-  try {
-    return NextResponse.json(await lookup());
-  } catch (error) {
-    if (isProviderLookupError(error)) {
-      return errorResponse("Unable to check network integrity.", error.status);
-    }
+export async function GET(request: NextRequest) {
+  const ip = getRequestIp(request);
 
-    return errorResponse("Unable to check network integrity.", 502);
+  if (!ip) {
+    return errorResponse("Unable to identify the client network.", 400);
   }
+
+  return NextResponse.json(
+    {
+      ip,
+      colo: getCloudflareColo(request),
+      country: getRequestCountry(request),
+      warp: null,
+    },
+    { headers: { "Cache-Control": "private, no-store" } },
+  );
 }

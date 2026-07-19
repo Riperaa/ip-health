@@ -22,6 +22,7 @@ Set these variables in the Vercel project settings before deploying.
 | -------------------------- | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `ABUSEIPDB_API_KEY`        | Yes                           | Server-side AbuseIPDB API key for `/api/abuseipdb`.                                                                                                  |
 | `IPINFO_TOKEN`             | Optional                      | Server-side IPinfo token for `/api/ipinfo`. If missing, the app can use the fallback provider after IPinfo rate limits.                              |
+| `IPINFO_TIMEOUT_MS`        | Optional                      | Timeout for IPinfo and its fallback provider. Defaults to `5000`.                                                                                    |
 | `IPQS_API_KEY`             | Optional / currently disabled | Server-side IPQualityScore API key for `/api/ipqs`. Leave unset while IPQS is disabled; the client skips IPQS results when the route is unavailable. |
 | `SCAMALYTICS_USER`         | Optional                      | Server-side Scamalytics account user for `/api/scamalytics`. Required with `SCAMALYTICS_API_KEY` before Scamalytics requests are made.               |
 | `SCAMALYTICS_API_KEY`      | Optional                      | Server-side Scamalytics API key for `/api/scamalytics`. Required with `SCAMALYTICS_USER`; used as the second reputation provider when configured.    |
@@ -36,6 +37,10 @@ Set these variables in the Vercel project settings before deploying.
 
 Do not configure `NEXT_PUBLIC_IPINFO_TOKEN` for production unless a public browser-readable token is intentional. Prefer `IPINFO_TOKEN`.
 Keep `.env.local` local only. It is already covered by `.gitignore` and must not be committed.
+
+Apply the Supabase migrations before deploying application code. The analytics
+dashboard uses the `get_analytics_summary` database function so aggregation stays
+inside Postgres instead of loading the complete event table into the application.
 
 Open `/admin/login` to access the browser dashboard. The login form creates an
 eight-hour `HttpOnly`, `SameSite=Strict` session cookie; the token is never put in
@@ -104,8 +109,7 @@ When `IPQS_API_KEY` is configured, the response should include:
   "tor": false,
   "bot": false,
   "activeVpn": false,
-  "recentAbuse": false,
-  "raw": {}
+  "recentAbuse": false
 }
 ```
 
@@ -129,8 +133,7 @@ When Scamalytics is configured, the response should include:
   "proxy": false,
   "vpn": false,
   "tor": false,
-  "server": false,
-  "raw": {}
+  "server": false
 }
 ```
 

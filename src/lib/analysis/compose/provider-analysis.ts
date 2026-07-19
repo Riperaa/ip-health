@@ -5,7 +5,6 @@ import type {
 } from "@/lib/analysis/types";
 
 import { fetchAbuseIpDb } from "../fetch/abuse";
-import { fetchCloudflareTrace } from "../fetch/cloudflare";
 import { fetchDetectedIp, fetchIpifyPublicIp, fetchIpInfo } from "../fetch/ip";
 import { fetchIpApiIs } from "../fetch/ipapi-is";
 import { fetchIpqs } from "../fetch/ipqs";
@@ -13,14 +12,10 @@ import { fetchScamalytics } from "../fetch/scamalytics";
 import { assertValidIpv4Address } from "../validation";
 
 export async function detectPublicIp(): Promise<string> {
-  const [detectedIp, cloudflare] = await Promise.all([
-    fetchDetectedIp(),
-    fetchCloudflareTrace(),
-  ]);
-  const mergedIp = detectedIp ?? cloudflare?.ip?.trim() ?? null;
+  const detectedIp = await fetchDetectedIp();
 
-  if (mergedIp) {
-    return mergedIp;
+  if (detectedIp) {
+    return detectedIp;
   }
 
   return fetchIpifyPublicIp();
@@ -56,28 +51,26 @@ export async function fetchProviderAnalysis(
 
   assertValidIpv4Address(trimmedIpAddress);
 
-  const [ipInfo, abuseIpDb, cloudflare, ipqs, scamalytics, ipApiIs] =
-    await Promise.all([
-      trackProviderRequest("ipinfo", fetchIpInfo(trimmedIpAddress), options),
-      trackProviderRequest(
-        "abuseipdb",
-        fetchAbuseIpDb(trimmedIpAddress),
-        options,
-      ),
-      trackProviderRequest("cloudflare", fetchCloudflareTrace(), options),
-      trackProviderRequest("ipqs", fetchIpqs(trimmedIpAddress), options),
-      trackProviderRequest(
-        "scamalytics",
-        fetchScamalytics(trimmedIpAddress),
-        options,
-      ),
-      trackProviderRequest("ipapi_is", fetchIpApiIs(trimmedIpAddress), options),
-    ]);
+  const [ipInfo, abuseIpDb, ipqs, scamalytics, ipApiIs] = await Promise.all([
+    trackProviderRequest("ipinfo", fetchIpInfo(trimmedIpAddress), options),
+    trackProviderRequest(
+      "abuseipdb",
+      fetchAbuseIpDb(trimmedIpAddress),
+      options,
+    ),
+    trackProviderRequest("ipqs", fetchIpqs(trimmedIpAddress), options),
+    trackProviderRequest(
+      "scamalytics",
+      fetchScamalytics(trimmedIpAddress),
+      options,
+    ),
+    trackProviderRequest("ipapi_is", fetchIpApiIs(trimmedIpAddress), options),
+  ]);
 
   return {
     ipInfo,
     abuseIpDb,
-    cloudflare,
+    cloudflare: null,
     ipqs,
     scamalytics,
     ipApiIs,

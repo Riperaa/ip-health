@@ -46,9 +46,8 @@ export default function ChineseMethodologyRoute() {
         <h3>网络质量</h3>
         <p>
           检查网络归属是否清晰、ASN
-          与组织信息、消费级接入特征、托管或数据中心特征、VPN、代理、中继、Tor、WARP
-          信号，以及 Cloudflare Trace
-          上下文。若主要身份被识别为住宅或移动网络，单个辅助基础设施标记只会作为复核信息，不会独自改写网络身份。
+          与组织信息、消费级接入特征、托管或数据中心特征、VPN、代理、中继和 Tor
+          信号。若主要身份被识别为住宅或移动网络，单个辅助基础设施标记只会作为复核信息，不会独自改写网络身份。
         </p>
         <h3>兼容性</h3>
         <p>
@@ -64,7 +63,7 @@ export default function ChineseMethodologyRoute() {
         <ul className="list-disc">
           <li>
             <strong>高：</strong>
-            所需的网络归属、声誉、Trace、辅助情报和连通性证据均可用，且没有记录到覆盖缺口。
+            所需的网络归属、声誉、辅助情报和连通性证据均可用，且没有记录到覆盖缺口。
           </li>
           <li>
             <strong>中：</strong>
@@ -100,8 +99,7 @@ export default function ChineseMethodologyRoute() {
       <section aria-labelledby="sharing-risk-zh">
         <h2 id="sharing-risk-zh">5. 共享风险</h2>
         <p>
-          共享风险是独立于网络身份的判断，用于估计流量是否可能来自共享、中继、托管、企业、公共服务、代理或多用户基础设施。其依据包括隐私信号、网络身份、托管与数据中心证据、归属数据覆盖度、Cloudflare
-          路径一致性和辅助提供方信号。
+          共享风险是独立于网络身份的判断，用于估计流量是否可能来自共享、中继、托管、企业、公共服务、代理或多用户基础设施。其依据包括隐私信号、网络身份、托管与数据中心证据、归属数据覆盖度和辅助提供方信号。
         </p>
         <p>
           Tor 或强 VPN /
@@ -116,9 +114,7 @@ export default function ChineseMethodologyRoute() {
           代理或中继、严重滥用历史、近期滥用，以及数据提供方报告的高声誉风险。这些信号可以直接影响风险判断或使用建议。
         </p>
         <p>
-          复核信号包括辅助隐私或基础设施标记、托管或受管网络特征、不同提供方看到的
-          IP
-          不一致、企业或公共路由上下文，以及未完整验证的连通性。其含义取决于网络身份。已知公共服务端点会先于通用隐私标签处理；当网络已被识别为消费级、企业或公共基础设施时，部分基础设施观察只作为复核上下文。
+          复核信号包括辅助隐私或基础设施标记、托管或受管网络特征、企业或公共路由上下文，以及未完整验证的连通性。其含义取决于网络身份。已知公共服务端点会先于通用隐私标签处理；当网络已被识别为消费级、企业或公共基础设施时，部分基础设施观察只作为复核上下文。
         </p>
       </section>
 
@@ -146,10 +142,6 @@ export default function ChineseMethodologyRoute() {
           <li>
             <strong>ipapi.is：</strong>
             提供辅助隐私、托管、数据中心、滥用、归属和位置信息。
-          </li>
-          <li>
-            <strong>Cloudflare：</strong>提供 Trace IP、WARP
-            状态、边缘位置和一致性上下文。
           </li>
           <li>
             <strong>连通性探测：</strong>

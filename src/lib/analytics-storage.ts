@@ -104,7 +104,6 @@ export class AnalyticsEventValidationError extends Error {
 }
 
 let supabaseClient: SupabaseClient | undefined;
-const analyticsSummaryPageSize = 1000;
 
 export function getAnalyticsSupabaseEnvStatus(): AnalyticsSupabaseEnvStatus {
   return {
@@ -303,154 +302,67 @@ export async function storeAnalyticsEvent(record: AnalyticsEventRecord) {
   await insertAnalyticsEvent(record);
 }
 
-type AnalyticsSummaryRow = AnalyticsEventRecord & {
-  created_at: string;
-};
-
-function isAllowedCreatedAt(value: unknown) {
-  return typeof value === "string" && Number.isFinite(Date.parse(value));
+function isNonNegativeNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0;
 }
 
-function isAnalyticsSummaryRow(value: unknown): value is AnalyticsSummaryRow {
-  if (
-    !isRecord(value) ||
-    !hasOnlyKeys(value, [
-      "created_at",
-      "event_name",
-      "success",
-      "country_code",
-      "network_identity_category",
-      "evidence_quality",
-      "feedback_reason",
-    ]) ||
-    !isAllowedCreatedAt(value.created_at)
-  ) {
+function isNullableRate(value: unknown): value is number | null {
+  return value === null || isNonNegativeNumber(value);
+}
+
+function isCountBuckets(value: unknown): value is AnalyticsCountBucket[] {
+  return (
+    Array.isArray(value) &&
+    value.every(
+      (item) =>
+        isRecord(item) &&
+        typeof item.label === "string" &&
+        isNonNegativeNumber(item.count),
+    )
+  );
+}
+
+function isDayBuckets(value: unknown): value is AnalyticsDayBucket[] {
+  return (
+    Array.isArray(value) &&
+    value.every(
+      (item) =>
+        isRecord(item) &&
+        typeof item.date === "string" &&
+        /^\d{4}-\d{2}-\d{2}$/.test(item.date) &&
+        isNonNegativeNumber(item.count),
+    )
+  );
+}
+
+function isAnalyticsSummary(value: unknown): value is AnalyticsSummary {
+  if (!isRecord(value)) {
     return false;
   }
 
-  return isAnalyticsEventRecord({
-    event_name: value.event_name,
-    success: value.success,
-    country_code: value.country_code,
-    network_identity_category: value.network_identity_category,
-    evidence_quality: value.evidence_quality,
-    feedback_reason: value.feedback_reason,
-  });
-}
+  const countKeys = [
+    "totalEvents",
+    "analyzeStartedCount",
+    "analyzeCompletedCount",
+    "todayAnalyzeCompletedCount",
+    "lastSevenDaysAnalyzeCompletedCount",
+    "compareStartedCount",
+    "helpfulFeedbackCount",
+    "notHelpfulFeedbackCount",
+    "feedbackVoteCount",
+    "negativeFeedbackCount",
+  ];
 
-function buildLastSevenDayKeys(referenceDate = new Date()) {
-  const utcToday = new Date(
-    Date.UTC(
-      referenceDate.getUTCFullYear(),
-      referenceDate.getUTCMonth(),
-      referenceDate.getUTCDate(),
-    ),
+  return (
+    countKeys.every((key) => isNonNegativeNumber(value[key])) &&
+    isNullableRate(value.analyzeCompletionRate) &&
+    isNullableRate(value.feedbackHelpfulRate) &&
+    isDayBuckets(value.eventsByDay) &&
+    isCountBuckets(value.analyzeCompletedByCountry) &&
+    isCountBuckets(value.analyzeCompletedByNetworkIdentityCategory) &&
+    isCountBuckets(value.analyzeCompletedByEvidenceQuality) &&
+    isCountBuckets(value.negativeFeedbackReasons)
   );
-
-  return Array.from({ length: 7 }, (_, index) => {
-    const day = new Date(utcToday);
-    day.setUTCDate(utcToday.getUTCDate() - (6 - index));
-
-    return day.toISOString().slice(0, 10);
-  });
-}
-
-function toUtcDayKey(createdAt: string) {
-  return new Date(createdAt).toISOString().slice(0, 10);
-}
-
-function buildEmptySummary(referenceDate = new Date()): AnalyticsSummary {
-  return {
-    totalEvents: 0,
-    analyzeStartedCount: 0,
-    analyzeCompletedCount: 0,
-    todayAnalyzeCompletedCount: 0,
-    lastSevenDaysAnalyzeCompletedCount: 0,
-    analyzeCompletionRate: null,
-    compareStartedCount: 0,
-    helpfulFeedbackCount: 0,
-    notHelpfulFeedbackCount: 0,
-    feedbackVoteCount: 0,
-    negativeFeedbackCount: 0,
-    feedbackHelpfulRate: null,
-    eventsByDay: buildLastSevenDayKeys(referenceDate).map((date) => ({
-      date,
-      count: 0,
-    })),
-    analyzeCompletedByCountry: [],
-    analyzeCompletedByNetworkIdentityCategory: [],
-    analyzeCompletedByEvidenceQuality: [],
-    negativeFeedbackReasons: [],
-  };
-}
-
-function incrementBucket(bucket: Map<string, number>, key: string) {
-  bucket.set(key, (bucket.get(key) ?? 0) + 1);
-}
-
-function toSortedBuckets(bucket: Map<string, number>): AnalyticsCountBucket[] {
-  return Array.from(bucket.entries())
-    .map(([label, count]) => ({ label, count }))
-    .sort((first, second) => {
-      if (second.count !== first.count) {
-        return second.count - first.count;
-      }
-
-      return first.label.localeCompare(second.label);
-    });
-}
-
-function toRate(numerator: number, denominator: number) {
-  if (denominator === 0) {
-    return null;
-  }
-
-  return Math.round((numerator / denominator) * 1000) / 10;
-}
-
-async function getAnalyticsSummaryRows(client: SupabaseClient) {
-  const rows: AnalyticsSummaryRow[] = [];
-  let from = 0;
-
-  while (true) {
-    const { data, error } = await client
-      .from("analytics_events")
-      .select(
-        [
-          "created_at",
-          "event_name",
-          "success",
-          "country_code",
-          "network_identity_category",
-          "evidence_quality",
-          "feedback_reason",
-        ].join(","),
-      )
-      .order("created_at", { ascending: false })
-      .range(from, from + analyticsSummaryPageSize - 1);
-
-    if (error) {
-      throw error;
-    }
-
-    const page = data ?? [];
-
-    for (const row of page) {
-      if (!isAnalyticsSummaryRow(row)) {
-        throw new AnalyticsEventValidationError();
-      }
-
-      rows.push(row);
-    }
-
-    if (page.length < analyticsSummaryPageSize) {
-      break;
-    }
-
-    from += analyticsSummaryPageSize;
-  }
-
-  return rows;
 }
 
 export async function getAnalyticsSummary(): Promise<AnalyticsSummary> {
@@ -462,100 +374,15 @@ export async function getAnalyticsSummary(): Promise<AnalyticsSummary> {
     );
   }
 
-  const rows = await getAnalyticsSummaryRows(client);
-  const summary = buildEmptySummary();
-  const lastSevenDayCounts = new Map(
-    summary.eventsByDay.map((day) => [day.date, day.count]),
-  );
-  const lastSevenDayKeys = new Set(summary.eventsByDay.map((day) => day.date));
-  const todayKey = summary.eventsByDay[summary.eventsByDay.length - 1]?.date;
-  const completedByCountry = new Map<string, number>();
-  const completedByNetworkIdentityCategory = new Map<string, number>();
-  const completedByEvidenceQuality = new Map<string, number>();
-  const negativeFeedbackReasons = new Map<string, number>();
+  const { data, error } = await client.rpc("get_analytics_summary");
 
-  for (const row of rows) {
-    summary.totalEvents += 1;
-
-    const dayKey = toUtcDayKey(row.created_at);
-    if (lastSevenDayCounts.has(dayKey)) {
-      incrementBucket(lastSevenDayCounts, dayKey);
-    }
-
-    if (row.event_name === "analyze_started") {
-      summary.analyzeStartedCount += 1;
-      continue;
-    }
-
-    if (row.event_name === "compare_started") {
-      summary.compareStartedCount += 1;
-      continue;
-    }
-
-    if (row.event_name === "feedback_helpful") {
-      summary.helpfulFeedbackCount += 1;
-      continue;
-    }
-
-    if (row.event_name === "feedback_not_helpful") {
-      if (!row.feedback_reason) {
-        throw new AnalyticsEventValidationError();
-      }
-
-      summary.notHelpfulFeedbackCount += 1;
-      incrementBucket(negativeFeedbackReasons, row.feedback_reason);
-      continue;
-    }
-
-    if (
-      !row.country_code ||
-      !row.network_identity_category ||
-      !row.evidence_quality
-    ) {
-      throw new AnalyticsEventValidationError();
-    }
-
-    summary.analyzeCompletedCount += 1;
-
-    if (dayKey === todayKey) {
-      summary.todayAnalyzeCompletedCount += 1;
-    }
-
-    if (lastSevenDayKeys.has(dayKey)) {
-      summary.lastSevenDaysAnalyzeCompletedCount += 1;
-    }
-
-    incrementBucket(completedByCountry, row.country_code);
-    incrementBucket(
-      completedByNetworkIdentityCategory,
-      row.network_identity_category,
-    );
-    incrementBucket(completedByEvidenceQuality, row.evidence_quality);
+  if (error) {
+    throw error;
   }
 
-  summary.analyzeCompletionRate = toRate(
-    summary.analyzeCompletedCount,
-    summary.analyzeStartedCount,
-  );
-  summary.feedbackHelpfulRate = toRate(
-    summary.helpfulFeedbackCount,
-    summary.helpfulFeedbackCount + summary.notHelpfulFeedbackCount,
-  );
-  summary.feedbackVoteCount =
-    summary.helpfulFeedbackCount + summary.notHelpfulFeedbackCount;
-  summary.negativeFeedbackCount = summary.notHelpfulFeedbackCount;
-  summary.eventsByDay = summary.eventsByDay.map((day) => ({
-    ...day,
-    count: lastSevenDayCounts.get(day.date) ?? 0,
-  }));
-  summary.analyzeCompletedByCountry = toSortedBuckets(completedByCountry);
-  summary.analyzeCompletedByNetworkIdentityCategory = toSortedBuckets(
-    completedByNetworkIdentityCategory,
-  );
-  summary.analyzeCompletedByEvidenceQuality = toSortedBuckets(
-    completedByEvidenceQuality,
-  );
-  summary.negativeFeedbackReasons = toSortedBuckets(negativeFeedbackReasons);
+  if (!isAnalyticsSummary(data)) {
+    throw new AnalyticsEventValidationError();
+  }
 
-  return summary;
+  return data;
 }

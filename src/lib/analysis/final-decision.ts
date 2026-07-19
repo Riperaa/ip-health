@@ -45,9 +45,7 @@ function isRegionAvailabilityVerification(
 
 function isOverallVerdict(value: unknown): value is OverallVerdict {
   return (
-    value === "Healthy" ||
-    value === "Use with Caution" ||
-    value === "Risky"
+    value === "Healthy" || value === "Use with Caution" || value === "Risky"
   );
 }
 

@@ -16,6 +16,7 @@ export type ProviderResult = {
   usageType?: string | null;
   isp?: string | null;
   domain?: string | null;
+  hostname?: string | null;
   isWhitelisted?: boolean | null;
   raw?: unknown;
   error?: string;
@@ -92,8 +93,11 @@ function normalizeAbuseIpDbResponse(raw: AbuseIpDbResponse): ProviderResult {
     usageType: parseString(data.usageType),
     isp: parseString(data.isp),
     domain: parseString(data.domain),
+    hostname:
+      Array.isArray(data.hostnames) && typeof data.hostnames[0] === "string"
+        ? parseString(data.hostnames[0])
+        : null,
     isWhitelisted: parseNullableBoolean(data.isWhitelisted),
-    raw,
   };
 }
 

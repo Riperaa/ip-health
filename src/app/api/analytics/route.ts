@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 
 import {
+  checkRateLimit,
+  getRateLimitHeaders,
+  registerIdempotencyKey,
+} from "@/lib/api-protection";
+import {
   getAnalyticsSupabaseEnvStatus,
   insertAnalyticsEvent,
   isAllowedAnalyticsEventName,
@@ -32,10 +37,22 @@ function hasOnlyKeys(
 }
 
 function isAllowedTimestamp(value: unknown) {
+  if (typeof value !== "string" || !Number.isFinite(Date.parse(value))) {
+    return false;
+  }
+
+  const timestamp = new Date(value);
+  const skewMs = Math.abs(Date.now() - timestamp.getTime());
+
+  return timestamp.toISOString() === value && skewMs <= 10 * 60 * 1000;
+}
+
+function isAllowedEventId(value: unknown) {
   return (
     typeof value === "string" &&
-    Number.isFinite(Date.parse(value)) &&
-    new Date(value).toISOString() === value
+    /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      value,
+    )
   );
 }
 
@@ -50,12 +67,16 @@ function isAllowedAnalysisContext(
 }
 
 function buildAnalyticsRecord(body: unknown): AnalyticsEventRecord | null {
-  if (!isRecord(body) || !hasOnlyKeys(body, ["name", "payload", "timestamp"])) {
+  if (
+    !isRecord(body) ||
+    !hasOnlyKeys(body, ["eventId", "name", "payload", "timestamp"])
+  ) {
     return null;
   }
 
   if (
     !isAllowedAnalyticsEventName(body.name) ||
+    !isAllowedEventId(body.eventId) ||
     !isAllowedTimestamp(body.timestamp) ||
     !isRecord(body.payload)
   ) {
@@ -159,6 +180,29 @@ function logAnalyticsResponse(status: number) {
 export async function POST(request: Request) {
   let body: unknown;
 
+  const rateLimit = checkRateLimit({
+    request,
+    namespace: "analytics",
+    limit: 60,
+    windowMs: 60_000,
+  });
+
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      { error: "Too many analytics events" },
+      { status: 429, headers: getRateLimitHeaders(rateLimit) },
+    );
+  }
+
+  const contentLength = Number(request.headers.get("content-length") ?? 0);
+
+  if (Number.isFinite(contentLength) && contentLength > 8192) {
+    return NextResponse.json(
+      { error: "Analytics event is too large" },
+      { status: 413 },
+    );
+  }
+
   console.info("[analytics] request received", {
     method: request.method,
     path: "/api/analytics",
@@ -196,6 +240,17 @@ export async function POST(request: Request) {
       { error: "Invalid analytics event" },
       { status: 400 },
     );
+  }
+
+  const eventId = isRecord(body) ? body.eventId : null;
+
+  if (
+    typeof eventId !== "string" ||
+    !registerIdempotencyKey("analytics", eventId, 24 * 60 * 60 * 1000)
+  ) {
+    logAnalyticsResponse(202);
+
+    return NextResponse.json({ ok: true }, { status: 202 });
   }
 
   try {

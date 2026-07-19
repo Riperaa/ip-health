@@ -41,6 +41,7 @@ export function normalizeAbuseIpDb(
     usageType: data.usageType ?? null,
     isp: data.isp ?? null,
     domain: data.domain ?? null,
+    hostname: data.hostname ?? null,
     isWhitelisted: data.isWhitelisted ?? null,
   };
 }

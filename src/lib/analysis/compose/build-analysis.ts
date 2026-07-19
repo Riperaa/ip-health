@@ -382,6 +382,10 @@ function formatAbuseConfidence(abuseIpDb?: AbuseIpDbResponse | null) {
 }
 
 function getAbuseIpDbHostname(abuseIpDb?: AbuseIpDbResponse | null) {
+  if (hasDetail(abuseIpDb?.hostname)) {
+    return abuseIpDb?.hostname ?? null;
+  }
+
   const raw = abuseIpDb?.raw;
 
   if (!isObjectRecord(raw)) {

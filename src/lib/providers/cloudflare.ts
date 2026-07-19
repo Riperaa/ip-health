@@ -7,7 +7,7 @@ export type ProviderResult = {
   colo?: string | null;
   country?: string | null;
   warp?: string | null;
-  raw: TraceMap;
+  raw?: TraceMap;
 };
 
 const traceUrl = "https://www.cloudflare.com/cdn-cgi/trace";

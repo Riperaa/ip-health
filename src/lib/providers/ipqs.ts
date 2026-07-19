@@ -86,7 +86,6 @@ function normalizeIpqsResponse(raw: IpqsResponse): ProviderResult {
     bot: parseNullableBoolean(raw.bot_status),
     activeVpn: parseNullableBoolean(raw.active_vpn),
     recentAbuse: parseNullableBoolean(raw.recent_abuse),
-    raw,
   };
 }
 
@@ -101,7 +100,6 @@ function normalizeClientResult(result: IpqsClientResult): ProviderResult {
     bot: result.bot_status,
     activeVpn: null,
     recentAbuse: null,
-    raw: result.raw,
     debug: result.debug,
   };
 }

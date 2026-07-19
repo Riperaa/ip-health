@@ -1168,20 +1168,13 @@ function joinReasons(reasons: string[]) {
 function buildDataQuality({
   ipInfo,
   abuseIpDb,
-  cloudflare,
   ipqs,
   scamalytics,
   ipApiIs,
   connectivity,
 }: Pick<
   BuildIpQualityReportInput,
-  | "ipInfo"
-  | "abuseIpDb"
-  | "cloudflare"
-  | "ipqs"
-  | "scamalytics"
-  | "ipApiIs"
-  | "connectivity"
+  "ipInfo" | "abuseIpDb" | "ipqs" | "scamalytics" | "ipApiIs" | "connectivity"
 >) {
   const internalReasons: string[] = [];
   const presentationCandidates: SummaryFragment[] = [];
@@ -1192,9 +1185,7 @@ function buildDataQuality({
     Boolean(abuseIpDb) &&
     (isScamalyticsAvailable(scamalytics) || isIpApiIsAvailable(ipApiIs));
   const hasNetworkContext =
-    ipInfoCoverage !== "unavailable" &&
-    Boolean(cloudflare) &&
-    isIpApiIsAvailable(ipApiIs);
+    ipInfoCoverage !== "unavailable" && isIpApiIsAvailable(ipApiIs);
 
   if (!isIpqsAvailable(ipqs)) {
     internalReasons.push("IPQS reputation data was unavailable.");
@@ -1222,12 +1213,6 @@ function buildDataQuality({
 
   if (!abuseIpDb) {
     const reason = "AbuseIPDB abuse history was unavailable.";
-    internalReasons.push(reason);
-    presentationCandidates.push({ text: reason });
-  }
-
-  if (!cloudflare) {
-    const reason = "Cloudflare trace data was unavailable.";
     internalReasons.push(reason);
     presentationCandidates.push({ text: reason });
   }
@@ -1631,7 +1616,6 @@ export function buildIpQualityReport({
   const dataQuality = buildDataQuality({
     ipInfo,
     abuseIpDb,
-    cloudflare,
     ipqs,
     scamalytics,
     ipApiIs,

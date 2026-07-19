@@ -30,10 +30,10 @@ export function ResultFeedback({
   locale?: Locale;
 }) {
   const t = messages(locale);
-  const [feedbackState, setFeedbackState] =
-    useState<FeedbackState>("idle");
-  const [selectedReason, setSelectedReason] =
-    useState<FeedbackReason | null>(null);
+  const [feedbackState, setFeedbackState] = useState<FeedbackState>("idle");
+  const [selectedReason, setSelectedReason] = useState<FeedbackReason | null>(
+    null,
+  );
 
   useEffect(() => {
     setFeedbackState("idle");
@@ -117,7 +117,9 @@ export function ResultFeedback({
       ) : null}
 
       {feedbackState === "helpful" || selectedReason ? (
-        <p className="mt-3 text-sm text-neutral-500">{t("Thanks for the feedback.")}</p>
+        <p className="mt-3 text-sm text-neutral-500">
+          {t("Thanks for the feedback.")}
+        </p>
       ) : null}
     </section>
   );

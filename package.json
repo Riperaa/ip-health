@@ -13,6 +13,7 @@
     "test:localization": "node scripts/check-localization.mjs && node scripts/check-result-presentation.mjs",
     "test:result-presentation": "node scripts/check-result-presentation.mjs",
     "test:seo": "node scripts/check-seo.mjs",
+    "test:api-boundaries": "node scripts/check-api-boundaries.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },

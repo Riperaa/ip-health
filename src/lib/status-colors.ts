@@ -4,11 +4,7 @@ import type {
 } from "@/lib/trust-engine";
 
 export type StatusTone =
-  | "good"
-  | "caution"
-  | "risk"
-  | "infrastructure"
-  | "neutral";
+  "good" | "caution" | "risk" | "infrastructure" | "neutral";
 
 export type StatusBadgeVariant = "default" | "quiet";
 
@@ -26,10 +22,8 @@ const STATUS_TONE_CLASS_NAMES: Record<
       "border-neutral-200 bg-neutral-50 text-neutral-600 ring-neutral-200",
   },
   quiet: {
-    good:
-      "border-emerald-100 bg-emerald-50/60 text-emerald-700 ring-emerald-100/70",
-    caution:
-      "border-amber-100 bg-amber-50/60 text-amber-800 ring-amber-100/70",
+    good: "border-emerald-100 bg-emerald-50/60 text-emerald-700 ring-emerald-100/70",
+    caution: "border-amber-100 bg-amber-50/60 text-amber-800 ring-amber-100/70",
     risk: "border-rose-100 bg-rose-50/60 text-rose-700 ring-rose-100/70",
     infrastructure:
       "border-slate-100 bg-slate-50/60 text-slate-600 ring-slate-100/70",

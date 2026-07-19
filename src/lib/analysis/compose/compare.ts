@@ -3,11 +3,7 @@ import {
   isInfrastructureUsage,
 } from "@/lib/trust-engine";
 
-import {
-  formatDetail,
-  parseOrg,
-  pickDetail,
-} from "../normalize/common";
+import { formatDetail, parseOrg, pickDetail } from "../normalize/common";
 import { buildIpQualityReport } from "../scoring/ip-quality-report";
 import { classifyNetworkIdentity } from "../network-identity";
 import { buildNetworkSharingRisk } from "../sharing-risk";
@@ -78,9 +74,7 @@ function hasTor(
   ipApiIs?: IpApiIsResponse | null,
 ) {
   return (
-    ipInfo.privacy?.tor === true ||
-    ipqs?.tor === true ||
-    ipApiIs?.tor === true
+    ipInfo.privacy?.tor === true || ipqs?.tor === true || ipApiIs?.tor === true
   );
 }
 
@@ -201,12 +195,7 @@ function getDisplayResult(
     abuseConfidenceValue: getAbuseConfidenceValue(abuseIpDb),
     country: formatDetail(pickDetail(ipInfo.country_name, ipInfo.country)),
     ispOrg: getIspOrg(ipInfo, abuseIpDb),
-    hasSevereAbuseOrTor: hasSevereAbuseOrTor(
-      ipInfo,
-      abuseIpDb,
-      ipqs,
-      ipApiIs,
-    ),
+    hasSevereAbuseOrTor: hasSevereAbuseOrTor(ipInfo, abuseIpDb, ipqs, ipApiIs),
     hasInfrastructureSignals: hasInfrastructureSignals(
       ipInfo,
       abuseIpDb,
@@ -240,10 +229,7 @@ function getAbuseConfidenceDifference(
   ipA: ComparisonDisplayResult,
   ipB: ComparisonDisplayResult,
 ) {
-  if (
-    ipA.abuseConfidenceValue === null ||
-    ipB.abuseConfidenceValue === null
-  ) {
+  if (ipA.abuseConfidenceValue === null || ipB.abuseConfidenceValue === null) {
     return null;
   }
 

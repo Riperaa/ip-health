@@ -31,11 +31,6 @@ export const ANALYSIS_LOADING_STEPS = [
     status: "Querying IPinfo...",
   },
   {
-    id: "cloudflare",
-    label: "Querying Cloudflare",
-    status: "Querying Cloudflare...",
-  },
-  {
     id: "ipqs",
     label: "Querying IPQualityScore",
     status: "Checking IPQualityScore...",
@@ -235,9 +230,9 @@ export function AnalysisLoading({
   const errorStepSet = useMemo(() => new Set(errorSteps), [errorSteps]);
   const activeStep = isComplete
     ? null
-    : ANALYSIS_LOADING_STEPS.find(
+    : (ANALYSIS_LOADING_STEPS.find(
         (step) => !completedStepSet.has(step.id) && !errorStepSet.has(step.id),
-      ) ?? null;
+      ) ?? null);
   const completedCount = ANALYSIS_LOADING_STEPS.filter((step) =>
     completedStepSet.has(step.id),
   ).length;

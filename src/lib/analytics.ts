@@ -27,6 +27,7 @@ type AnalyticsEventPayload = {
 
 export type AnalyticsEvent = {
   [EventName in AnalyticsEventName]: {
+    eventId: string;
     name: EventName;
     payload: AnalyticsEventPayload[EventName];
     timestamp: string;
@@ -77,6 +78,14 @@ const endpointAnalyticsProvider: AnalyticsProvider = {
 
 let analyticsProvider: AnalyticsProvider = endpointAnalyticsProvider;
 
+function createEventId() {
+  try {
+    return globalThis.crypto?.randomUUID() ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export function setAnalyticsProvider(provider: AnalyticsProvider) {
   analyticsProvider = provider;
 }
@@ -86,7 +95,14 @@ export function trackAnalyticsEvent<EventName extends AnalyticsEventName>(
   payload: AnalyticsEventPayload[EventName],
   options?: TrackAnalyticsOptions,
 ) {
+  const eventId = createEventId();
+
+  if (!eventId) {
+    return;
+  }
+
   const event = {
+    eventId,
     name,
     payload,
     timestamp: new Date().toISOString(),

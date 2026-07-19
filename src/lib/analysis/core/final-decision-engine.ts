@@ -95,9 +95,7 @@ function hasAsn(asn?: string | number | null) {
   return Boolean(asn?.trim());
 }
 
-function isHardRegionRestriction(
-  region?: FinalDecisionRegionSignals | null,
-) {
+function isHardRegionRestriction(region?: FinalDecisionRegionSignals | null) {
   return region?.restricted === true;
 }
 
@@ -165,7 +163,10 @@ export function decideOverallVerdict({
     return "Risky";
   }
 
-  if (trustScore >= IPQS_HIGH_RISK_THRESHOLD && !isHardRegionRestriction(region)) {
+  if (
+    trustScore >= IPQS_HIGH_RISK_THRESHOLD &&
+    !isHardRegionRestriction(region)
+  ) {
     return "Healthy";
   }
 
@@ -254,7 +255,9 @@ function buildServiceExplanation(
     );
   } else {
     explanation.push("No hard restrictions detected.");
-    explanation.push(`${service} status is Available because acceptable risk remains.`);
+    explanation.push(
+      `${service} status is Available because acceptable risk remains.`,
+    );
   }
 
   explanation.push(`Overall verdict is ${overallVerdict}.`);

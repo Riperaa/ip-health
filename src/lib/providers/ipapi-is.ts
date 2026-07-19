@@ -39,7 +39,9 @@ const DEFAULT_TIMEOUT_MS = 5000;
 const USER_SAFE_UNAVAILABLE_ERROR = "ipapi.is data is unavailable.";
 
 function getTimeoutMs() {
-  const timeoutMs = Number(process.env.IPAPI_IS_TIMEOUT_MS ?? DEFAULT_TIMEOUT_MS);
+  const timeoutMs = Number(
+    process.env.IPAPI_IS_TIMEOUT_MS ?? DEFAULT_TIMEOUT_MS,
+  );
 
   return Number.isFinite(timeoutMs) && timeoutMs > 0
     ? timeoutMs
@@ -120,7 +122,11 @@ function getHostingSignal(
   const companyType = parseString(company.type)?.toLowerCase() ?? "";
   const asnType = parseString(asn.type)?.toLowerCase() ?? "";
 
-  if (datacenter === true || companyType === "hosting" || asnType === "hosting") {
+  if (
+    datacenter === true ||
+    companyType === "hosting" ||
+    asnType === "hosting"
+  ) {
     return true;
   }
 

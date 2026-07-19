@@ -32,7 +32,7 @@ export async function createAdminSession(formData: FormData) {
   cookieStore.set(ADMIN_SESSION_COOKIE, sessionValue, {
     httpOnly: true,
     maxAge: ADMIN_SESSION_MAX_AGE_SECONDS,
-    path: "/admin",
+    path: "/",
     sameSite: "strict",
     secure: process.env.NODE_ENV === "production",
   });

@@ -1,13 +1,8 @@
 export type ScamalyticsUnavailableReason =
-  | "missing_configuration"
-  | "invalid_response"
-  | "api_error"
-  | "network_error";
+  "missing_configuration" | "invalid_response" | "api_error" | "network_error";
 
 export type ScamalyticsProviderStatus =
-  | "Available"
-  | "Unavailable"
-  | "Not configured";
+  "Available" | "Unavailable" | "Not configured";
 
 export type ProviderResult = {
   status?: "available" | "unavailable";
@@ -234,7 +229,8 @@ function normalizeScamalyticsResponse(
   return {
     status: "available",
     providerStatus: "Available",
-    score: score === null ? null : Math.min(Math.max(Math.round(score), 0), 100),
+    score:
+      score === null ? null : Math.min(Math.max(Math.round(score), 0), 100),
     risk: pickString(raw, ["risk", "risk_level", "riskLevel"]),
     country: pickString(raw, [
       "country",
@@ -260,7 +256,6 @@ function normalizeScamalyticsResponse(
     datacenter,
     abuseSignals: pickSignals(raw, ABUSE_SIGNAL_KEYS),
     blacklistSignals: pickSignals(raw, BLACKLIST_SIGNAL_KEYS),
-    raw,
   };
 }
 

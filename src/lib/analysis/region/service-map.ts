@@ -1,23 +1,15 @@
 export type RegionRiskLevel = "low" | "medium" | "high" | "unknown";
 
 export type RegionServiceStatus =
-  | "likely_available"
-  | "uncertain"
-  | "likely_blocked";
+  "likely_available" | "uncertain" | "likely_blocked";
 
 export type RegionRuleHint =
-  | "available"
-  | "caution"
-  | "restricted"
-  | "high_risk"
-  | "unknown_region";
+  "available" | "caution" | "restricted" | "high_risk" | "unknown_region";
 
 export type RegionAvailabilityRestriction = "none" | "hard_region";
 
 export type WeightedDecisionSignalDirection =
-  | "supports_availability"
-  | "raises_risk"
-  | "neutral";
+  "supports_availability" | "raises_risk" | "neutral";
 
 export type WeightedDecisionSignal = {
   signalName: string;
@@ -28,10 +20,7 @@ export type WeightedDecisionSignal = {
 };
 
 export type HistoricalAccessConsistency =
-  | "stable"
-  | "mixed"
-  | "unstable"
-  | "unavailable";
+  "stable" | "mixed" | "unstable" | "unavailable";
 
 export type RegionServiceInferenceInput = {
   service: string;
@@ -487,7 +476,9 @@ function getSignalDirection(
 }
 
 function toDecisionSignal(signal: WeightedSignal): WeightedDecisionSignal {
-  const contribution = roundSignalValue(signal.weight * (NEUTRAL_RISK - signal.risk));
+  const contribution = roundSignalValue(
+    signal.weight * (NEUTRAL_RISK - signal.risk),
+  );
   const impact = roundSignalValue(Math.abs(contribution));
 
   return {
@@ -500,15 +491,13 @@ function toDecisionSignal(signal: WeightedSignal): WeightedDecisionSignal {
 }
 
 function getStructuredSignals(signals: WeightedSignal[]) {
-  return signals
-    .map(toDecisionSignal)
-    .sort((signalA, signalB) => {
-      if (signalB.impact !== signalA.impact) {
-        return signalB.impact - signalA.impact;
-      }
+  return signals.map(toDecisionSignal).sort((signalA, signalB) => {
+    if (signalB.impact !== signalA.impact) {
+      return signalB.impact - signalA.impact;
+    }
 
-      return signalA.signalName.localeCompare(signalB.signalName);
-    });
+    return signalA.signalName.localeCompare(signalB.signalName);
+  });
 }
 
 function getStatusFromProbability(probability: number): RegionServiceStatus {
@@ -523,9 +512,7 @@ function getStatusFromProbability(probability: number): RegionServiceStatus {
   return "likely_blocked";
 }
 
-function getHardRegionalRestrictionProbability(
-  service: string,
-): number | null {
+function getHardRegionalRestrictionProbability(service: string): number | null {
   const normalizedService = normalizeValue(service);
 
   if (normalizedService === "google voice") {
@@ -622,7 +609,8 @@ export function inferRegionServiceCompatibility(
     riskScore: Number(riskScore.toFixed(2)),
     ruleHint,
     restriction: "none",
-    explanation: "Regional availability is inferred from weighted regional signals.",
+    explanation:
+      "Regional availability is inferred from weighted regional signals.",
     signals: getStructuredSignals(signals),
   };
 }

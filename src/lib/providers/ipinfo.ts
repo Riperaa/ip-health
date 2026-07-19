@@ -50,6 +50,29 @@ export type ProviderResult = {
 };
 
 const token = process.env.IPINFO_TOKEN ?? process.env.NEXT_PUBLIC_IPINFO_TOKEN;
+const DEFAULT_TIMEOUT_MS = 5000;
+
+function getTimeoutMs() {
+  const timeoutMs = Number(process.env.IPINFO_TIMEOUT_MS ?? DEFAULT_TIMEOUT_MS);
+
+  return Number.isFinite(timeoutMs) && timeoutMs > 0
+    ? timeoutMs
+    : DEFAULT_TIMEOUT_MS;
+}
+
+async function fetchWithTimeout(url: URL) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), getTimeoutMs());
+
+  try {
+    return await fetch(url, {
+      headers: { Accept: "application/json" },
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
 
 function buildIpinfoUrl({ ip }: Params) {
   const path = ip ? `/${encodeURIComponent(ip)}/json` : "/json";
@@ -95,31 +118,42 @@ function normalizeFallbackResponse(data: IpWhoResponse): ProviderResult {
 }
 
 export async function lookupWithStatus(ip?: string) {
-  const response = await fetch(buildIpinfoUrl({ ip: ip || undefined }), {
-    headers: {
-      Accept: "application/json",
-    },
-  });
+  let primaryData: ProviderResult = { ip };
+  let primaryStatus = 502;
 
-  const data = (await response.json()) as ProviderResult;
+  try {
+    const response = await fetchWithTimeout(
+      buildIpinfoUrl({ ip: ip || undefined }),
+    );
+    primaryStatus = response.status;
+    primaryData = (await response.json()) as ProviderResult;
 
-  if (!token && response.status === 429) {
-    const fallbackResponse = await fetch(buildFallbackUrl({ ip: ip || undefined }), {
-      headers: {
-        Accept: "application/json",
-      },
-    });
+    if (response.ok) {
+      return { data: primaryData, status: response.status };
+    }
+  } catch {
+    // Fall through to the independent provider below.
+  }
+
+  try {
+    const fallbackResponse = await fetchWithTimeout(
+      buildFallbackUrl({ ip: ip || undefined }),
+    );
     const fallbackData = (await fallbackResponse.json()) as IpWhoResponse;
 
-    return {
-      data: normalizeFallbackResponse(fallbackData),
-      status: fallbackResponse.status,
-    };
+    if (fallbackResponse.ok) {
+      return {
+        data: normalizeFallbackResponse(fallbackData),
+        status: fallbackResponse.status,
+      };
+    }
+  } catch {
+    // Preserve the primary provider status for the caller.
   }
 
   return {
-    data,
-    status: response.status,
+    data: primaryData,
+    status: primaryStatus,
   };
 }
 

@@ -54,10 +54,9 @@ export default function MethodologyRoute() {
         <p>
           Reviews ownership visibility, ASN and organization data, consumer
           access signals, hosting or datacenter indicators, VPN, proxy, relay,
-          Tor and WARP signals, and Cloudflare trace context. A residential or
-          mobile classification can keep a secondary infrastructure flag in
-          review context instead of letting that flag redefine the network by
-          itself.
+          and Tor signals. A residential or mobile classification can keep a
+          secondary infrastructure flag in review context instead of letting
+          that flag redefine the network by itself.
         </p>
         <h3>Compatibility</h3>
         <p>
@@ -79,9 +78,9 @@ export default function MethodologyRoute() {
         </p>
         <ul className="list-disc">
           <li>
-            <strong>High:</strong> the required ownership, reputation, trace,
-            secondary intelligence, and connectivity evidence was available
-            without a recorded coverage gap.
+            <strong>High:</strong> the required ownership, reputation, secondary
+            intelligence, and connectivity evidence was available without a
+            recorded coverage gap.
           </li>
           <li>
             <strong>Medium:</strong> some evidence was unavailable or partial,
@@ -126,8 +125,8 @@ export default function MethodologyRoute() {
           Sharing Risk separately estimates whether traffic may come through
           shared, relayed, hosted, corporate, public-service, proxy, or
           multi-user infrastructure. It uses privacy signals, network identity,
-          hosting and datacenter evidence, ownership coverage, Cloudflare path
-          consistency, and secondary provider signals.
+          hosting and datacenter evidence, ownership coverage, and secondary
+          provider signals.
         </p>
         <p>
           Tor or a strong VPN/proxy signal produces high sharing concern.
@@ -149,13 +148,12 @@ export default function MethodologyRoute() {
         </p>
         <p>
           Review signals include secondary privacy or infrastructure flags,
-          hosting or managed-network observations, an IP mismatch between
-          provider views, enterprise or public routing context, and partially
-          verified connectivity. Their meaning depends on Network Identity.
-          Known public-service endpoints are handled before generic privacy
-          labels, while some infrastructure observations remain review context
-          when the network is otherwise classified as consumer, enterprise, or
-          public infrastructure.
+          hosting or managed-network observations, enterprise or public routing
+          context, and partially verified connectivity. Their meaning depends on
+          Network Identity. Known public-service endpoints are handled before
+          generic privacy labels, while some infrastructure observations remain
+          review context when the network is otherwise classified as consumer,
+          enterprise, or public infrastructure.
         </p>
       </section>
 
@@ -185,10 +183,6 @@ export default function MethodologyRoute() {
           <li>
             <strong>ipapi.is:</strong> secondary privacy, hosting, datacenter,
             abuse, ownership, and location context.
-          </li>
-          <li>
-            <strong>Cloudflare:</strong> trace IP, WARP status, edge location,
-            and consistency context.
           </li>
           <li>
             <strong>Connectivity probes:</strong> browser-observed reachable,

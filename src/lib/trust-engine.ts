@@ -193,9 +193,7 @@ function getPrivacySignalSummary(
     privacy?.hosting === true || hasInfrastructureUsage
       ? "hosting or infrastructure"
       : null,
-    ipApiIs?.vpn === true ||
-    ipApiIs?.proxy === true ||
-    ipApiIs?.tor === true
+    ipApiIs?.vpn === true || ipApiIs?.proxy === true || ipApiIs?.tor === true
       ? "ipapi.is privacy review signal"
       : null,
     ipApiIs?.datacenter === true || ipApiIs?.hosting === true
@@ -292,9 +290,7 @@ function getCompatibilitySignals(
       ipqs?.proxy === true ||
       scamalytics?.proxy === true,
     tor:
-      privacy?.tor === true ||
-      ipqs?.tor === true ||
-      scamalytics?.tor === true,
+      privacy?.tor === true || ipqs?.tor === true || scamalytics?.tor === true,
     relay: privacy?.relay === true,
     traceMismatch: hasCloudflareTraceMismatch(ipInfo, cloudflare),
     ipApiReviewSignal: hasIpApiPrivacySignal || hasIpApiInfrastructureSignal,

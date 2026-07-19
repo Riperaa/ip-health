@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import {
-  buildAnalysisResult,
-  fetchProviderAnalysis,
-} from "@/lib/analysis-engine";
+import { buildAnalysisResult } from "@/lib/analysis-engine";
+import { fetchServerProviderAnalysis } from "@/lib/analysis/server-provider-analysis";
+import { checkRateLimit, getRateLimitHeaders } from "@/lib/api-protection";
 import {
   FINAL_DECISION_VERSION,
   normalizeFinalDecision,
@@ -11,6 +10,20 @@ import {
 import { isValidIpv4Address } from "@/lib/analysis/validation";
 
 export async function GET(request: NextRequest) {
+  const rateLimit = checkRateLimit({
+    request,
+    namespace: "analysis:final-decision-dump",
+    limit: 10,
+    windowMs: 60_000,
+  });
+
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      { error: "Too many requests. Please try again shortly." },
+      { status: 429, headers: getRateLimitHeaders(rateLimit) },
+    );
+  }
+
   const ip = request.nextUrl.searchParams.get("ip")?.trim();
   const requestedVersion =
     request.nextUrl.searchParams.get("version")?.trim() ?? "latest";
@@ -39,7 +52,7 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const providerResult = await fetchProviderAnalysis(ip);
+  const providerResult = await fetchServerProviderAnalysis(ip);
   const analysisResult = buildAnalysisResult({
     providerResult,
     fallbackIpAddress: ip,

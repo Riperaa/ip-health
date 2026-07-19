@@ -64,19 +64,14 @@ export type AnalysisProgressStepId =
   | "report";
 
 export type AnalysisProgressStepStatus =
-  | "waiting"
-  | "running"
-  | "completed"
-  | "error";
+  "waiting" | "running" | "completed" | "error";
 
 export type AnalysisProgressEvent = {
   step: AnalysisProgressStepId;
   status: Exclude<AnalysisProgressStepStatus, "waiting">;
 };
 
-export type AnalysisProgressHandler = (
-  event: AnalysisProgressEvent,
-) => void;
+export type AnalysisProgressHandler = (event: AnalysisProgressEvent) => void;
 
 export type AnalysisProgressOptions = {
   onProgress?: AnalysisProgressHandler;

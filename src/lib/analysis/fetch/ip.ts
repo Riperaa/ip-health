@@ -9,19 +9,19 @@ export async function fetchIpInfo(nextIpAddress?: string) {
     url.searchParams.set("ip", nextIpAddress);
   }
 
-  const response = await fetch(url);
+  try {
+    const response = await fetch(url);
 
-  if (!response.ok) {
-    throw new Error("Unable to fetch IP information.");
+    if (!response.ok) {
+      return normalizeIpInfo({ ip: nextIpAddress }, nextIpAddress);
+    }
+
+    const data = (await response.json()) as IpInfoResponse;
+
+    return normalizeIpInfo(data ?? { ip: nextIpAddress }, nextIpAddress);
+  } catch {
+    return normalizeIpInfo({ ip: nextIpAddress }, nextIpAddress);
   }
-
-  const data = (await response.json()) as IpInfoResponse;
-
-  if (!data) {
-    throw new Error("IP information was unavailable.");
-  }
-
-  return normalizeIpInfo(data, nextIpAddress);
 }
 
 export async function fetchDetectedIp() {

@@ -10,11 +10,23 @@ const footerLinks = [
   { href: "/sponsor", label: "Sponsor" },
 ];
 
-export function FooterLinks({ locale = "en" }: { locale?: Locale }) {
+export function FooterLinks({
+  locale = "en",
+  reserveFloatingShareSpace = false,
+}: {
+  locale?: Locale;
+  reserveFloatingShareSpace?: boolean;
+}) {
   const t = messages(locale);
 
   return (
-    <footer className="px-5 pb-6 text-center text-sm text-neutral-400">
+    <footer
+      className={`px-5 text-center text-sm text-neutral-400 ${
+        reserveFloatingShareSpace
+          ? "pb-[calc(env(safe-area-inset-bottom)+5rem)]"
+          : "pb-6"
+      }`}
+    >
       <nav
         aria-label={t("Footer")}
         className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1"

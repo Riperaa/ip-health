@@ -37,7 +37,7 @@ export default function Home() {
       </section>
 
       <GuideLinks />
-      <FooterLinks />
+      <FooterLinks reserveFloatingShareSpace />
     </main>
   );
 }

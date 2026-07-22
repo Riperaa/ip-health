@@ -53,7 +53,7 @@ export default function ChineseHome() {
       </section>
 
       <GuideLinks locale="zh" />
-      <FooterLinks locale="zh" />
+      <FooterLinks locale="zh" reserveFloatingShareSpace />
     </main>
   );
 }

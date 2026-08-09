@@ -231,3 +231,51 @@ export async function probeConnectivity(): Promise<ConnectivityProbeResult> {
     return buildConnectivityProbeResult("not_verified");
   }
 }
+
+function normalizeComparableIpv4Address(value?: string | null) {
+  const parts = value?.trim().split(".") ?? [];
+
+  if (
+    parts.length !== 4 ||
+    parts.some((part) => {
+      if (!/^\d+$/.test(part)) {
+        return true;
+      }
+
+      const octet = Number(part);
+
+      return !Number.isInteger(octet) || octet < 0 || octet > 255;
+    })
+  ) {
+    return null;
+  }
+
+  return parts.map((part) => String(Number(part))).join(".");
+}
+
+export function isConnectivityProbeBoundToTarget(
+  targetIp: string,
+  currentPublicIp?: string | null,
+) {
+  const normalizedTargetIp = normalizeComparableIpv4Address(targetIp);
+  const normalizedCurrentPublicIp =
+    normalizeComparableIpv4Address(currentPublicIp);
+
+  return (
+    normalizedTargetIp !== null &&
+    normalizedCurrentPublicIp !== null &&
+    normalizedTargetIp === normalizedCurrentPublicIp
+  );
+}
+
+export async function probeConnectivityForTarget(
+  targetIp: string,
+  currentPublicIp?: string | null,
+  probe: () => Promise<ConnectivityProbeResult> = probeConnectivity,
+): Promise<ConnectivityProbeResult | null> {
+  if (!isConnectivityProbeBoundToTarget(targetIp, currentPublicIp)) {
+    return null;
+  }
+
+  return probe();
+}

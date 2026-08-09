@@ -21,7 +21,7 @@ import {
   buildConnectivityProbeResult,
   isConnectivityProbeReachable,
   isConnectivityProbeUnreachable,
-  probeConnectivity,
+  probeConnectivityForTarget,
   type ConnectivityProbeResult,
 } from "../connectivity/probe";
 import {
@@ -2129,7 +2129,7 @@ export async function buildAnalysis(
 
   const [providerResult, connectivity] = await Promise.all([
     fetchProviderAnalysis(trimmedIpAddress, options),
-    probeConnectivity(),
+    probeConnectivityForTarget(trimmedIpAddress, options?.detectedPublicIp),
   ]);
   options?.onProgress?.({ step: "trust_score", status: "running" });
   const storedIpHistory = loadIpHistory();

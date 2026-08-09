@@ -14,6 +14,27 @@ The Vercel project should use:
 
 These settings are also captured in `vercel.json`.
 
+## Edge Request Protection (Required)
+
+Configure Vercel Firewall rate limiting before enabling the production API.
+Create source-IP rate-limit rules for `/api/*` and for the expensive
+`/analysis/*` routes, with thresholds that fit the upstream provider quotas.
+The rules should reject excess traffic at the edge before it invokes a
+function or consumes a paid provider request. Apply and verify the rules for
+both Production and any publicly accessible Preview deployments.
+
+The rate limiter in `src/lib/api-protection.ts` is a secondary, per-function
+instance safeguard. Its in-memory counters are not shared across Vercel
+instances and must not be treated as the production-wide limit.
+
+In production, the application derives client identity only from
+`x-vercel-forwarded-for`, which Vercel overwrites at its trusted proxy boundary.
+It intentionally ignores caller-supplied `cf-connecting-ip`, `true-client-ip`,
+`x-real-ip`, and `x-forwarded-for` values. A self-hosted production deployment
+will fail closed until it implements an equivalent trusted-proxy adapter. The
+`x-forwarded-for` fallback is enabled only by the local Next.js development
+server.
+
 ## Environment Variables
 
 Set these variables in the Vercel project settings before deploying.
@@ -86,6 +107,17 @@ vercel --prod
 If this is the first deployment, Vercel will ask to link or create a project. After linking, confirm that all required environment variables are set for the Production environment and redeploy.
 
 ## Verify Production
+
+Verify that spoofed CDN headers do not change the detected address. All three
+requests below should return the same real client IP:
+
+```bash
+curl https://your-domain.example/api/detect-ip
+curl -H "CF-Connecting-IP: 1.1.1.1" \
+  https://your-domain.example/api/detect-ip
+curl -H "True-Client-IP: 8.8.8.8" \
+  https://your-domain.example/api/detect-ip
+```
 
 After deployment, open the production URL and submit a known IP address, such as:
 

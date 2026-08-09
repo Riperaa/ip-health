@@ -2,7 +2,7 @@ import "server-only";
 
 import { NextResponse, type NextRequest } from "next/server";
 
-import { getRequestIp } from "@/lib/request-ip";
+import { getRequestRateLimitKey } from "@/lib/request-ip";
 
 type RateLimitEntry = {
   count: number;
@@ -31,6 +31,9 @@ const state =
     cache: new Map(),
     idempotencyKeys: new Map(),
   });
+
+// This state is defense in depth for one function instance. Production-wide
+// enforcement belongs at the Vercel Firewall boundary; see DEPLOY.md.
 
 function pruneExpiredEntries(now: number) {
   if (state.rateLimits.size > 10_000) {
@@ -72,7 +75,7 @@ export function checkRateLimit({
   const now = Date.now();
   pruneExpiredEntries(now);
 
-  const clientKey = getRequestIp(request) ?? "unknown";
+  const clientKey = getRequestRateLimitKey(request);
   const key = `${namespace}:${clientKey}`;
   const current = state.rateLimits.get(key);
   const entry =

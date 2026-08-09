@@ -105,12 +105,17 @@ export function IpAnalyzerContainer({ locale = "en" }: { locale?: Locale }) {
     useState<AnalysisLoadingState>(initialAnalysisLoadingState);
   const isAnalysisInFlight = useRef(false);
   const isQaModeRef = useRef(false);
+  const detectedPublicIpRef = useRef<string | null>(null);
+  const detectionRequestIdRef = useRef(0);
+  const inputRevisionRef = useRef(0);
 
   const analyzeAddress = useCallback(
     async (nextIpAddress: string) => {
       if (isAnalysisInFlight.current) {
         return;
       }
+
+      inputRevisionRef.current += 1;
 
       const trimmedIpAddress = nextIpAddress.trim();
 
@@ -177,6 +182,7 @@ export function IpAnalyzerContainer({ locale = "en" }: { locale?: Locale }) {
         const nextAnalysisResult = await buildAnalysis(trimmedIpAddress, {
           onProgress: handleProgress,
           qaMode: isQaAnalysis,
+          detectedPublicIp: detectedPublicIpRef.current,
         });
 
         setAnalysisResult(nextAnalysisResult);
@@ -217,6 +223,15 @@ export function IpAnalyzerContainer({ locale = "en" }: { locale?: Locale }) {
   );
 
   const handleDetectPublicIp = useCallback(async () => {
+    if (isAnalysisInFlight.current) {
+      return;
+    }
+
+    const requestId = detectionRequestIdRef.current + 1;
+    const inputRevisionAtStart = inputRevisionRef.current;
+
+    detectionRequestIdRef.current = requestId;
+    detectedPublicIpRef.current = null;
     setError("");
     setAnalysisErrorIp("");
     setAnalysisStarted(false);
@@ -224,12 +239,38 @@ export function IpAnalyzerContainer({ locale = "en" }: { locale?: Locale }) {
 
     try {
       const detectedIp = await detectCurrentPublicIp();
-      setIpAddress(detectedIp);
-      setAnalysisResult(getEmptyAnalysisResult(detectedIp));
+
+      if (requestId !== detectionRequestIdRef.current) {
+        return;
+      }
+
+      const normalizedDetectedIp = detectedIp.trim();
+
+      if (!isValidIpv4Address(normalizedDetectedIp)) {
+        throw new Error("Detected IP is not a valid IPv4 address.");
+      }
+
+      detectedPublicIpRef.current = normalizedDetectedIp;
+
+      if (
+        inputRevisionRef.current === inputRevisionAtStart &&
+        !isAnalysisInFlight.current
+      ) {
+        setIpAddress(normalizedDetectedIp);
+        setAnalysisResult(getEmptyAnalysisResult(normalizedDetectedIp));
+      }
     } catch {
-      setError(t("Unable to detect your IP. You can enter it manually."));
+      if (
+        requestId === detectionRequestIdRef.current &&
+        inputRevisionRef.current === inputRevisionAtStart &&
+        !isAnalysisInFlight.current
+      ) {
+        setError(t("Unable to detect your IP. You can enter it manually."));
+      }
     } finally {
-      setIsDetecting(false);
+      if (requestId === detectionRequestIdRef.current) {
+        setIsDetecting(false);
+      }
     }
   }, [t]);
 
@@ -290,6 +331,7 @@ export function IpAnalyzerContainer({ locale = "en" }: { locale?: Locale }) {
             autoComplete="off"
             value={ipAddress}
             onChange={(event) => {
+              inputRevisionRef.current += 1;
               setIpAddress(event.target.value);
               if (error) {
                 setError("");
@@ -320,7 +362,7 @@ export function IpAnalyzerContainer({ locale = "en" }: { locale?: Locale }) {
           <button
             type="button"
             onClick={handleDetectPublicIp}
-            disabled={isDetecting}
+            disabled={isDetecting || isAnalyzing}
             className="h-10 rounded-full border border-neutral-200 bg-white px-5 text-sm font-medium text-neutral-600 shadow-sm shadow-neutral-950/[0.03] transition hover:border-neutral-300 hover:bg-neutral-50 hover:text-neutral-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-950 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isDetecting ? t("Detecting...") : t("Auto Detect My IP")}

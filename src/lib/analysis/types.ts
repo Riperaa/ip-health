@@ -76,6 +76,8 @@ export type AnalysisProgressHandler = (event: AnalysisProgressEvent) => void;
 export type AnalysisProgressOptions = {
   onProgress?: AnalysisProgressHandler;
   qaMode?: boolean;
+  /** The current client's public IPv4 returned by the detection flow. */
+  detectedPublicIp?: string | null;
 };
 
 export type RecentCheck = {

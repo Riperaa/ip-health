@@ -1,13 +1,12 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-import {
-  getCloudflareColo,
-  getRequestCountry,
-  getRequestIp,
-} from "@/lib/request-ip";
+import { getRequestCountry, getRequestIp } from "@/lib/request-ip";
 
 function errorResponse(message: string, status: number) {
-  return NextResponse.json({ error: message }, { status });
+  return NextResponse.json(
+    { error: message },
+    { status, headers: { "Cache-Control": "private, no-store" } },
+  );
 }
 
 export async function GET(request: NextRequest) {
@@ -20,7 +19,7 @@ export async function GET(request: NextRequest) {
   return NextResponse.json(
     {
       ip,
-      colo: getCloudflareColo(request),
+      colo: null,
       country: getRequestCountry(request),
       warp: null,
     },

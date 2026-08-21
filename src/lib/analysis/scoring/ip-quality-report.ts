@@ -231,10 +231,6 @@ function getIpInfoCoverage(ipInfo: IpInfoResponse) {
   return "available";
 }
 
-function isIpqsAvailable(ipqs?: IpqsResponse | null) {
-  return Boolean(ipqs && ipqs.status !== "unavailable");
-}
-
 function isScamalyticsAvailable(scamalytics?: ScamalyticsResponse | null) {
   return Boolean(scamalytics && scamalytics.status !== "unavailable");
 }
@@ -329,42 +325,33 @@ function getScamalyticsPenalty(score: number | null) {
 
 function getReputationConfidence(
   abuseIpDb: AbuseIpDbResponse | null,
-  ipqs: IpqsResponse | null,
   scamalytics: ScamalyticsResponse | null,
   ipApiIs: IpApiIsResponse | null,
 ) {
   const hasAbuseIpDb = Boolean(abuseIpDb);
-  const hasIpqs = isIpqsAvailable(ipqs);
   const hasScamalytics = isScamalyticsAvailable(scamalytics);
   const hasIpApiIs = isIpApiIsAvailable(ipApiIs);
+  const hasSecondaryReputation = hasScamalytics || hasIpApiIs;
 
-  if (hasAbuseIpDb && hasIpqs) {
+  if (hasAbuseIpDb && hasSecondaryReputation) {
     return {
       confidence: "High" as const,
-      confidenceReason: "IPQS and abuse history providers were available.",
+      confidenceReason:
+        "Abuse history and secondary reputation data were available.",
       maxScore: 100,
     };
   }
 
-  if (hasAbuseIpDb && hasScamalytics) {
+  if (hasAbuseIpDb) {
     return {
       confidence: "Medium" as const,
       confidenceReason:
-        "A reputation data source was unavailable; Scamalytics was available.",
+        "Secondary reputation data was unavailable; abuse history was available.",
       maxScore: 85,
     };
   }
 
-  if (hasAbuseIpDb && hasIpApiIs) {
-    return {
-      confidence: "Medium" as const,
-      confidenceReason:
-        "Some reputation data sources were unavailable; ipapi.is was available.",
-      maxScore: 82,
-    };
-  }
-
-  if (!hasAbuseIpDb && !hasIpqs && !hasScamalytics) {
+  if (!hasSecondaryReputation) {
     return {
       confidence: "Low" as const,
       confidenceReason: "Important reputation providers were unavailable.",
@@ -374,11 +361,8 @@ function getReputationConfidence(
 
   return {
     confidence: "Medium" as const,
-    confidenceReason:
-      hasIpqs || hasScamalytics || hasIpApiIs
-        ? "Abuse history data was unavailable."
-        : "Important reputation providers were unavailable.",
-    maxScore: hasIpqs ? 90 : 85,
+    confidenceReason: "Abuse history data was unavailable.",
+    maxScore: 85,
   };
 }
 
@@ -434,7 +418,6 @@ function buildReputationScore(
   ];
   const providerConfidence = getReputationConfidence(
     abuseIpDb,
-    ipqs,
     scamalytics,
     ipApiIs,
   );
@@ -1168,32 +1151,17 @@ function joinReasons(reasons: string[]) {
 function buildDataQuality({
   ipInfo,
   abuseIpDb,
-  ipqs,
   scamalytics,
   ipApiIs,
-  connectivity,
 }: Pick<
   BuildIpQualityReportInput,
-  "ipInfo" | "abuseIpDb" | "ipqs" | "scamalytics" | "ipApiIs" | "connectivity"
+  "ipInfo" | "abuseIpDb" | "scamalytics" | "ipApiIs"
 >) {
   const internalReasons: string[] = [];
   const presentationCandidates: SummaryFragment[] = [];
   const ipInfoCoverage = getIpInfoCoverage(ipInfo);
-  const connectivityConfidence = getConnectivityConfidence(connectivity);
-  const connectivityCounts = getConnectivityCounts(connectivity);
-  const hasFallbackReputation =
-    Boolean(abuseIpDb) &&
-    (isScamalyticsAvailable(scamalytics) || isIpApiIsAvailable(ipApiIs));
-  const hasNetworkContext =
-    ipInfoCoverage !== "unavailable" && isIpApiIsAvailable(ipApiIs);
-
-  if (!isIpqsAvailable(ipqs)) {
-    internalReasons.push("IPQS reputation data was unavailable.");
-    presentationCandidates.push({
-      text: "IPQS reputation data was unavailable.",
-      source: "ipqs-unavailable",
-    });
-  }
+  const hasSecondaryProvider =
+    isScamalyticsAvailable(scamalytics) || isIpApiIsAvailable(ipApiIs);
 
   if (!isScamalyticsAvailable(scamalytics) && !isIpApiIsAvailable(ipApiIs)) {
     const reason = "Scamalytics and ipapi.is secondary data were unavailable.";
@@ -1217,49 +1185,29 @@ function buildDataQuality({
     presentationCandidates.push({ text: reason });
   }
 
-  if (connectivityConfidence.confidence === "Low") {
-    internalReasons.push("Connectivity probes were unavailable.");
-  } else if (connectivityConfidence.confidence === "Medium") {
-    const reason = "Connectivity probes were partially verified.";
-    internalReasons.push(reason);
-    presentationCandidates.push({
-      text: reason,
-      source: "connectivity-status",
-      hasDefinitiveConnectivity:
-        connectivityCounts.reachable > 0 || connectivityCounts.unreachable > 0,
-    });
-  }
-
   const level: Exclude<IpQualityConfidence, "Pending"> =
     internalReasons.length === 0
       ? "High"
       : internalReasons.length === 1 ||
-          (hasFallbackReputation && hasNetworkContext)
+          (Boolean(abuseIpDb) && hasSecondaryProvider)
         ? "Medium"
         : "Low";
   const publicReasons = filterPublicSummaryFragments(
     presentationCandidates,
   ).map(({ text }) => text);
   const publicReason = joinReasons(publicReasons);
-  const availabilityContext = !isIpqsAvailable(ipqs)
-    ? isScamalyticsAvailable(scamalytics)
-      ? "Scamalytics was available."
-      : isIpApiIsAvailable(ipApiIs)
-        ? "ipapi.is was available."
-        : ""
-    : "";
 
   return {
     level,
     tone: getConfidenceTone(level),
     reason:
       level === "High"
-        ? "IPQS, IPInfo, ipapi.is, and connectivity probes were available."
+        ? "IPInfo, AbuseIPDB, and secondary reputation data were available."
         : publicReasons.length > 0
           ? level === "Medium"
             ? `Some data sources unavailable: ${publicReason}`
             : `Important data sources were unavailable: ${publicReason}`
-          : availabilityContext,
+          : "",
   } satisfies IpQualityReport["dataQuality"];
 }
 
@@ -1616,10 +1564,8 @@ export function buildIpQualityReport({
   const dataQuality = buildDataQuality({
     ipInfo,
     abuseIpDb,
-    ipqs,
     scamalytics,
     ipApiIs,
-    connectivity,
   });
   const confidence = dataQuality.level;
   const assessment = buildOverallAssessment(dimensions, confidence);

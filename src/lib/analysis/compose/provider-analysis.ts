@@ -7,7 +7,6 @@ import type {
 import { fetchAbuseIpDb } from "../fetch/abuse";
 import { fetchDetectedIp, fetchIpifyPublicIp, fetchIpInfo } from "../fetch/ip";
 import { fetchIpApiIs } from "../fetch/ipapi-is";
-import { fetchIpqs } from "../fetch/ipqs";
 import { fetchScamalytics } from "../fetch/scamalytics";
 import { assertValidIpv4Address } from "../validation";
 
@@ -51,14 +50,13 @@ export async function fetchProviderAnalysis(
 
   assertValidIpv4Address(trimmedIpAddress);
 
-  const [ipInfo, abuseIpDb, ipqs, scamalytics, ipApiIs] = await Promise.all([
+  const [ipInfo, abuseIpDb, scamalytics, ipApiIs] = await Promise.all([
     trackProviderRequest("ipinfo", fetchIpInfo(trimmedIpAddress), options),
     trackProviderRequest(
       "abuseipdb",
       fetchAbuseIpDb(trimmedIpAddress),
       options,
     ),
-    trackProviderRequest("ipqs", fetchIpqs(trimmedIpAddress), options),
     trackProviderRequest(
       "scamalytics",
       fetchScamalytics(trimmedIpAddress),
@@ -71,7 +69,7 @@ export async function fetchProviderAnalysis(
     ipInfo,
     abuseIpDb,
     cloudflare: null,
-    ipqs,
+    ipqs: null,
     scamalytics,
     ipApiIs,
   };

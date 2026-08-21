@@ -6,6 +6,8 @@ import type {
   WeightedDecisionSignal,
 } from "@/lib/analysis/region/service-map";
 import type {
+  CloudflareTraceResponse,
+  IpqsResponse,
   Recommendation,
   RecommendationConfidence,
   RecommendationLabel,
@@ -16,13 +18,11 @@ import type {
   ConnectivityStatus,
 } from "./connectivity/probe";
 import type { ProviderResult as AbuseIpDbResponse } from "@/lib/providers/abuseipdb";
-import type { ProviderResult as CloudflareTraceResponse } from "@/lib/providers/cloudflare";
 import type { ProviderResult as IpInfoResponse } from "@/lib/providers/ipinfo";
 import type {
   ProviderResult as IpApiIsResponse,
   IpApiIsUnavailableReason,
 } from "@/lib/providers/ipapi-is";
-import type { ProviderResult as IpqsResponse } from "@/lib/providers/ipqs";
 import type {
   ProviderResult as ScamalyticsResponse,
   ScamalyticsUnavailableReason,
@@ -56,8 +56,6 @@ export type AnalysisProgressStepId =
   | "detect_ip"
   | "ipinfo"
   | "abuseipdb"
-  | "cloudflare"
-  | "ipqs"
   | "scamalytics"
   | "ipapi_is"
   | "trust_score"

@@ -31,11 +31,6 @@ export const ANALYSIS_LOADING_STEPS = [
     status: "Querying IPinfo...",
   },
   {
-    id: "ipqs",
-    label: "Querying IPQualityScore",
-    status: "Checking IPQualityScore...",
-  },
-  {
     id: "scamalytics",
     label: "Querying Scamalytics",
     status: "Checking Scamalytics...",

@@ -554,7 +554,7 @@ const englishPages: LocalizedPages = {
         items: [
           {
             title: "High",
-            body: "Required ownership, reputation, trace, secondary intelligence, and connectivity evidence was available without a recorded coverage gap.",
+            body: "Network ownership, abuse history, and at least one secondary reputation source were available without a recorded coverage gap.",
           },
           {
             title: "Medium",
@@ -1151,7 +1151,7 @@ const chinesePages: LocalizedPages = {
         items: [
           {
             title: "高",
-            body: "所需的归属、声誉、Trace、辅助情报和连通性证据均可用，且没有记录到覆盖缺口。",
+            body: "网络归属、滥用历史以及至少一个辅助声誉数据源均可用，且没有记录到覆盖缺口。",
           },
           {
             title: "中",

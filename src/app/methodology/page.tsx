@@ -78,8 +78,8 @@ export default function MethodologyRoute() {
         </p>
         <ul className="list-disc">
           <li>
-            <strong>High:</strong> the required ownership, reputation, secondary
-            intelligence, and connectivity evidence was available without a
+            <strong>High:</strong> network ownership, abuse history, and at
+            least one secondary reputation source were available without a
             recorded coverage gap.
           </li>
           <li>
@@ -95,7 +95,9 @@ export default function MethodologyRoute() {
         <p>
           A provider failure does not automatically make an IP risky. It can cap
           a dimension score, reduce Evidence Quality, and produce more cautious
-          wording. Low Evidence Quality means “less certain,” not “bad IP.”
+          wording. Browser connectivity is reported under Compatibility and does
+          not reduce overall Evidence Quality. Low Evidence Quality means “less
+          certain,” not “bad IP.”
         </p>
       </section>
 
@@ -171,10 +173,6 @@ export default function MethodologyRoute() {
           <li>
             <strong>AbuseIPDB:</strong> reported abuse confidence, usage type,
             and ISP context.
-          </li>
-          <li>
-            <strong>IPQualityScore (IPQS):</strong> fraud, recent-abuse, bot,
-            VPN, proxy, and Tor reputation signals when the provider responds.
           </li>
           <li>
             <strong>Scamalytics:</strong> secondary reputation score and proxy,

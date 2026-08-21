@@ -169,6 +169,11 @@ assert(
   browserProviderAnalysis.includes("cloudflare: null"),
   "Cloudflare scoring input should stay unavailable until a target-bound signal exists.",
 );
+assert(
+  browserProviderAnalysis.includes("ipqs: null") &&
+    !browserProviderAnalysis.includes("fetchIpqs"),
+  "Disabled IPQS must not be requested during analysis.",
+);
 
 for (const route of [
   "src/app/analysis/final-decision-dump/route.ts",
@@ -185,13 +190,7 @@ for (const route of [
   );
 }
 
-for (const provider of [
-  "abuseipdb",
-  "ipapi-is",
-  "ipinfo",
-  "ipqs",
-  "scamalytics",
-]) {
+for (const provider of ["abuseipdb", "ipapi-is", "ipinfo", "scamalytics"]) {
   const routeSource = await source(`src/app/api/${provider}/route.ts`);
   assert(
     routeSource.includes("enforceProviderRateLimit"),
@@ -202,13 +201,6 @@ for (const provider of [
     `${provider} route is missing provider-result caching.`,
   );
 }
-
-const cloudflareRoute = await source("src/app/api/cloudflare/route.ts");
-assert(
-  cloudflareRoute.includes("getRequestIp") &&
-    !cloudflareRoute.includes("providers/cloudflare"),
-  "Cloudflare route must describe the inbound client, not the server egress.",
-);
 
 const detectIpRoute = await source("src/app/api/detect-ip/route.ts");
 assert(

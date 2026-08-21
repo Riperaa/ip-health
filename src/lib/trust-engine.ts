@@ -1,18 +1,37 @@
 import type { ProviderResult as AbuseIpDbResponse } from "./providers/abuseipdb";
-import type { ProviderResult as CloudflareTraceResponse } from "./providers/cloudflare";
 import type { ProviderResult as IpApiIsResponse } from "./providers/ipapi-is";
 import type { ProviderResult as IpInfoResponse } from "./providers/ipinfo";
-import type { ProviderResult as IpqsResponse } from "./providers/ipqs";
 import type { ProviderResult as ScamalyticsResponse } from "./providers/scamalytics";
 import { calculateTrustScore } from "@/lib/analysis/scoring/trust-score";
 
 export type { ProviderResult as AbuseIpDbResponse } from "./providers/abuseipdb";
-export type { ProviderResult as CloudflareTraceResponse } from "./providers/cloudflare";
 export type { ProviderResult as IpApiIsResponse } from "./providers/ipapi-is";
 export type { ProviderResult as IpInfoResponse } from "./providers/ipinfo";
-export type { ProviderResult as IpqsResponse } from "./providers/ipqs";
 export type { ProviderResult as ScamalyticsResponse } from "./providers/scamalytics";
 export { calculateTrustScore } from "@/lib/analysis/scoring/trust-score";
+
+// Retained only for stored-result compatibility. No Cloudflare or IPQS API is
+// queried by the current analysis pipeline.
+export type CloudflareTraceResponse = {
+  ip?: string | null;
+  colo?: string | null;
+  country?: string | null;
+  warp?: string | null;
+  raw?: unknown;
+};
+
+export type IpqsResponse = {
+  status?: "available" | "unavailable";
+  fraudScore?: number | null;
+  country?: string | null;
+  vpn?: boolean | null;
+  proxy?: boolean | null;
+  tor?: boolean | null;
+  bot?: boolean | null;
+  activeVpn?: boolean | null;
+  recentAbuse?: boolean | null;
+  error?: string;
+};
 
 export type ServiceCompatibilityStatus =
   "Good" | "Use with Caution" | "High Risk";

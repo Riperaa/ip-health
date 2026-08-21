@@ -16,7 +16,7 @@ Live demo: [https://iphealth.app](https://iphealth.app)
 
 ## How it works
 
-IP Health combines network context, privacy indicators, abuse signals, IPQS and Scamalytics signals, and connectivity probes into a readable IP quality report. It highlights hosting, VPN, proxy, Tor, relay, ASN, ISP, usage type, and provider reputation data when available.
+IP Health combines network context, privacy indicators, AbuseIPDB, Scamalytics, ipapi.is, and connectivity probes into a readable IP quality report. It highlights hosting, VPN, proxy, Tor, relay, ASN, ISP, usage type, and provider reputation data when available.
 
 The IP Health Score blends Reputation (50%), Network Quality (30%), and Compatibility (20%). Recommendations are guidance, not guarantees. Service compatibility is estimated from connectivity, regional access, reputation, and infrastructure signals, with stricter handling for sensitive account, finance, crypto, and verification-heavy services.
 
@@ -29,8 +29,8 @@ The IP Health Score blends Reputation (50%), Network Quality (30%), and Compatib
 - ESLint
 - IPinfo
 - AbuseIPDB
-- IPQualityScore
 - Scamalytics
+- ipapi.is
 
 ## Privacy
 

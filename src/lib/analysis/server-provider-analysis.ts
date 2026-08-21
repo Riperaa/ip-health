@@ -4,7 +4,6 @@ import { getCachedValue, setCachedValue } from "@/lib/api-protection";
 import { lookup as lookupAbuseIpDb } from "@/lib/providers/abuseipdb";
 import { lookup as lookupIpApiIs } from "@/lib/providers/ipapi-is";
 import { lookupWithStatus as lookupIpInfo } from "@/lib/providers/ipinfo";
-import { lookup as lookupIpqs } from "@/lib/providers/ipqs";
 import { lookup as lookupScamalytics } from "@/lib/providers/scamalytics";
 
 import type { ProviderAnalysisResult } from "./types";
@@ -28,19 +27,13 @@ export async function fetchServerProviderAnalysis(
     return cached;
   }
 
-  const [
-    ipInfoResult,
-    abuseResult,
-    ipqsResult,
-    scamalyticsResult,
-    ipApiIsResult,
-  ] = await Promise.allSettled([
-    lookupIpInfo(ip),
-    lookupAbuseIpDb(ip),
-    lookupIpqs(ip),
-    lookupScamalytics(ip),
-    lookupIpApiIs(ip),
-  ]);
+  const [ipInfoResult, abuseResult, scamalyticsResult, ipApiIsResult] =
+    await Promise.allSettled([
+      lookupIpInfo(ip),
+      lookupAbuseIpDb(ip),
+      lookupScamalytics(ip),
+      lookupIpApiIs(ip),
+    ]);
   const ipInfoLookup = fulfilledValue(ipInfoResult, {
     data: { ip },
     status: 502,
@@ -52,7 +45,7 @@ export async function fetchServerProviderAnalysis(
         : { ip },
     abuseIpDb: fulfilledValue(abuseResult, null),
     cloudflare: null,
-    ipqs: fulfilledValue(ipqsResult, null),
+    ipqs: null,
     scamalytics: fulfilledValue(scamalyticsResult, null),
     ipApiIs: fulfilledValue(ipApiIsResult, null),
   };

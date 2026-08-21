@@ -262,6 +262,12 @@ const zh: Record<string, string> = {
     "证据不足，无法做出高可信度评估",
   "IPQS, IPInfo, ipapi.is, and connectivity probes were available":
     "IPQS、IPInfo、ipapi.is 与连通性探测均可用",
+  "IPInfo, AbuseIPDB, and secondary reputation data were available.":
+    "IPInfo、AbuseIPDB 与辅助声誉数据均可用。",
+  "Abuse history and secondary reputation data were available.":
+    "滥用历史与辅助声誉数据均可用。",
+  "Secondary reputation data was unavailable; abuse history was available.":
+    "辅助声誉数据不可用；滥用历史数据可用。",
   "Clean reputation signals, but confidence is limited because IPQS data was unavailable.":
     "声誉信号良好，但由于 IPQS 数据不可用，可信度有限。",
   "Clean reputation signals, but confidence is limited because a reputation data source was unavailable.":

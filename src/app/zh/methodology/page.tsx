@@ -63,7 +63,7 @@ export default function ChineseMethodologyRoute() {
         <ul className="list-disc">
           <li>
             <strong>高：</strong>
-            所需的网络归属、声誉、辅助情报和连通性证据均可用，且没有记录到覆盖缺口。
+            网络归属、滥用历史以及至少一个辅助声誉数据源均可用，且没有记录到覆盖缺口。
           </li>
           <li>
             <strong>中：</strong>
@@ -75,7 +75,7 @@ export default function ChineseMethodologyRoute() {
         </ul>
         <p>
           某个数据提供方失败不会自动将 IP
-          判为高风险，但可能限制维度最高分、降低证据质量并让结果措辞更谨慎。证据质量低表示“确定性较低”，不等于“IP
+          判为高风险，但可能限制维度最高分、降低证据质量并让结果措辞更谨慎。浏览器连通性只计入兼容性，不会降低整体证据质量。证据质量低表示“确定性较低”，不等于“IP
           很差”。
         </p>
       </section>
@@ -129,11 +129,6 @@ export default function ChineseMethodologyRoute() {
           <li>
             <strong>AbuseIPDB：</strong>提供已报告的滥用可信度、使用类型和 ISP
             上下文。
-          </li>
-          <li>
-            <strong>IPQualityScore（IPQS）：</strong>
-            在提供方正常响应时，提供欺诈、近期滥用、机器人、VPN、代理和 Tor
-            声誉信号。
           </li>
           <li>
             <strong>Scamalytics：</strong>提供辅助声誉评分，以及代理、VPN、Tor

@@ -20,6 +20,12 @@ export default function ChinesePrivacyPage() {
         API，以获取声誉和网络信息。
       </p>
       <p>
+        如果服务端无法检测公网 IP，浏览器可能会直接访问 ipify 以获取你的公网
+        IP。在分析当前公网 IP 时，可选的连通性检测也可能由浏览器直接访问
+        Google、YouTube 和 OpenAI。 这些服务能够看到你的公网 IP
+        和标准请求元数据；IP Health 会在不发送来源页面信息的情况下执行这些检测。
+      </p>
+      <p>
         本地检测历史仅保存在你设备的浏览器 localStorage 中。IP Health
         不提供账号系统。
       </p>

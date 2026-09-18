@@ -15,8 +15,13 @@ function assert(condition, message) {
   }
 }
 
-async function importTypeScriptModule(path) {
-  const input = await source(path);
+async function importTypeScriptModule(path, { stripServerOnly = false } = {}) {
+  let input = await source(path);
+
+  if (stripServerOnly) {
+    input = input.replace('import "server-only";', "");
+  }
+
   const output = ts.transpileModule(input, {
     compilerOptions: {
       module: ts.ModuleKind.ESNext,
@@ -188,6 +193,11 @@ for (const route of [
     !routeSource.includes("fetchProviderAnalysis"),
     `${route} must not import the browser provider adapter.`,
   );
+  assert(
+    routeSource.includes("isAdminRequestAuthorized") &&
+      routeSource.includes('"Cache-Control": "private, no-store"'),
+    `${route} must require admin authorization and disable caching.`,
+  );
 }
 
 for (const provider of ["abuseipdb", "ipapi-is", "ipinfo", "scamalytics"]) {
@@ -227,11 +237,70 @@ assert(
     analyticsRoute.includes('namespace: "analytics"'),
   "Analytics ingestion must be rate limited and deduplicated.",
 );
+assert(
+  analyticsRoute.includes("request.body.getReader()") &&
+    analyticsRoute.includes("MAX_ANALYTICS_BODY_BYTES"),
+  "Analytics ingestion must enforce its body limit while streaming.",
+);
 
 const adminLoginAction = await source("src/app/admin/login/actions.ts");
 assert(
   adminLoginAction.includes('path: "/"'),
   "Admin session cookie must be available to the protected admin API.",
 );
+assert(
+  adminLoginAction.includes("checkRateLimit") &&
+    adminLoginAction.includes('namespace: "admin:login"'),
+  "Admin login must be rate limited.",
+);
+
+const adminAuth = await importTypeScriptModule("src/lib/admin-auth.ts", {
+  stripServerOnly: true,
+});
+const originalAdminToken = process.env.ADMIN_ANALYTICS_TOKEN;
+const originalSessionSecret = process.env.ADMIN_SESSION_SECRET;
+
+try {
+  process.env.ADMIN_ANALYTICS_TOKEN = "test-admin-token-with-enough-entropy";
+  process.env.ADMIN_SESSION_SECRET = "independent-test-session-secret";
+
+  const session = adminAuth.createAdminSessionValue();
+  const [, expiresAtValue] = session.split(".");
+  const expiresAt = Number(expiresAtValue);
+  const lastCharacter = session.at(-1);
+  const tamperedSession = `${session.slice(0, -1)}${lastCharacter === "a" ? "b" : "a"}`;
+
+  nodeAssert.equal(adminAuth.verifyAdminSession(session), true);
+  nodeAssert.equal(
+    adminAuth.verifyAdminSession(session, (expiresAt - 1) * 1000),
+    true,
+  );
+  nodeAssert.equal(
+    adminAuth.verifyAdminSession(session, expiresAt * 1000),
+    false,
+    "Admin sessions must expire on the server.",
+  );
+  nodeAssert.equal(
+    adminAuth.verifyAdminSession(tamperedSession),
+    false,
+    "Tampered admin sessions must be rejected.",
+  );
+  nodeAssert.equal(
+    adminAuth.verifyAdminSession("legacy-static-session-value"),
+    false,
+  );
+} finally {
+  if (originalAdminToken === undefined) {
+    delete process.env.ADMIN_ANALYTICS_TOKEN;
+  } else {
+    process.env.ADMIN_ANALYTICS_TOKEN = originalAdminToken;
+  }
+
+  if (originalSessionSecret === undefined) {
+    delete process.env.ADMIN_SESSION_SECRET;
+  } else {
+    process.env.ADMIN_SESSION_SECRET = originalSessionSecret;
+  }
+}
 
 console.log("API boundary checks passed.");

@@ -25,6 +25,10 @@ type AnalysisContext = {
   evidenceQuality: AnalyticsEvidenceQuality;
 };
 
+const MAX_ANALYTICS_BODY_BYTES = 8192;
+
+class AnalyticsPayloadTooLargeError extends Error {}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -173,6 +177,47 @@ function buildAnalyticsRecord(body: unknown): AnalyticsEventRecord | null {
   };
 }
 
+async function readAnalyticsJsonBody(request: Request) {
+  const contentLength = Number(request.headers.get("content-length") ?? 0);
+
+  if (
+    Number.isFinite(contentLength) &&
+    contentLength > MAX_ANALYTICS_BODY_BYTES
+  ) {
+    throw new AnalyticsPayloadTooLargeError();
+  }
+
+  if (!request.body) {
+    return JSON.parse("") as unknown;
+  }
+
+  const reader = request.body.getReader();
+  const decoder = new TextDecoder();
+  let body = "";
+  let receivedBytes = 0;
+
+  while (true) {
+    const { done, value } = await reader.read();
+
+    if (done) {
+      break;
+    }
+
+    receivedBytes += value.byteLength;
+
+    if (receivedBytes > MAX_ANALYTICS_BODY_BYTES) {
+      await reader.cancel().catch(() => undefined);
+      throw new AnalyticsPayloadTooLargeError();
+    }
+
+    body += decoder.decode(value, { stream: true });
+  }
+
+  body += decoder.decode();
+
+  return JSON.parse(body) as unknown;
+}
+
 function logAnalyticsResponse(status: number) {
   console.info("[analytics] returning response", { status });
 }
@@ -194,15 +239,6 @@ export async function POST(request: Request) {
     );
   }
 
-  const contentLength = Number(request.headers.get("content-length") ?? 0);
-
-  if (Number.isFinite(contentLength) && contentLength > 8192) {
-    return NextResponse.json(
-      { error: "Analytics event is too large" },
-      { status: 413 },
-    );
-  }
-
   console.info("[analytics] request received", {
     method: request.method,
     path: "/api/analytics",
@@ -212,8 +248,17 @@ export async function POST(request: Request) {
   });
 
   try {
-    body = await request.json();
+    body = await readAnalyticsJsonBody(request);
   } catch (error) {
+    if (error instanceof AnalyticsPayloadTooLargeError) {
+      logAnalyticsResponse(413);
+
+      return NextResponse.json(
+        { error: "Analytics event is too large" },
+        { status: 413 },
+      );
+    }
+
     console.error("[analytics] invalid request body", error);
     logAnalyticsResponse(400);
 

@@ -20,6 +20,14 @@ export default function PrivacyPage() {
         reputation and network context, provider APIs may be called server-side.
       </p>
       <p>
+        If server-side IP detection is unavailable, your browser may contact
+        ipify directly to determine your public IP. When analyzing your current
+        public IP, optional connectivity checks may also contact Google,
+        YouTube, and OpenAI directly. These services can observe your public IP
+        and standard request metadata; IP Health sends these checks without a
+        referrer.
+      </p>
+      <p>
         Local history is stored only in the browser localStorage on your device.
         IP Health does not have an account system.
       </p>

@@ -50,6 +50,7 @@ Set these variables in the Vercel project settings before deploying.
 | `ABUSEIPDB_MAX_AGE_DAYS`   | Optional                | AbuseIPDB report lookback window. Defaults to `90`.                                                                                               |
 | `SCAMALYTICS_TIMEOUT_MS`   | Optional                | Timeout for Scamalytics requests. Defaults to `5000`.                                                                                             |
 | `ADMIN_ANALYTICS_TOKEN`    | Yes for admin analytics | A long, random server-side secret used to protect `/admin/analytics` and `/api/admin/analytics`. If omitted, admin analytics fails closed.        |
+| `ADMIN_SESSION_SECRET`     | Recommended             | A separate long, random secret used to sign expiring admin session cookies. Falls back to `ADMIN_ANALYTICS_TOKEN` during migration.               |
 | `GOOGLE_SITE_VERIFICATION` | Optional                | Google Search Console HTML meta-tag verification token.                                                                                           |
 | `BING_SITE_VERIFICATION`   | Optional                | Bing Webmaster Tools `msvalidate.01` HTML meta-tag verification token.                                                                            |
 | `BAIDU_SITE_VERIFICATION`  | Optional                | Baidu Search Resource Platform HTML meta-tag verification token.                                                                                  |
@@ -62,8 +63,10 @@ dashboard uses the `get_analytics_summary` database function so aggregation stay
 inside Postgres instead of loading the complete event table into the application.
 
 Open `/admin/login` to access the browser dashboard. The login form creates an
-eight-hour `HttpOnly`, `SameSite=Strict` session cookie; the token is never put in
-the URL. Programmatic access uses an authorization header:
+eight-hour, signed `HttpOnly`, `SameSite=Strict` session cookie; the token is
+never put in the URL. Configure `ADMIN_SESSION_SECRET` separately from the admin
+token so rotating one credential does not reuse the other. Programmatic access
+uses an authorization header:
 
 ```bash
 curl -H "Authorization: Bearer $ADMIN_ANALYTICS_TOKEN" \

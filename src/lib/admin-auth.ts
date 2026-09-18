@@ -6,6 +6,7 @@ export const ADMIN_SESSION_COOKIE = "ip_health_admin_session";
 export const ADMIN_SESSION_MAX_AGE_SECONDS = 60 * 60 * 8;
 
 const SESSION_CONTEXT = "ip-health-admin-analytics-session-v1";
+const SESSION_VERSION = "v1";
 
 export function getAdminAnalyticsToken() {
   return process.env.ADMIN_ANALYTICS_TOKEN?.trim() || null;
@@ -25,8 +26,24 @@ function safeEqual(left: string, right: string) {
   );
 }
 
-function createSessionValue(adminToken: string) {
-  return createHmac("sha256", adminToken).update(SESSION_CONTEXT).digest("hex");
+function getAdminSessionSecret(adminToken: string) {
+  return process.env.ADMIN_SESSION_SECRET?.trim() || adminToken;
+}
+
+function createSessionSignature(sessionSecret: string, expiresAt: number) {
+  return createHmac("sha256", sessionSecret)
+    .update(`${SESSION_CONTEXT}:${expiresAt}`)
+    .digest("hex");
+}
+
+function createSessionValue(adminToken: string, now = Date.now()) {
+  const expiresAt = Math.floor(now / 1000) + ADMIN_SESSION_MAX_AGE_SECONDS;
+  const signature = createSessionSignature(
+    getAdminSessionSecret(adminToken),
+    expiresAt,
+  );
+
+  return `${SESSION_VERSION}.${expiresAt}.${signature}`;
 }
 
 export function verifyAdminToken(candidate: string | null | undefined) {
@@ -35,14 +52,37 @@ export function verifyAdminToken(candidate: string | null | undefined) {
   return Boolean(adminToken && candidate && safeEqual(candidate, adminToken));
 }
 
-export function verifyAdminSession(candidate: string | null | undefined) {
+export function verifyAdminSession(
+  candidate: string | null | undefined,
+  now = Date.now(),
+) {
   const adminToken = getAdminAnalyticsToken();
 
-  return Boolean(
-    adminToken &&
-    candidate &&
-    safeEqual(candidate, createSessionValue(adminToken)),
+  if (!adminToken || !candidate) {
+    return false;
+  }
+
+  const [version, expiresAtValue, signature, ...extraParts] =
+    candidate.split(".");
+  const expiresAt = Number(expiresAtValue);
+
+  if (
+    version !== SESSION_VERSION ||
+    extraParts.length > 0 ||
+    !/^\d+$/.test(expiresAtValue ?? "") ||
+    !Number.isSafeInteger(expiresAt) ||
+    expiresAt <= Math.floor(now / 1000) ||
+    !signature
+  ) {
+    return false;
+  }
+
+  const expectedSignature = createSessionSignature(
+    getAdminSessionSecret(adminToken),
+    expiresAt,
   );
+
+  return safeEqual(signature, expectedSignature);
 }
 
 export function createAdminSessionValue() {

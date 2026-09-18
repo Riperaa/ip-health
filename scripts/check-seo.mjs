@@ -72,6 +72,18 @@ for (const route of routes) {
     response.status === 200,
     `${route}: expected 200, got ${response.status}`,
   );
+  assert(
+    response.headers.get("x-content-type-options") === "nosniff",
+    `${route}: missing nosniff response header`,
+  );
+  assert(
+    response.headers.get("x-frame-options") === "DENY",
+    `${route}: missing frame protection`,
+  );
+  assert(
+    response.headers.get("referrer-policy") === "no-referrer",
+    `${route}: missing referrer policy`,
+  );
   assert(!response.headers.get("location"), `${route}: unexpectedly redirects`);
   assert(
     canonicalTags.length === 1,
@@ -175,6 +187,10 @@ assert(
   robots.includes("Disallow: /admin/"),
   "robots.txt: admin is not disallowed",
 );
+assert(
+  robots.includes("Disallow: /analysis/"),
+  "robots.txt: internal analysis routes are not disallowed",
+);
 assert(robots.includes("Disallow: /api/"), "robots.txt: API is not disallowed");
 assert(
   robots.includes(`Sitemap: ${productionOrigin}/sitemap.xml`),
@@ -228,6 +244,23 @@ for (const [route, expectedLinks] of [
   assert(
     expectedLinks.every((link) => links.includes(link)),
     `${route}: acquisition guides are not all linked with crawlable anchors`,
+  );
+}
+
+for (const path of [
+  "/analysis/final-decision-dump?ip=1.1.1.1",
+  "/analysis/presentation-snapshot?ip=1.1.1.1",
+]) {
+  const response = await fetch(`${baseUrl}${path}`, { redirect: "manual" });
+
+  assert(response.status === 404, `${path}: expected protected 404 response`);
+  assert(
+    response.headers.get("cache-control") === "private, no-store",
+    `${path}: protected response can be cached`,
+  );
+  assert(
+    response.headers.get("x-robots-tag") === "noindex, nofollow",
+    `${path}: missing noindex header`,
   );
 }
 

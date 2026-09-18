@@ -52,9 +52,13 @@ export default async function AdminLoginPage({
               type="password"
               autoComplete="current-password"
               required
-              aria-invalid={error === "invalid"}
+              aria-invalid={
+                error === "invalid" || error === "rate-limited" || undefined
+              }
               aria-describedby={
-                error === "invalid" ? "admin-token-error" : undefined
+                error === "invalid" || error === "rate-limited"
+                  ? "admin-token-error"
+                  : undefined
               }
               className="mt-2 h-12 w-full rounded-xl border border-neutral-200 px-4 outline-none focus:border-neutral-500"
             />
@@ -65,6 +69,15 @@ export default async function AdminLoginPage({
                 className="mt-2 text-sm text-red-700"
               >
                 The admin token is invalid.
+              </p>
+            ) : null}
+            {error === "rate-limited" ? (
+              <p
+                id="admin-token-error"
+                role="alert"
+                className="mt-2 text-sm text-red-700"
+              >
+                Too many sign-in attempts. Please wait 15 minutes and try again.
               </p>
             ) : null}
             <button

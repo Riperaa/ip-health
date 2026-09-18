@@ -130,6 +130,7 @@ async function probeWithCorsFetch(
       method: "GET",
       mode: "cors",
       cache: "no-store",
+      referrerPolicy: "no-referrer",
       signal: controller.signal,
     });
 
@@ -156,6 +157,7 @@ async function probeWithNoCorsFetch(
       method: "GET",
       mode: "no-cors",
       cache: "no-store",
+      referrerPolicy: "no-referrer",
       signal: controller.signal,
     });
 

@@ -2,9 +2,21 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { buildAnalysisResult } from "@/lib/analysis-engine";
 import { fetchServerProviderAnalysis } from "@/lib/analysis/server-provider-analysis";
+import {
+  ADMIN_SESSION_COOKIE,
+  isAdminAnalyticsConfigured,
+  isAdminRequestAuthorized,
+} from "@/lib/admin-auth";
 import { checkRateLimit, getRateLimitHeaders } from "@/lib/api-protection";
 import { buildPresentationSnapshot } from "@/lib/analysis/final-decision";
 import { isValidIpv4Address } from "@/lib/analysis/validation";
+
+export const dynamic = "force-dynamic";
+
+const protectedResponseHeaders = {
+  "Cache-Control": "private, no-store",
+  "X-Robots-Tag": "noindex, nofollow",
+};
 
 export async function GET(request: NextRequest) {
   const rateLimit = checkRateLimit({
@@ -17,7 +29,26 @@ export async function GET(request: NextRequest) {
   if (!rateLimit.allowed) {
     return NextResponse.json(
       { error: "Too many requests. Please try again shortly." },
-      { status: 429, headers: getRateLimitHeaders(rateLimit) },
+      {
+        status: 429,
+        headers: {
+          ...getRateLimitHeaders(rateLimit),
+          ...protectedResponseHeaders,
+        },
+      },
+    );
+  }
+
+  if (
+    !isAdminAnalyticsConfigured() ||
+    !isAdminRequestAuthorized({
+      authorizationHeader: request.headers.get("authorization"),
+      sessionCookie: request.cookies.get(ADMIN_SESSION_COOKIE)?.value,
+    })
+  ) {
+    return NextResponse.json(
+      { error: "Not found" },
+      { status: 404, headers: protectedResponseHeaders },
     );
   }
 
@@ -26,12 +57,15 @@ export async function GET(request: NextRequest) {
   if (!ip) {
     return NextResponse.json(
       { error: "Missing ip query parameter." },
-      { status: 400 },
+      { status: 400, headers: protectedResponseHeaders },
     );
   }
 
   if (!isValidIpv4Address(ip)) {
-    return NextResponse.json({ error: "Invalid IP address" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Invalid IP address" },
+      { status: 400, headers: protectedResponseHeaders },
+    );
   }
 
   const providerResult = await fetchServerProviderAnalysis(ip);
@@ -52,13 +86,16 @@ export async function GET(request: NextRequest) {
     }),
   );
 
-  return NextResponse.json({
-    consistent:
-      Boolean(finalDecisionSnapshot?.consistent) &&
-      serviceSnapshots.every((category) =>
-        category.services.every((service) => service.snapshot.consistent),
-      ),
-    finalDecisionSnapshot,
-    serviceSnapshots,
-  });
+  return NextResponse.json(
+    {
+      consistent:
+        Boolean(finalDecisionSnapshot?.consistent) &&
+        serviceSnapshots.every((category) =>
+          category.services.every((service) => service.snapshot.consistent),
+        ),
+      finalDecisionSnapshot,
+      serviceSnapshots,
+    },
+    { headers: protectedResponseHeaders },
+  );
 }

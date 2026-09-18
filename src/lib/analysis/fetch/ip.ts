@@ -42,7 +42,10 @@ export async function fetchDetectedIp() {
 }
 
 export async function fetchIpifyPublicIp() {
-  const response = await fetch("https://api.ipify.org?format=json");
+  const response = await fetch("https://api.ipify.org?format=json", {
+    cache: "no-store",
+    referrerPolicy: "no-referrer",
+  });
 
   if (!response.ok) {
     throw new Error("Missing IP address.");

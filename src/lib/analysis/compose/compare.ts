@@ -1,10 +1,7 @@
-import {
-  buildRecommendationConfidence,
-  isInfrastructureUsage,
-} from "@/lib/trust-engine";
+import { isInfrastructureUsage } from "@/lib/trust-engine";
 
 import { formatDetail, parseOrg, pickDetail } from "../normalize/common";
-import { buildIpQualityReport } from "../scoring/ip-quality-report";
+import { buildAnalysisResult } from "./build-analysis";
 import { classifyNetworkIdentity } from "../network-identity";
 import { buildNetworkSharingRisk } from "../sharing-risk";
 import { assertValidIpv4Address } from "../validation";
@@ -17,7 +14,6 @@ import type {
   IpInfoResponse,
   IpqsResponse,
   ProviderAnalysisResult,
-  Recommendation,
 } from "../types";
 import { fetchProviderAnalysis } from "./provider-analysis";
 
@@ -119,43 +115,16 @@ function getIspOrg(
   );
 }
 
-function buildScoreRecommendation(score: number): Recommendation {
-  if (score >= 70) {
-    return {
-      label: "Recommended",
-      summary: "This IP has a stronger IP Health Score profile.",
-    };
-  }
-
-  if (score >= 40) {
-    return {
-      label: "Use with Caution",
-      summary: "This IP has moderate IP quality signals.",
-    };
-  }
-
-  return {
-    label: "Not Recommended",
-    summary: "This IP has elevated risk signals.",
-  };
-}
-
-function getDisplayResult(
+export function getDisplayResult(
   result: CompareProviderResult,
 ): ComparisonDisplayResult {
   const { ipInfo, abuseIpDb, ipqs, scamalytics, ipApiIs, cloudflare } = result;
-  const qualityReport = buildIpQualityReport({
-    ipInfo,
-    abuseIpDb,
-    ipqs,
-    scamalytics,
-    ipApiIs,
-    cloudflare,
+  const analysis = buildAnalysisResult({
+    providerResult: result,
+    fallbackIpAddress: result.input,
     connectivity: null,
-    finalDecision: null,
-    serviceCompatibility: [],
-    hasAnalysis: true,
   });
+  const qualityReport = analysis.qualityReport;
   const score = qualityReport.overallScore ?? 0;
   const identity = classifyNetworkIdentity({
     ipInfo,
@@ -178,15 +147,15 @@ function getDisplayResult(
     input: result.input,
     ip: formatDetail(ipInfo.ip ?? result.input),
     score,
-    recommendation: buildScoreRecommendation(score),
-    confidence: buildRecommendationConfidence(
-      ipInfo,
-      abuseIpDb,
-      ipqs,
-      cloudflare,
-      scamalytics,
-      ipApiIs,
-    ),
+    recommendation: {
+      label:
+        analysis.trustScore.recommendationLabel === "Not analyzed"
+          ? "Use with Caution"
+          : analysis.trustScore.recommendationLabel,
+      summary: qualityReport.recommendationExplanation,
+    },
+    confidence:
+      qualityReport.confidence === "Pending" ? "Low" : qualityReport.confidence,
     networkIdentity: identity.networkIdentity,
     identityProvider: identity.provider,
     sharingRisk,
@@ -195,7 +164,9 @@ function getDisplayResult(
     abuseConfidenceValue: getAbuseConfidenceValue(abuseIpDb),
     country: formatDetail(pickDetail(ipInfo.country_name, ipInfo.country)),
     ispOrg: getIspOrg(ipInfo, abuseIpDb),
-    hasSevereAbuseOrTor: hasSevereAbuseOrTor(ipInfo, abuseIpDb, ipqs, ipApiIs),
+    hasSevereAbuseOrTor:
+      hasSevereAbuseOrTor(ipInfo, abuseIpDb, ipqs, ipApiIs) ||
+      (scamalytics?.status === "available" && scamalytics.tor === true),
     hasInfrastructureSignals: hasInfrastructureSignals(
       ipInfo,
       abuseIpDb,

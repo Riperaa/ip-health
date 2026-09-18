@@ -16,7 +16,7 @@
     "test:connectivity": "node scripts/check-connectivity-target-binding.mjs",
     "test:seo": "node scripts/check-seo.mjs",
     "test:api-boundaries": "node scripts/check-api-boundaries.mjs",
-    "test:core-scoring": "node scripts/check-core-scoring.mjs",
+    "test:core-scoring": "node scripts/check-core-scoring.mjs && node scripts/check-quality-scoring.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },

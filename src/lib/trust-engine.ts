@@ -1,3 +1,5 @@
+import { isInfrastructureUsage } from "@/lib/analysis/network-signals";
+export { isInfrastructureUsage } from "@/lib/analysis/network-signals";
 import type { ProviderResult as AbuseIpDbResponse } from "./providers/abuseipdb";
 import type { ProviderResult as IpApiIsResponse } from "./providers/ipapi-is";
 import type { ProviderResult as IpInfoResponse } from "./providers/ipinfo";
@@ -99,19 +101,6 @@ function parseOrg(org?: string) {
     asn,
     name: nameParts.join(" "),
   };
-}
-
-export function isInfrastructureUsage(usageType?: string | null) {
-  const normalized = usageType?.toLowerCase() ?? "";
-
-  return (
-    normalized.includes("data center") ||
-    normalized.includes("web hosting") ||
-    normalized.includes("transit") ||
-    normalized.includes("hosting") ||
-    normalized.includes("infrastructure") ||
-    normalized.includes("cloud")
-  );
 }
 
 function normalizeIpAddress(value?: string | null) {

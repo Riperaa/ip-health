@@ -431,7 +431,7 @@ export type AnalysisResult = {
     displayValue: string;
     riskLabel: string;
     riskTone: StatusTone;
-    recommendationLabel: string;
+    recommendationLabel: RecommendationLabel | "Not analyzed";
     recommendationTone: StatusTone;
     summary: string;
     explanationIntro: string;

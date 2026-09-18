@@ -9,18 +9,7 @@ import type {
 
 import { parseOrg } from "../normalize/common";
 
-function isInfrastructureUsage(usageType?: string | null) {
-  const normalized = usageType?.toLowerCase() ?? "";
-
-  return (
-    normalized.includes("data center") ||
-    normalized.includes("web hosting") ||
-    normalized.includes("transit") ||
-    normalized.includes("hosting") ||
-    normalized.includes("infrastructure") ||
-    normalized.includes("cloud")
-  );
-}
+import { isInfrastructureUsage } from "@/lib/analysis/network-signals";
 
 function normalizeIpAddress(value?: string | null) {
   return value?.trim().toLowerCase() ?? "";
